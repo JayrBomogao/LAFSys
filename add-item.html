@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New Item - Lost & Found Baguio</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .form-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        .form-section {
+            margin-bottom: 2rem;
+        }
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            .form-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #334155;
+        }
+        
+        .form-group.required label::after {
+            content: '*';
+            color: #ef4444;
+            margin-left: 0.25rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.2);
+        }
+        
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            font-size: 1rem;
+            border: 1px solid transparent;
+        }
+        
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            color: #2563eb;
+            border: 1px solid #2563eb;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Image Upload */
+        .image-upload {
+            margin-bottom: 1.5rem;
+        }
+        
+        .image-upload-preview {
+            width: 100%;
+            height: 200px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            cursor: pointer;
+            transition: all 0.2s;
+            overflow: hidden;
+            position: relative;
+            background-color: #f8fafc;
+        }
+        
+        .image-upload-preview:hover {
+            border-color: #93c5fd;
+            background-color: #f0f9ff;
+        }
+        
+        .image-upload-preview.has-image {
+            border: none;
+            background-color: transparent;
+        }
+        
+        .image-upload-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .image-upload-text {
+            text-align: center;
+            padding: 1rem;
+            color: #64748b;
+        }
+        
+        .image-upload-text i {
+            display: block;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #94a3b8;
+        }
+        
+        .image-upload-input {
+            display: none;
+        }
+        
+        .image-upload-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            justify-content: center;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        
+        .status-active {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-inactive {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        
+        /* Responsive */
+        @media (max-width: 640px) {
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .form-actions .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <a href="admin.html" class="back-link">
+            <i data-lucide="arrow-left"></i>
+            Back to Dashboard
+        </a>
+        
+        <div class="page-header">
+            <h1 class="page-title">Add New Lost Item</h1>
+            <div class="status-badge status-active">
+                <i data-lucide="circle" width="8" height="8" style="margin-right: 6px;"></i>
+                Draft
+            </div>
+        </div>
+        
+        <form id="itemForm" class="card">
+            <div class="form-section">
+                <h2 class="section-title">Item Information</h2>
+                
+                <div class="form-group image-upload">
+                    <label>Item Photo</label>
+                    <div class="image-upload-preview" id="imagePreview">
+                        <div class="image-upload-text">
+                            <i data-lucide="upload-cloud"></i>
+                            <div>Click to upload or drag and drop</div>
+                            <div class="text-sm" style="font-size: 0.75rem; margin-top: 0.5rem; color: #94a3b8;">
+                                PNG, JPG, JPEG (max. 5MB)
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" id="imageUpload" class="image-upload-input" accept="image/*">
+                    <div class="image-upload-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="uploadBtn">
+                            <i data-lucide="upload" width="16" height="16" style="margin-right: 6px;"></i>
+                            Upload Image
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="removeImageBtn" style="display: none;">
+                            <i data-lucide="trash-2" width="16" height="16" style="margin-right: 6px;"></i>
+                            Remove
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="itemName">Item Name</label>
+                        <input type="text" id="itemName" class="form-control" placeholder="e.g., Black Leather Wallet" required>
+                    </div>
+                    
+                    <div class="form-group required">
+                        <label for="itemCategory">Category</label>
+                        <select id="itemCategory" class="form-control" required>
+                            <option value="">Select a category</option>
+                            <option value="wallet">Wallet/Purse</option>
+                            <option value="phone">Mobile Phone</option>
+                            <option value="laptop">Laptop/Tablet</option>
+                            <option value="keys">Keys</option>
+                            <option value="bag">Bag/Backpack</option>
+                            <option value="clothing">Clothing</option>
+                            <option value="jewelry">Jewelry</option>
+                            <option value="documents">Documents</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group required">
+                    <label for="itemDescription">Description</label>
+                    <textarea id="itemDescription" class="form-control" placeholder="Provide a detailed description of the item, including any distinguishing features..." required></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="foundLocation">Found Location</label>
+                        <input type="text" id="foundLocation" class="form-control" placeholder="e.g., Burnham Park, near the boat station" required>
+                    </div>
+                    
+                    <div class="form-group required">
+                        <label for="foundDate">Date Found</label>
+                        <input type="date" id="foundDate" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="foundBy">Found By (Optional)</label>
+                        <input type="text" id="foundBy" class="form-control" placeholder="Staff name or contact person">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="storageLocation">Storage Location (Optional)</label>
+                        <input type="text" id="storageLocation" class="form-control" placeholder="e.g., Front Desk, Security Office">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Additional Information</h2>
+                
+                <div class="form-group">
+                    <label for="itemValue">Estimated Value (Optional)</label>
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b;">₱</span>
+                        <input type="number" id="itemValue" class="form-control" placeholder="0.00" style="padding-left: 32px;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Item Condition</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="condition" value="new" checked>
+                            <span>New/Excellent</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="condition" value="good">
+                            <span>Good</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="condition" value="fair">
+                            <span>Fair</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="condition" value="poor">
+                            <span>Poor</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemNotes">Internal Notes (Optional)</label>
+                    <textarea id="itemNotes" class="form-control" placeholder="Any additional information for internal use only..."></textarea>
+                    <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">This information will not be visible to the public.</p>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="saveDraftBtn">
+                    Save as Draft
+                </button>
+                <button type="submit" class="btn btn-primary" id="publishBtn">
+                    <i data-lucide="upload" width="16" height="16" style="margin-right: 6px;"></i>
+                    Publish Item
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+        
+        // Set default date to today
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('foundDate').value = today;
+            
+            // Image upload functionality
+            const imagePreview = document.getElementById('imagePreview');
+            const imageUpload = document.getElementById('imageUpload');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const removeImageBtn = document.getElementById('removeImageBtn');
+            
+            // Handle click on preview area
+            imagePreview.addEventListener('click', function(e) {
+                if (!imagePreview.classList.contains('has-image')) {
+                    imageUpload.click();
+                }
+            });
+            
+            // Handle upload button click
+            uploadBtn.addEventListener('click', function() {
+                imageUpload.click();
+            });
+            
+            // Handle file selection
+            imageUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        imagePreview.innerHTML = `<img src="${event.target.result}" alt="Preview">`;
+                        imagePreview.classList.add('has-image');
+                        uploadBtn.style.display = 'none';
+                        removeImageBtn.style.display = 'inline-flex';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Handle remove image
+            removeImageBtn.addEventListener('click', function() {
+                imagePreview.innerHTML = `
+                    <div class="image-upload-text">
+                        <i data-lucide="upload-cloud"></i>
+                        <div>Click to upload or drag and drop</div>
+                        <div class="text-sm" style="font-size: 0.75rem; margin-top: 0.5rem; color: #94a3b8;">
+                            PNG, JPG, JPEG (max. 5MB)
+                        </div>
+                    </div>
+                `;
+                imagePreview.classList.remove('has-image');
+                imageUpload.value = '';
+                uploadBtn.style.display = 'inline-flex';
+                removeImageBtn.style.display = 'none';
+                
+                // Re-initialize Lucide icons after updating the DOM
+                lucide.createIcons();
+            });
+            
+            // Form submission
+            const itemForm = document.getElementById('itemForm');
+            const saveDraftBtn = document.getElementById('saveDraftBtn');
+            const publishBtn = document.getElementById('publishBtn');
+            
+            function showSuccessMessage(message) {
+                alert(message);
+                // In a real app, you might want to show a more sophisticated notification
+            }
+            
+            saveDraftBtn.addEventListener('click', function() {
+                // In a real app, this would save the form data as a draft
+                showSuccessMessage('Draft saved successfully!');
+            });
+            
+            itemForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Basic form validation
+                const requiredFields = itemForm.querySelectorAll('[required]');
+                let isValid = true;
+                
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        field.style.borderColor = '#ef4444';
+                        isValid = false;
+                    } else {
+                        field.style.borderColor = '#e2e8f0';
+                    }
+                });
+                
+                if (!isValid) {
+                    alert('Please fill in all required fields.');
+                    return;
+                }
+                
+                // In a real app, this would submit the form to the server
+                showSuccessMessage('Item published successfully!');
+                
+                // Reset form after submission
+                itemForm.reset();
+                
+                // Reset image preview
+                imagePreview.innerHTML = `
+                    <div class="image-upload-text">
+                        <i data-lucide="upload-cloud"></i>
+                        <div>Click to upload or drag and drop</div>
+                        <div class="text-sm" style="font-size: 0.75rem; margin-top: 0.5rem; color: #94a3b8;">
+                            PNG, JPG, JPEG (max. 5MB)
+                        </div>
+                    </div>
+                `;
+                imagePreview.classList.remove('has-image');
+                
+                // Re-initialize Lucide icons after resetting the form
+                lucide.createIcons();
+                
+                // Reset date to today
+                document.getElementById('foundDate').value = today;
+            });
+            
+            // Add drag and drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                imagePreview.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                imagePreview.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                imagePreview.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                imagePreview.style.borderColor = '#93c5fd';
+                imagePreview.style.backgroundColor = '#f0f9ff';
+            }
+            
+            function unhighlight() {
+                imagePreview.style.borderColor = imagePreview.classList.contains('has-image') ? 'transparent' : '#cbd5e1';
+                imagePreview.style.backgroundColor = imagePreview.classList.contains('has-image') ? 'transparent' : '#f8fafc';
+            }
+            
+            // Handle dropped files
+            imagePreview.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            imagePreview.innerHTML = `<img src="${event.target.result}" alt="Preview">`;
+                            imagePreview.classList.add('has-image');
+                            uploadBtn.style.display = 'none';
+                            removeImageBtn.style.display = 'inline-flex';
+                        };
+                        reader.readAsDataURL(file);
+                        
+                        // Set the file input's files to the dropped file
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        imageUpload.files = dataTransfer.files;
+                    } else {
+                        alert('Please upload an image file (PNG, JPG, JPEG)');
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
