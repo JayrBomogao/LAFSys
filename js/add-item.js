@@ -92,9 +92,13 @@
     const form = e.currentTarget;
     if (!validateRequired(form)) { alert('Please fill in all required fields.'); return; }
 
+    const categorySelect = document.getElementById('itemCategory');
+    const customCategory = document.getElementById('customCategory');
+    const resolvedCategory = (categorySelect && categorySelect.value === 'other' && customCategory) ? (customCategory.value.trim() || 'Other') : (categorySelect?.value || 'other');
+
     const payload = {
       title: document.getElementById('itemName').value.trim(),
-      category: document.getElementById('itemCategory').value,
+      category: resolvedCategory,
       description: document.getElementById('itemDescription').value.trim(),
       location: document.getElementById('foundLocation').value.trim(),
       date: new Date(document.getElementById('foundDate').value).toISOString(),
@@ -121,6 +125,23 @@
     const dateEl = document.getElementById('foundDate');
     if (dateEl && !dateEl.value) dateEl.value = today;
     initImageUpload();
+    // Toggle custom category when 'Other' selected
+    const categorySelect = document.getElementById('itemCategory');
+    const customCategory = document.getElementById('customCategory');
+    if (categorySelect && customCategory) {
+      const toggleCustom = () => {
+        if (categorySelect.value === 'other') {
+          customCategory.style.display = '';
+          customCategory.required = true;
+        } else {
+          customCategory.style.display = 'none';
+          customCategory.required = false;
+          customCategory.value = '';
+        }
+      };
+      categorySelect.addEventListener('change', toggleCustom);
+      toggleCustom();
+    }
     const form = document.getElementById('itemForm');
     if (form) form.addEventListener('submit', onSubmit);
     const saveDraftBtn = document.getElementById('saveDraftBtn');

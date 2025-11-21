@@ -143,6 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize tabs in the item details modal
     const tabs = new Tabs('.modal-content');
+    // Expose a helper to switch tabs in item details
+    window.switchItemDetailsTab = function(tabId){
+        if (tabs && typeof tabs.switchTab === 'function') {
+            tabs.switchTab(tabId);
+        }
+    };
 
     // Initialize chat in the chat tab
     const chat = new Chat('#chat-tab');
@@ -198,8 +204,10 @@ function openItemDetails(item) {
         claimBtn.disabled = false;
         claimBtn.onclick = (e) => {
             e.stopPropagation();
-            window.claimModal.open();
-            // You can pre-fill the claim form here if needed
+            // Redirect to Chat with Staff tab instead of opening claim form
+            if (window.switchItemDetailsTab) {
+                window.switchItemDetailsTab('chat');
+            }
         };
     }
     

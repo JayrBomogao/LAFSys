@@ -6,6 +6,45 @@
     } catch(e){ return dateStr; }
   }
 
+  function renderAllItems(){
+    const container = document.getElementById('allItemsContainer');
+    if (!container) return;
+    const items = (window.DataStore?.getItemsSync?.() || []);
+    if (!items.length) { container.innerHTML = '<div class="table-row"><div>No items found.</div></div>'; return; }
+    container.innerHTML = items.map(item => `
+      <div class="table-row" data-id="${item.id}">
+        <div class="item-info">
+          <img src="${item.image}" alt="${item.title}" class="item-image">
+          <div>
+            <div class="item-name">${item.title}</div>
+            <div class="item-category">${item.category || ''}</div>
+          </div>
+        </div>
+        <div>${item.location}</div>
+        <div>${formatDate(item.date)}</div>
+        <div>${statusBadge(item.status)}</div>
+        <div class="action-buttons">
+          <button class="btn-icon" title="Edit" data-action="edit"><i data-lucide="edit-2" width="16" height="16"></i></button>
+          <button class="btn-icon delete" title="Delete" data-action="delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
+        </div>
+      </div>
+    `).join('');
+    if (window.lucide?.createIcons) lucide.createIcons();
+    container.querySelectorAll('.btn-icon').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const row = btn.closest('.table-row');
+        const action = btn.getAttribute('data-action');
+        if (action === 'delete') {
+          row.style.opacity = '0.5';
+          row.style.pointerEvents = 'none';
+          setTimeout(()=>{ row.style.display = 'none'; }, 200);
+        }
+        if (action === 'edit') window.location.href = 'add-item.html?edit=true&id=' + row.dataset.id;
+      });
+    });
+  }
+
   function statusBadge(status){
     if (status === 'claimed') return '<span class="status-badge status-completed">Claimed</span>';
     if (status === 'soon') return '<span class="status-badge status-pending">Disposal Soon</span>';
@@ -98,6 +137,7 @@
         switchSection(section);
         if (section === 'dashboard') { renderStats(); renderRecentItems(); }
         if (section === 'users') { renderUsers(); }
+        if (section === 'items') { renderAllItems(); }
       });
     });
   }
@@ -133,7 +173,7 @@
     renderStats();
     renderRecentItems();
     // Update dashboard when items change
-    window.addEventListener('itemsUpdated', () => { renderStats(); renderRecentItems(); });
+    window.addEventListener('itemsUpdated', () => { renderStats(); renderRecentItems(); renderAllItems(); });
   }
 
   document.addEventListener('DOMContentLoaded', init);
