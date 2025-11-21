@@ -46,15 +46,29 @@ function displayItems(items) {
             'map-pin',
             'calendar',
             'clock',
-            'search'
+            'search',
+            'image'
         ]
     });
     
     // Add event listeners to the new item cards
     document.querySelectorAll('.item-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', async (e) => {
+            // Don't trigger if clicking on the claim button
+            if (e.target.closest('.btn-claim')) {
+                return;
+            }
+            
             const itemId = card.dataset.id;
-            window.location.href = `item.html?id=${itemId}`;
+            try {
+                const item = await getItemById(parseInt(itemId));
+                if (item) {
+                    openItemDetails(item);
+                }
+            } catch (error) {
+                console.error('Error loading item details:', error);
+            }
         });
     });
 }

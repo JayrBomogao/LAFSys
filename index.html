@@ -15,7 +15,11 @@
         </div>
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="Search items...">
-            <button id="searchButton"><i data-lucide="search"></i></button>
+            <button id="searchButton" class="search-btn"><i data-lucide="search"></i></button>
+            <button id="imageSearchBtn" class="btn-outline" title="Search by image">
+                <i data-lucide="image"></i>
+                <span>Search by Image</span>
+            </button>
         </div>
         <a href="admin.html" class="admin-btn">Admin Panel</a>
     </header>
@@ -35,6 +39,71 @@
         </div>
     </main>
 
+    <!-- Item Details Modal -->
+    <div id="itemDetailsModal" class="modal">
+        <div class="modal-content large">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <div class="modal-image">
+                    <img id="modalItemImage" src="" alt="Item">
+                </div>
+                <div class="modal-content-right">
+                    <div class="modal-header">
+                        <h2 id="modalItemTitle"></h2>
+                        <span id="modalItemStatus" class="status-badge"></span>
+                    </div>
+                    
+                    <div class="tabs">
+                        <button class="tab-button active" data-tab="details">Item Details</button>
+                        <button class="tab-button" data-tab="chat">Chat with Staff</button>
+                    </div>
+                    
+                    <div class="tab-content">
+                        <!-- Item Details Tab -->
+                        <div id="details-tab" class="tab-pane active">
+                            <div class="form-group">
+                                <h3>Description</h3>
+                                <p id="modalItemDescription"></p>
+                            </div>
+                            <div class="item-details">
+                                <h3>Item Details</h3>
+                                <div class="detail-row">
+                                    <span class="detail-label">Category:</span>
+                                    <span id="modalItemCategory"></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Location Found:</span>
+                                    <span id="modalItemLocation"></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Date Found:</span>
+                                    <span id="modalItemDate"></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Disposal Date:</span>
+                                    <span id="modalItemDisposalDate"></span>
+                                </div>
+                            </div>
+                            <button id="claimItemBtn" class="btn">Claim This Item</button>
+                        </div>
+                        
+                        <!-- Chat Tab -->
+                        <div id="chat-tab" class="tab-pane">
+                            <div id="chatMessages" class="chat-messages">
+                                <!-- Messages will be added here by JavaScript -->
+                            </div>
+                            <div class="chat-input">
+                                <input type="text" id="chatMessageInput" placeholder="Type your message...">
+                                <button id="sendMessageBtn" class="btn">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Claim Modal -->
     <div id="claimModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -57,8 +126,31 @@
         </div>
     </div>
 
+    <!-- Image Search Modal -->
+    <div id="imageSearchModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Search by Image</h2>
+            <div class="image-upload-container">
+                <div id="imagePreview" class="image-preview">
+                    <p>No image selected</p>
+                </div>
+                <div class="upload-actions">
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                    <button id="uploadBtn" class="btn">Choose Image</button>
+                    <button id="findMatchesBtn" class="btn" disabled>Find Matches</button>
+                </div>
+            </div>
+            <div id="searchResults" class="search-results">
+                <!-- Search results will be displayed here -->
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/data.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/imageSearch.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
