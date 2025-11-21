@@ -67,7 +67,12 @@ function getItems() {
     return new Promise((resolve) => {
         // Simulate API call delay
         setTimeout(() => {
-            resolve([...itemsData]);
+            // Always resolve from the live DataStore to include newly added items
+            if (window.DataStore && Array.isArray(window.DataStore.items)) {
+                resolve([...window.DataStore.items]);
+            } else {
+                resolve([...itemsData]);
+            }
         }, 300);
     });
 }
@@ -77,7 +82,8 @@ function getItemById(id) {
     return new Promise((resolve) => {
         // Simulate API call delay
         setTimeout(() => {
-            const item = itemsData.find(item => item.id === parseInt(id));
+            const source = (window.DataStore && Array.isArray(window.DataStore.items)) ? window.DataStore.items : itemsData;
+            const item = source.find(item => item.id === parseInt(id));
             resolve(item || null);
         }, 200);
     });
@@ -88,10 +94,11 @@ function getItemsByStatus(status) {
     return new Promise((resolve) => {
         // Simulate API call delay
         setTimeout(() => {
+            const source = (window.DataStore && Array.isArray(window.DataStore.items)) ? window.DataStore.items : itemsData;
             if (status === 'all') {
-                resolve([...itemsData]);
+                resolve([...source]);
             } else {
-                const filtered = itemsData.filter(item => item.status === status);
+                const filtered = source.filter(item => item.status === status);
                 resolve(filtered);
             }
         }, 200);
@@ -104,12 +111,14 @@ function searchItems(query) {
         // Simulate API call delay
         setTimeout(() => {
             if (!query.trim()) {
-                resolve([...itemsData]);
+                const source = (window.DataStore && Array.isArray(window.DataStore.items)) ? window.DataStore.items : itemsData;
+                resolve([...source]);
                 return;
             }
             
             const searchTerm = query.toLowerCase();
-            const results = itemsData.filter(item => 
+            const source = (window.DataStore && Array.isArray(window.DataStore.items)) ? window.DataStore.items : itemsData;
+            const results = source.filter(item => 
                 item.title.toLowerCase().includes(searchTerm) ||
                 item.description.toLowerCase().includes(searchTerm) ||
                 item.location.toLowerCase().includes(searchTerm)
@@ -119,3 +128,51 @@ function searchItems(query) {
         }, 300);
     });
 }
+
+// Lightweight in-memory data store namespace for admin/add-item pages
+(function(){
+  const w = window;
+  const STORAGE_KEY = 'lafsys_items_v1';
+  const existing = Array.isArray(w.DataStore?.items) ? w.DataStore.items : null;
+  let items = existing ? existing : null;
+  // Hydrate from localStorage if available; else from seed
+  if (!items) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        items = JSON.parse(raw);
+      }
+    } catch(e) { /* ignore */ }
+  }
+  if (!items) items = [...itemsData];
+
+  const DataStore = {
+    items,
+    getNextId() {
+      return items.length ? Math.max(...items.map(i => i.id || 0)) + 1 : 1;
+    },
+    addItem(payload) {
+      const newItem = {
+        id: this.getNextId(),
+        title: payload.title,
+        category: payload.category || 'other',
+        description: payload.description || '',
+        location: payload.location || '',
+        date: payload.date || new Date().toISOString(),
+        status: payload.status || 'active',
+        image: payload.image || 'https://via.placeholder.com/400x300?text=No+Image',
+        disposalDate: payload.disposalDate || ''
+      };
+      items.unshift(newItem);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch(e) { /* ignore */ }
+      const evt = new CustomEvent('itemsUpdated', { detail: { type: 'add', item: newItem }});
+      w.dispatchEvent(evt);
+      return newItem;
+    },
+    getItemsSync() {
+      return [...items];
+    }
+  };
+
+  w.DataStore = DataStore;
+})();

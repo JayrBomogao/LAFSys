@@ -392,31 +392,31 @@
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">
-                        <a href="admin.html" class="nav-link active">
+                        <a href="#" class="nav-link active" data-section="dashboard">
                             <i data-lucide="layout-dashboard"></i>
                             Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link">
+                        <a href="#" class="nav-link" data-section="items">
                             <i data-lucide="package"></i>
-                            All Items
+                            Items
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="add-item.html" class="nav-link">
+                        <a href="add-item.html" class="nav-link" data-section="add-item">
                             <i data-lucide="plus-circle"></i>
                             Add New Item
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="claims.html" class="nav-link">
+                        <a href="claims.html" class="nav-link" data-section="claims">
                             <i data-lucide="clipboard-check"></i>
                             Claims
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link">
+                        <a href="#" class="nav-link" data-section="users">
                             <i data-lucide="users"></i>
                             Users
                         </a>
@@ -440,195 +440,103 @@
         <!-- Main Content -->
         <main class="main-content">
             <div class="admin-header">
-                <h1 class="admin-title">Dashboard</h1>
+                <h1 class="admin-title" id="pageTitle">Dashboard</h1>
                 <a href="add-item.html" class="btn-primary">
                     <i data-lucide="plus" width="16" height="16"></i>
                     Add New Item
                 </a>
             </div>
 
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">
-                        <i data-lucide="package" width="16" height="16"></i>
-                        Total Items
+            <!-- Dashboard Section -->
+            <section id="section-dashboard" class="section-view">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">
+                            <i data-lucide="package" width="16" height="16"></i>
+                            Total Items
+                        </div>
+                        <div class="stat-value" id="statTotalItems">0</div>
+                        <div class="stat-change stat-up">
+                            <i data-lucide="trending-up" width="16" height="16"></i>
+                            12% from last month
+                        </div>
                     </div>
-                    <div class="stat-value">124</div>
-                    <div class="stat-change stat-up">
-                        <i data-lucide="trending-up" width="16" height="16"></i>
-                        12% from last month
+                    <div class="stat-card">
+                        <div class="stat-label">
+                            <i data-lucide="check-circle" width="16" height="16"></i>
+                            Items Claimed
+                        </div>
+                        <div class="stat-value" id="statClaimed">0</div>
+                        <div class="stat-change stat-up">
+                            <i data-lucide="trending-up" width="16" height="16"></i>
+                            5% from last month
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">
+                            <i data-lucide="clock" width="16" height="16"></i>
+                            Pending Claims
+                        </div>
+                        <div class="stat-value" id="statPending">0</div>
+                        <div class="stat-change stat-down">
+                            <i data-lucide="trending-down" width="16" height="16"></i>
+                            3 from yesterday
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">
+                            <i data-lucide="alert-triangle" width="16" height="16"></i>
+                            Disposal Soon
+                        </div>
+                        <div class="stat-value" id="statSoon">0</div>
+                        <div class="stat-change">
+                            <i data-lucide="alert-circle" width="16" height="16"></i>
+                            Needs attention
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">
-                        <i data-lucide="check-circle" width="16" height="16"></i>
-                        Items Claimed
-                    </div>
-                    <div class="stat-value">89</div>
-                    <div class="stat-change stat-up">
-                        <i data-lucide="trending-up" width="16" height="16"></i>
-                        5% from last month
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">
-                        <i data-lucide="clock" width="16" height="16"></i>
-                        Pending Claims
-                    </div>
-                    <div class="stat-value">12</div>
-                    <div class="stat-change stat-down">
-                        <i data-lucide="trending-down" width="16" height="16"></i>
-                        3 from yesterday
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">
-                        <i data-lucide="alert-triangle" width="16" height="16"></i>
-                        Disposal Soon
-                    </div>
-                    <div class="stat-value">7</div>
-                    <div class="stat-change">
-                        <i data-lucide="alert-circle" width="16" height="16"></i>
-                        Needs attention
-                    </div>
-                </div>
-            </div>
 
-            <!-- Recent Items -->
-            <h2 style="margin: 2rem 0 1rem;">Recent Items</h2>
-            <div class="items-table">
-                <div class="table-header">
-                    <div>Item</div>
-                    <div>Found Location</div>
-                    <div>Date Found</div>
-                    <div>Status</div>
-                    <div>Actions</div>
+                <!-- Recent Items -->
+                <h2 style="margin: 2rem 0 1rem;">Recent Items</h2>
+                <div class="items-table">
+                    <div class="table-header">
+                        <div>Item</div>
+                        <div>Found Location</div>
+                        <div>Date Found</div>
+                        <div>Status</div>
+                        <div>Actions</div>
+                    </div>
+                    <div id="recentItemsContainer"></div>
                 </div>
-                
-                <!-- Sample Item Rows -->
-                <div class="table-row">
-                    <div class="item-info">
-                        <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="Wallet" class="item-image">
-                        <div>
-                            <div class="item-name">Black Leather Wallet</div>
-                            <div class="item-category">Wallet</div>
-                        </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="section-users" class="section-view" style="display:none;">
+                <h2 style="margin: 0 0 1rem;">Staff Users</h2>
+                <div class="items-table">
+                    <div class="table-header" style="grid-template-columns: 2fr 1fr 2fr 1fr 140px;">
+                        <div>User</div>
+                        <div>Role</div>
+                        <div>Email</div>
+                        <div>Status</div>
+                        <div>Actions</div>
                     </div>
-                    <div>Burnham Park</div>
-                    <div>Nov 15, 2023</div>
-                    <div><span class="status-badge status-active">Active</span></div>
-                    <div class="action-buttons">
-                        <button class="btn-icon" title="Edit">
-                            <i data-lucide="edit-2" width="16" height="16"></i>
-                        </button>
-                        <button class="btn-icon delete" title="Delete">
-                            <i data-lucide="trash-2" width="16" height="16"></i>
-                        </button>
-                    </div>
+                    <div id="usersTableBody"></div>
                 </div>
-                
-                <div class="table-row">
-                    <div class="item-info">
-                        <img src="https://images.unsplash.com/photo-1632809947610-8fefdb8f9c2f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="iPhone" class="item-image">
-                        <div>
-                            <div class="item-name">iPhone 13 Pro</div>
-                            <div class="item-category">Electronics</div>
-                        </div>
-                    </div>
-                    <div>SM City Baguio</div>
-                    <div>Nov 14, 2023</div>
-                    <div><span class="status-badge status-completed">Claimed</span></div>
-                    <div class="action-buttons">
-                        <button class="btn-icon" title="Edit">
-                            <i data-lucide="edit-2" width="16" height="16"></i>
-                        </button>
-                        <button class="btn-icon delete" title="Delete">
-                            <i data-lucide="trash-2" width="16" height="16"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="table-row">
-                    <div class="item-info">
-                        <img src="https://images.unsplash.com/photo-1593062096033-9a26b09da705?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="Laptop Bag" class="item-image">
-                        <div>
-                            <div class="item-name">Black Laptop Bag</div>
-                            <div class="item-category">Bag</div>
-                        </div>
-                    </div>
-                    <div>Session Road</div>
-                    <div>Nov 10, 2023</div>
-                    <div><span class="status-badge status-pending">Disposal Soon</span></div>
-                    <div class="action-buttons">
-                        <button class="btn-icon" title="Edit">
-                            <i data-lucide="edit-2" width="16" height="16"></i>
-                        </button>
-                        <button class="btn-icon delete" title="Delete">
-                            <i data-lucide="trash-2" width="16" height="16"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="pagination">
-                    <div class="pagination-info">Showing 1 to 10 of 124 items</div>
-                    <div class="pagination-buttons">
-                        <button class="pagination-button" disabled>
-                            <i data-lucide="chevron-left" width="16" height="16"></i>
-                        </button>
-                        <button class="pagination-button active">1</button>
-                        <button class="pagination-button">2</button>
-                        <button class="pagination-button">3</button>
-                        <button class="pagination-button">
-                            <i data-lucide="chevron-right" width="16" height="16"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </section>
+
+            <!-- Items, Claims placeholder sections for future -->
+            <section id="section-items" class="section-view" style="display:none;">
+                <p>Items management coming soon.</p>
+            </section>
+            <section id="section-claims" class="section-view" style="display:none;">
+                <p>Claims management coming soon.</p>
+            </section>
         </main>
     </div>
-
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
-        
-        // Simple script to handle navigation active states
-        document.addEventListener('DOMContentLoaded', function() {
-            const navLinks = document.querySelectorAll('.nav-link');
-            
-            navLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    this.classList.add('active');
-                });
-            });
-            
-            // Add click handlers for action buttons
-            document.querySelectorAll('.btn-icon.delete').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    if (confirm('Are you sure you want to delete this item?')) {
-                        // In a real app, this would delete the item
-                        const row = this.closest('.table-row');
-                        row.style.opacity = '0.5';
-                        row.style.pointerEvents = 'none';
-                        setTimeout(() => {
-                            row.style.display = 'none';
-                        }, 300);
-                    }
-                });
-            });
-            
-            // Make rows clickable
-            document.querySelectorAll('.table-row:not(:last-child)').forEach(row => {
-                row.style.cursor = 'pointer';
-                row.addEventListener('click', function() {
-                    // In a real app, this would navigate to the item's edit page
-                    window.location.href = 'add-item.html?edit=true';
-                });
-            });
-        });
-    </script>
+    <script src="js/data.js"></script>
+    <script src="js/users.js"></script>
+    <script src="js/admin.js"></script>
 </body>
 </html>
