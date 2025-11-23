@@ -96,10 +96,24 @@
     const customCategory = document.getElementById('customCategory');
     const resolvedCategory = (categorySelect && categorySelect.value === 'other' && customCategory) ? (customCategory.value.trim() || 'Other') : (categorySelect?.value || 'other');
 
+    // Gather dynamic category fields to enrich description
+    const catFieldsContainer = document.getElementById('categoryFields');
+    let detailsText = '';
+    if (catFieldsContainer) {
+      const inputs = catFieldsContainer.querySelectorAll('input, select');
+      const parts = [];
+      inputs.forEach(inp => {
+        const label = inp.getAttribute('data-label') || inp.placeholder || inp.name || inp.id;
+        const value = (inp.value || '').trim();
+        if (value) parts.push(`${label}: ${value}`);
+      });
+      if (parts.length) detailsText = `\n\nAdditional Details\n- ${parts.join('\n- ')}`;
+    }
+
     const payload = {
       title: document.getElementById('itemName').value.trim(),
       category: resolvedCategory,
-      description: document.getElementById('itemDescription').value.trim(),
+      description: (document.getElementById('itemDescription').value.trim() + detailsText).trim(),
       location: document.getElementById('foundLocation').value.trim(),
       date: new Date(document.getElementById('foundDate').value).toISOString(),
       status: 'active',
@@ -141,6 +155,64 @@
       };
       categorySelect.addEventListener('change', toggleCustom);
       toggleCustom();
+    }
+    // Dynamic category-specific fields
+    const detailsSection = document.getElementById('categoryDetailsSection');
+    const fieldsHost = document.getElementById('categoryFields');
+    const fieldSets = {
+      wallet: [
+        { type:'text', id:'brand', label:'Brand', placeholder:'e.g., Gucci' },
+        { type:'text', id:'color', label:'Color', placeholder:'e.g., Black' },
+        { type:'text', id:'material', label:'Material', placeholder:'e.g., Leather' }
+      ],
+      phone: [
+        { type:'text', id:'brand', label:'Brand/Model', placeholder:'e.g., iPhone 13' },
+        { type:'text', id:'color', label:'Color', placeholder:'e.g., Blue' },
+        { type:'text', id:'case', label:'Case', placeholder:'e.g., With blue case' }
+      ],
+      laptop: [
+        { type:'text', id:'brand', label:'Brand/Model', placeholder:'e.g., Dell XPS 13' },
+        { type:'text', id:'color', label:'Color', placeholder:'e.g., Silver' },
+        { type:'text', id:'serial', label:'Serial/Asset Tag', placeholder:'Optional' }
+      ],
+      keys: [
+        { type:'text', id:'keytype', label:'Key Type', placeholder:'e.g., House, Car' },
+        { type:'text', id:'keyring', label:'Keychain/Ring', placeholder:'e.g., Red keychain' }
+      ],
+      bag: [
+        { type:'text', id:'brand', label:'Brand', placeholder:'e.g., Jansport' },
+        { type:'text', id:'color', label:'Color', placeholder:'e.g., Black' }
+      ],
+      clothing: [
+        { type:'text', id:'type', label:'Type', placeholder:'e.g., Jacket' },
+        { type:'text', id:'color', label:'Color', placeholder:'e.g., Green' },
+        { type:'text', id:'size', label:'Size', placeholder:'e.g., M' }
+      ],
+      jewelry: [
+        { type:'text', id:'type', label:'Type', placeholder:'e.g., Ring, Necklace' },
+        { type:'text', id:'material', label:'Material', placeholder:'e.g., Gold' }
+      ],
+      documents: [
+        { type:'text', id:'doctype', label:'Document Type', placeholder:'e.g., ID, Passport' },
+        { type:'text', id:'name', label:'Name on Document', placeholder:'e.g., Juan Dela Cruz' }
+      ]
+    };
+    const renderFields = () => {
+      if (!categorySelect || !fieldsHost || !detailsSection) return;
+      const key = categorySelect.value;
+      const set = fieldSets[key];
+      if (!set) { detailsSection.style.display = 'none'; fieldsHost.innerHTML = ''; return; }
+      detailsSection.style.display = '';
+      fieldsHost.innerHTML = set.map(f => `
+        <div class="form-group">
+          <label>${f.label}</label>
+          <input type="text" class="form-control" data-label="${f.label}" placeholder="${f.placeholder || ''}">
+        </div>
+      `).join('');
+    };
+    if (categorySelect) {
+      categorySelect.addEventListener('change', renderFields);
+      renderFields();
     }
     const form = document.getElementById('itemForm');
     if (form) form.addEventListener('submit', onSubmit);

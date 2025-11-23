@@ -398,6 +398,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="inbox">
+                            <i data-lucide="inbox"></i>
+                            Inbox
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="#" class="nav-link" data-section="items">
                             <i data-lucide="package"></i>
                             Items
@@ -539,6 +545,20 @@
                     <div id="allItemsContainer"></div>
                 </div>
             </section>
+            
+            <!-- Inbox Section -->
+            <section id="section-inbox" class="section-view" style="display:none;">
+                <h2 style="margin: 0 0 1rem;">Inbox</h2>
+                <div class="items-table">
+                    <div class="table-header" style="grid-template-columns: 2fr 3fr 1fr 140px;">
+                        <div>From</div>
+                        <div>Subject</div>
+                        <div>Date</div>
+                        <div>Actions</div>
+                    </div>
+                    <div id="inboxContainer"></div>
+                </div>
+            </section>
             <section id="section-claims" class="section-view" style="display:none;">
                 <p>Claims management coming soon.</p>
             </section>
@@ -547,6 +567,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/data.js"></script>
     <script src="js/users.js"></script>
+    <script src="js/messages.js"></script>
     <script src="js/admin.js"></script>
 </body>
 </html>

@@ -6,6 +6,46 @@
     } catch(e){ return dateStr; }
   }
 
+  function renderInbox(){
+    const container = document.getElementById('inboxContainer');
+    if (!container) return;
+    const msgs = (window.MessagesStore?.getAll?.() || []);
+    if (!msgs.length) { container.innerHTML = '<div class="table-row"><div>No messages.</div></div>'; return; }
+    container.innerHTML = msgs.map(m => `
+      <div class="table-row" style="grid-template-columns: 2fr 3fr 1fr 140px;" data-id="${m.id}">
+        <div class="item-info">
+          <img src="https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(m.from)}" alt="${m.from}" class="item-image" style="border-radius:50%; width:36px; height:36px;">
+          <div>
+            <div class="item-name">${m.from}</div>
+            <div class="item-category" style="text-transform: none;">${m.email || ''}</div>
+          </div>
+        </div>
+        <div>${m.subject || ''}</div>
+        <div>${formatDate(m.date)}</div>
+        <div class="action-buttons">
+          <button class="btn-icon" title="Open" data-action="open"><i data-lucide="mail-open" width="16" height="16"></i></button>
+          <button class="btn-icon delete" title="Delete" data-action="delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
+        </div>
+      </div>
+    `).join('');
+    if (window.lucide?.createIcons) lucide.createIcons();
+    container.querySelectorAll('.btn-icon').forEach(btn => {
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const row = btn.closest('.table-row');
+        const id = Number(row?.dataset?.id);
+        const action = btn.getAttribute('data-action');
+        if (action === 'open'){
+          const msg = (window.MessagesStore?.getAll?.() || []).find(x=>x.id===id);
+          if (msg) alert(`${msg.subject}\n\nFrom: ${msg.from} <${msg.email || ''}>\nDate: ${new Date(msg.date).toLocaleString()}\n\n${msg.body}`);
+        }
+        if (action === 'delete'){
+          window.MessagesStore?.remove?.(id);
+        }
+      });
+    });
+  }
+
   function renderAllItems(){
     const container = document.getElementById('allItemsContainer');
     if (!container) return;
@@ -121,7 +161,7 @@
     const target = document.getElementById('section-' + section);
     if (target) target.style.display = '';
 
-    const titleMap = { dashboard: 'Dashboard', users: 'Users', items: 'Items', claims: 'Claims', 'add-item': 'Add Item' };
+    const titleMap = { dashboard: 'Dashboard', users: 'Users', items: 'Items', inbox: 'Inbox', claims: 'Claims', 'add-item': 'Add Item' };
     const titleEl = document.getElementById('pageTitle');
     if (titleEl) titleEl.textContent = titleMap[section] || 'Dashboard';
   }
@@ -138,6 +178,7 @@
         if (section === 'dashboard') { renderStats(); renderRecentItems(); }
         if (section === 'users') { renderUsers(); }
         if (section === 'items') { renderAllItems(); }
+        if (section === 'inbox') { renderInbox(); }
       });
     });
   }
@@ -174,6 +215,7 @@
     renderRecentItems();
     // Update dashboard when items change
     window.addEventListener('itemsUpdated', () => { renderStats(); renderRecentItems(); renderAllItems(); });
+    window.addEventListener('messagesUpdated', () => { renderInbox(); });
   }
 
   document.addEventListener('DOMContentLoaded', init);
