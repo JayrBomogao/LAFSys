@@ -14,6 +14,27 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch(e){}
   }
 
+  const THREADS_KEY = 'lafsys_threads_v1';
+  let threads = {};
+  try {
+    const raw = localStorage.getItem(THREADS_KEY);
+    threads = raw ? JSON.parse(raw) : {};
+  } catch(e) { threads = {}; }
+  // Seed threads for demo users
+  const seedIfMissing = (email, name, subject, body) => {
+    if (!threads[email]) {
+      threads[email] = [
+        { id: 1, sender: email, name, body, date: new Date(Date.now()-7200000).toISOString() },
+        { id: 2, sender: 'admin@lafsys.gov', name: 'Admin', body: `Hi ${name.split(' ')[0]}, thanks for reaching out. Could you share more identifying details?`, date: new Date(Date.now()-3600000).toISOString() }
+      ];
+    }
+  };
+  const j = messages.find(m => m.email === 'john@example.com');
+  if (j) seedIfMissing(j.email, j.from, j.subject, j.body);
+  const s = messages.find(m => m.email === 'jane@example.com');
+  if (s) seedIfMissing(s.email, s.from, s.subject, s.body);
+  try { localStorage.setItem(THREADS_KEY, JSON.stringify(threads)); } catch(e){}
+
   const MessagesStore = {
     getAll(){ return [...messages]; },
     remove(id){
@@ -21,6 +42,18 @@
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch(e){}
       const evt = new CustomEvent('messagesUpdated', { detail: { type: 'delete', id }});
       w.dispatchEvent(evt);
+    },
+    getThread(email){
+      return Array.isArray(threads[email]) ? [...threads[email]] : [];
+    },
+    send(email, name, body, from='admin@lafsys.gov'){
+      if (!threads[email]) threads[email] = [];
+      const msg = { id: Date.now(), sender: from, name: from==='admin@lafsys.gov' ? 'Admin' : name, body, date: new Date().toISOString() };
+      threads[email].push(msg);
+      try { localStorage.setItem(THREADS_KEY, JSON.stringify(threads)); } catch(e){}
+      const evt = new CustomEvent('threadUpdated', { detail: { email, message: msg }});
+      w.dispatchEvent(evt);
+      return msg;
     }
   };
 

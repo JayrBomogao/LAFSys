@@ -29,6 +29,14 @@
       </div>
     `).join('');
     if (window.lucide?.createIcons) lucide.createIcons();
+    // Row click navigates to chat
+    container.querySelectorAll('.table-row').forEach(row => {
+      row.addEventListener('click', ()=>{
+        const id = Number(row?.dataset?.id);
+        const msg = (window.MessagesStore?.getAll?.() || []).find(x=>x.id===id);
+        if (msg) window.location.href = `chat.html?email=${encodeURIComponent(msg.email||'')}&name=${encodeURIComponent(msg.from||'')}`;
+      });
+    });
     container.querySelectorAll('.btn-icon').forEach(btn => {
       btn.addEventListener('click', (e)=>{
         e.stopPropagation();
@@ -37,7 +45,7 @@
         const action = btn.getAttribute('data-action');
         if (action === 'open'){
           const msg = (window.MessagesStore?.getAll?.() || []).find(x=>x.id===id);
-          if (msg) alert(`${msg.subject}\n\nFrom: ${msg.from} <${msg.email || ''}>\nDate: ${new Date(msg.date).toLocaleString()}\n\n${msg.body}`);
+          if (msg) window.location.href = `chat.html?email=${encodeURIComponent(msg.email||'')}&name=${encodeURIComponent(msg.from||'')}`;
         }
         if (action === 'delete'){
           window.MessagesStore?.remove?.(id);

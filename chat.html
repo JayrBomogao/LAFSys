@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat - Lost & Found</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .chat-container { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    .chat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .chat-title { display:flex; align-items:center; gap:.75rem; font-weight:600; font-size:1.125rem; }
+    .chat-box { background:#fff; border:1px solid #e2e8f0; border-radius:.5rem; height:60vh; overflow:auto; padding:1rem; }
+    .msg { display:flex; gap:.5rem; margin-bottom:1rem; }
+    .msg .avatar { width:36px; height:36px; border-radius:50%; overflow:hidden; flex:0 0 36px; }
+    .msg .bubble { background:#f1f5f9; border-radius:.5rem; padding:.5rem .75rem; max-width:70%; }
+    .msg.me { justify-content:flex-end; }
+    .msg.me .bubble { background:#dbeafe; }
+    .msg.me .avatar { order:2; }
+    .composer { display:flex; gap:.5rem; margin-top:1rem; }
+    .composer textarea { flex:1; min-height:48px; resize:vertical; }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .9rem; border:1px solid #2563eb; color:#2563eb; border-radius:.375rem; background:#fff; cursor:pointer; }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .back-link { text-decoration:none; color:#2563eb; display:inline-flex; align-items:center; gap:.4rem; }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <a class="back-link" href="admin.html" onclick="event.preventDefault(); window.history.length>1 ? history.back() : (window.location.href='admin.html');"><i data-lucide="arrow-left"></i> Back</a>
+      <div class="chat-title" id="chatTitle">
+        <img id="chatAvatar" class="avatar" alt="" />
+        <div>
+          <div id="chatName"></div>
+          <div id="chatEmail" style="font-size:.875rem;color:#64748b"></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-box" id="chatThread"></div>
+    <div class="composer">
+      <textarea id="chatInput" class="form-control" placeholder="Type your message..."></textarea>
+      <button id="sendBtn" class="btn btn-primary"><i data-lucide="send"></i> Send</button>
+    </div>
+  </div>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/messages.js"></script>
+  <script src="js/chat.js"></script>
+</body>
+</html>

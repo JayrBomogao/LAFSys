@@ -161,7 +161,9 @@ function searchItems(query) {
         date: payload.date || new Date().toISOString(),
         status: payload.status || 'active',
         image: payload.image || 'https://via.placeholder.com/400x300?text=No+Image',
-        disposalDate: payload.disposalDate || ''
+        disposalDate: payload.disposalDate || '',
+        foundBy: payload.foundBy || '',
+        storageLocation: payload.storageLocation || ''
       };
       items.unshift(newItem);
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch(e) { /* ignore */ }
