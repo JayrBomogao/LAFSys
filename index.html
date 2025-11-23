@@ -147,8 +147,43 @@
         </div>
     </div>
 
+    <!-- Floating Inquiry Button & Form -->
+    <div class="floating-inquiry-container">
+        <button id="inquiryButton" class="inquiry-button">
+            <i data-lucide="message-circle" width="24" height="24"></i>
+            <span>Need Help?</span>
+        </button>
+        
+        <div id="inquiryPanel" class="inquiry-panel">
+            <div class="inquiry-header">
+                <h3>Can't Find Your Item?</h3>
+                <button class="close-inquiry">&times;</button>
+            </div>
+            <div class="inquiry-body">
+                <p>Send us a message and we'll help you find it.</p>
+                <form id="inquiryForm">
+                    <div class="form-group">
+                        <input type="text" id="inquiryName" placeholder="Your Name" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" id="inquiryEmail" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <textarea id="inquiryMessage" placeholder="Describe your missing item..." required rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn inquiry-submit">Send Message</button>
+                </form>
+                <div id="inquirySuccess" class="inquiry-success" style="display: none;">
+                    <i data-lucide="check-circle" width="20" height="20"></i>
+                    <span>Message sent! We'll respond soon.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/data.js"></script>
+    <script src="js/messages.js"></script>
     <script src="js/modal.js"></script>
     <script src="js/imageSearch.js"></script>
     <script src="js/main.js"></script>

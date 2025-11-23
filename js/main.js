@@ -7,6 +7,13 @@ const claimModal = document.getElementById('claimModal');
 const closeModal = document.querySelector('.close');
 const claimForm = document.getElementById('claimForm');
 
+// Inquiry elements
+const inquiryButton = document.getElementById('inquiryButton');
+const inquiryPanel = document.getElementById('inquiryPanel');
+const closeInquiryBtn = document.querySelector('.close-inquiry');
+const inquiryForm = document.getElementById('inquiryForm');
+const inquirySuccess = document.getElementById('inquirySuccess');
+
 // Load items when the page loads
 document.addEventListener('DOMContentLoaded', async () => {
     await loadItems();
@@ -177,6 +184,94 @@ function setupEventListeners() {
             claimForm.reset();
         });
     }
+    
+    // Inquiry button click
+    if (inquiryButton) {
+        inquiryButton.addEventListener('click', toggleInquiryPanel);
+    }
+    
+    // Close inquiry panel
+    if (closeInquiryBtn) {
+        closeInquiryBtn.addEventListener('click', () => {
+            inquiryPanel.classList.remove('active');
+        });
+    }
+    
+    // Close inquiry panel when clicking outside
+    document.addEventListener('click', (e) => {
+        if (inquiryPanel && inquiryPanel.classList.contains('active') && 
+            !inquiryPanel.contains(e.target) && 
+            e.target !== inquiryButton) {
+            inquiryPanel.classList.remove('active');
+        }
+    });
+    
+    // Inquiry form submission
+    if (inquiryForm) {
+        inquiryForm.addEventListener('submit', handleInquirySubmission);
+    }
+}
+
+// Toggle inquiry panel
+function toggleInquiryPanel() {
+    inquiryPanel.classList.toggle('active');
+}
+
+// Handle inquiry form submission
+function handleInquirySubmission(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('inquiryName').value.trim();
+    const email = document.getElementById('inquiryEmail').value.trim();
+    const message = document.getElementById('inquiryMessage').value.trim();
+    
+    if (!name || !email || !message) return;
+    
+    // Create message object
+    const inquiry = {
+        id: Date.now(),
+        from: name,
+        email: email,
+        subject: 'Inquiry about missing item',
+        body: message,
+        date: new Date().toISOString()
+    };
+    
+    // Send the message - if MessagesStore exists use it, otherwise simulate success
+    if (window.MessagesStore) {
+        try {
+            // Add to inbox
+            const messages = window.MessagesStore.getAll();
+            messages.unshift(inquiry);
+            localStorage.setItem('lafsys_messages_v1', JSON.stringify(messages));
+            
+            // Create a thread
+            window.MessagesStore.send(email, name, message, email);
+            
+            // Show success and reset form
+            showInquirySuccess();
+        } catch (error) {
+            console.error('Error sending message:', error);
+            alert('There was an error sending your message. Please try again.');
+        }
+    } else {
+        console.log('Message would be sent:', inquiry);
+        showInquirySuccess();
+    }
+}
+
+// Show inquiry success message and reset form
+function showInquirySuccess() {
+    inquiryForm.reset();
+    inquiryForm.style.display = 'none';
+    inquirySuccess.style.display = 'flex';
+    
+    // Reset after 3 seconds
+    setTimeout(() => {
+        inquiryForm.style.display = 'block';
+        inquirySuccess.style.display = 'none';
+        inquiryPanel.classList.remove('active');
+    }, 3000);
 }
 
 // Handle search functionality
