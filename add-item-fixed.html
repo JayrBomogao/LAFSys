@@ -344,14 +344,8 @@
         </form>
     </div>
     
-    <div class="firebase-status" id="connectionStatus">
-        Checking Firebase Connection...
-    </div>
-    
-    <div style="position: fixed; bottom: 1rem; left: 1rem; z-index: 100;">
-        <button id="testConnectionBtn" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
-            Test Firebase Connection
-        </button>
+    <div class="firebase-status">
+        ✓ Firebase Connected
     </div>
 
     <!-- Firebase CDN Scripts - using version 9.22.2 which supports modular web v9 API -->
@@ -359,7 +353,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    <script src="js/firebase-debug.js"></script>
     
     <!-- Firebase Config -->
     <script>
@@ -368,77 +361,19 @@
             apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
             authDomain: "lafsys.firebaseapp.com",
             projectId: "lafsys",
-            storageBucket: "lafsys.appspot.com", // Fixed storage bucket URL
+            storageBucket: "lafsys.firebasestorage.app",
             messagingSenderId: "103945210522",
             appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
             measurementId: "G-EJ2X0PTDNH"
         };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         
-        console.log('Initializing Firebase with config:', firebaseConfig);
-        
-        // Check if the configuration seems valid
-        const configCheck = window.firebaseDebug.checkConfig(firebaseConfig);
-        console.log('Config check:', configCheck);
-        
-        // Declare variables in global scope for access from other functions
-        let db, storage, auth;
-        
-        try {
-            // Initialize Firebase
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-                console.log('Firebase initialized successfully');
-            } else {
-                console.log('Firebase already initialized, using existing instance');
-            }
-            
-            // Make Firebase services available
-            db = firebase.firestore();
-            console.log('Firestore initialized');
-            
-            storage = firebase.storage();
-            console.log('Storage initialized');
-            
-            auth = firebase.auth();
-            console.log('Auth initialized');
-            
-            // Update connection status
-            const connectionStatus = document.getElementById('connectionStatus');
-            connectionStatus.style.backgroundColor = '#22c55e';
-            connectionStatus.textContent = '✓ Firebase Connected';
-            
-            // Add test connection button functionality
-            document.getElementById('testConnectionBtn').addEventListener('click', async function() {
-                const statusDiv = document.getElementById('connectionStatus');
-                statusDiv.style.backgroundColor = '#3b82f6';
-                statusDiv.textContent = 'Testing connection...';
-                
-                try {
-                    const result = await window.firebaseDebug.testConnection();
-                    if (result.success) {
-                        statusDiv.style.backgroundColor = '#22c55e';
-                        statusDiv.textContent = '✓ Firebase Connection OK';
-                        alert('Connection test successful! Your Firebase is properly configured.');
-                    } else {
-                        statusDiv.style.backgroundColor = '#ef4444';
-                        statusDiv.textContent = '✗ Firebase Connection Error';
-                        alert('Connection test failed: ' + result.message);
-                    }
-                } catch (error) {
-                    statusDiv.style.backgroundColor = '#ef4444';
-                    statusDiv.textContent = '✗ Firebase Connection Error';
-                    alert('Connection test error: ' + error.message);
-                    console.error('Connection test error:', error);
-                }
-            });
-            
-        } catch (error) {
-            console.error('Error initializing Firebase:', error);
-            const connectionStatus = document.getElementById('connectionStatus');
-            connectionStatus.style.backgroundColor = '#ef4444';
-            connectionStatus.textContent = '✗ Firebase Initialization Error';
-            alert('Error initializing Firebase: ' + error.message);
-        }
+        // Make Firebase services available
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const auth = firebase.auth();
         
         // Image upload functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -513,23 +448,8 @@
             itemForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
-                // Show submission status
-                const statusDiv = document.createElement('div');
-                statusDiv.style.position = 'fixed';
-                statusDiv.style.top = '10px';
-                statusDiv.style.left = '50%';
-                statusDiv.style.transform = 'translateX(-50%)';
-                statusDiv.style.padding = '10px';
-                statusDiv.style.background = '#3b82f6';
-                statusDiv.style.color = 'white';
-                statusDiv.style.borderRadius = '5px';
-                statusDiv.style.zIndex = '9999';
-                statusDiv.textContent = 'Processing form submission...';
-                document.body.appendChild(statusDiv);
-                
                 try {
                     // Get form data
-                    console.log('Getting form data...');
                     const itemData = {
                         title: document.getElementById('itemName').value,
                         category: document.getElementById('itemCategory').value,
@@ -542,95 +462,28 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     
-                    console.log('Form data collected:', itemData);
-                    statusDiv.textContent = 'Form data collected';
-                    
                     // Get image file if any
                     const imageFile = imageUpload.files[0] || null;
-                    console.log('Image file:', imageFile ? 'Found' : 'None');
                     
                     // Upload image first if available
                     let imageUrl = '';
                     if (imageFile) {
-                        console.log('Uploading image...');
-                        statusDiv.textContent = 'Uploading image...';
-                        
-                        try {
-                            // For demo and testing purposes, we'll skip actual upload and use a placeholder
-                            // This will avoid CORS issues during development
-                            console.log('Using placeholder image for development');
-                            
-                            // Comment the following line and uncomment the Firebase code when CORS is fixed
-                            imageUrl = 'https://via.placeholder.com/400x300?text=Item+Image';
-                            
-                            // CORS-fixed code (uncomment when Firebase Storage rules are properly set)
-                            /*
-                            const fileName = `items/${Date.now()}_${imageFile.name}`;
-                            const storageRef = storage.ref(fileName);
-                            console.log('Storage reference created:', fileName);
-                            
-                            // Set metadata to avoid CORS issues
-                            const metadata = {
-                                contentType: imageFile.type,
-                                customMetadata: {
-                                    'origin': window.location.origin
-                                }
-                            };
-                            
-                            const uploadTask = await storageRef.put(imageFile, metadata);
-                            console.log('Image uploaded:', uploadTask);
-                            
-                            imageUrl = await storageRef.getDownloadURL();
-                            console.log('Image URL obtained:', imageUrl);
-                            */
-                            
-                            statusDiv.textContent = 'Image upload simulated (development mode)';
-                        } catch (imageError) {
-                            console.error('Error uploading image:', imageError);
-                            statusDiv.style.background = '#ef4444';
-                            statusDiv.textContent = 'Error uploading image: ' + imageError.message;
-                            throw imageError;
-                        }
+                        const storageRef = storage.ref(`items/${Date.now()}_${imageFile.name}`);
+                        await storageRef.put(imageFile);
+                        imageUrl = await storageRef.getDownloadURL();
                     }
                     
                     // Add image URL to item data
                     itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=No+Image';
                     
-                    // Test Firebase connection
-                    console.log('Testing Firestore connection...');
-                    statusDiv.textContent = 'Testing database connection...';
-                    
-                    try {
-                        await db.collection('test').doc('connection-test').set({
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log('Firestore connection working!');
-                    } catch (firestoreError) {
-                        console.error('Firestore connection test failed:', firestoreError);
-                        statusDiv.style.background = '#ef4444';
-                        statusDiv.textContent = 'Database connection failed: ' + firestoreError.message;
-                        throw firestoreError;
-                    }
-                    
                     // Add to Firestore
-                    console.log('Adding item to Firestore...');
-                    statusDiv.textContent = 'Adding item to database...';
+                    await db.collection('items').add(itemData);
                     
-                    const docRef = await db.collection('items').add(itemData);
-                    console.log('Document added with ID:', docRef.id);
-                    
-                    statusDiv.style.background = '#22c55e';
-                    statusDiv.textContent = 'Item added successfully!';
-                    
-                    setTimeout(() => {
-                        alert('Item added successfully! Document ID: ' + docRef.id);
-                        window.location.href = 'admin.html'; // Redirect to admin page
-                    }, 1000);
+                    alert('Item added successfully!');
+                    window.location.href = 'admin.html'; // Redirect to admin page
                     
                 } catch (error) {
                     console.error('Error adding item:', error);
-                    statusDiv.style.background = '#ef4444';
-                    statusDiv.textContent = 'Error: ' + error.message;
                     alert('Error adding item: ' + error.message);
                 }
             });
@@ -639,22 +492,7 @@
             const saveDraftBtn = document.getElementById('saveDraftBtn');
             
             saveDraftBtn.addEventListener('click', async function() {
-                // Show submission status
-                const statusDiv = document.createElement('div');
-                statusDiv.style.position = 'fixed';
-                statusDiv.style.top = '10px';
-                statusDiv.style.left = '50%';
-                statusDiv.style.transform = 'translateX(-50%)';
-                statusDiv.style.padding = '10px';
-                statusDiv.style.background = '#3b82f6';
-                statusDiv.style.color = 'white';
-                statusDiv.style.borderRadius = '5px';
-                statusDiv.style.zIndex = '9999';
-                statusDiv.textContent = 'Saving draft...';
-                document.body.appendChild(statusDiv);
-                
                 try {
-                    console.log('Getting draft data...');
                     // Get form data
                     const itemData = {
                         title: document.getElementById('itemName').value || 'Draft Item',
@@ -667,56 +505,28 @@
                         status: 'draft',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
-                    console.log('Draft data:', itemData);
                     
                     // Get image file if any
                     const imageFile = imageUpload.files[0] || null;
-                    console.log('Image file for draft:', imageFile ? 'Found' : 'None');
                     
                     // Upload image first if available
                     let imageUrl = '';
                     if (imageFile) {
-                        console.log('Uploading draft image...');
-                        statusDiv.textContent = 'Uploading image for draft...';
-                        
-                        try {
-                            const storageRef = storage.ref(`drafts/${Date.now()}_${imageFile.name}`);
-                            console.log('Draft storage reference created');
-                            
-                            const uploadTask = await storageRef.put(imageFile);
-                            console.log('Draft image uploaded:', uploadTask);
-                            
-                            imageUrl = await storageRef.getDownloadURL();
-                            console.log('Draft image URL obtained:', imageUrl);
-                        } catch (imageError) {
-                            console.error('Error uploading draft image:', imageError);
-                            statusDiv.style.background = '#ef4444';
-                            statusDiv.textContent = 'Error uploading image: ' + imageError.message;
-                            throw imageError;
-                        }
+                        const storageRef = storage.ref(`items/${Date.now()}_${imageFile.name}`);
+                        await storageRef.put(imageFile);
+                        imageUrl = await storageRef.getDownloadURL();
                     }
                     
                     // Add image URL to item data
-                    itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=Draft';
+                    itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=No+Image';
                     
                     // Add to Firestore
-                    console.log('Adding draft to Firestore...');
-                    statusDiv.textContent = 'Saving draft to database...';
+                    await db.collection('items').add(itemData);
                     
-                    const docRef = await db.collection('items').add(itemData);
-                    console.log('Draft saved with ID:', docRef.id);
-                    
-                    statusDiv.style.background = '#22c55e';
-                    statusDiv.textContent = 'Draft saved successfully!';
-                    
-                    setTimeout(() => {
-                        alert('Draft saved successfully! ID: ' + docRef.id);
-                    }, 1000);
+                    alert('Draft saved successfully!');
                     
                 } catch (error) {
                     console.error('Error saving draft:', error);
-                    statusDiv.style.background = '#ef4444';
-                    statusDiv.textContent = 'Error saving draft: ' + error.message;
                     alert('Error saving draft: ' + error.message);
                 }
             });

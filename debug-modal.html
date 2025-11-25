@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Debug Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        h1 {
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+            color: #1e40af;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .debug-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+        }
+        
+        .btn-success {
+            background: #10b981;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        
+        .success {
+            background: #d1fae5;
+            color: #047857;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        pre {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Modal Debug Tool</h1>
+        
+        <div class="debug-section">
+            <h2>Test Modal Display</h2>
+            <p>This tool helps you test if modal dialogs are working correctly. Click the buttons below to test different modal implementations.</p>
+            
+            <div class="button-row">
+                <button class="btn" onclick="showStandardModal()">Standard Modal</button>
+                <button class="btn" onclick="showCustomModal()">Custom Modal</button>
+                <button class="btn btn-secondary" onclick="checkModalStyles()">Check Modal Styles</button>
+            </div>
+            
+            <div id="status" class="status"></div>
+        </div>
+        
+        <div class="debug-section">
+            <h2>Firebase Item Details</h2>
+            <p>Enter an item ID to fetch details from Firestore</p>
+            
+            <div class="button-row">
+                <input type="text" id="itemId" placeholder="Enter item ID" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; flex-grow: 1;">
+                <button class="btn btn-success" onclick="fetchItemDetails()">Fetch Item</button>
+            </div>
+            
+            <pre id="itemDetails">No item fetched yet</pre>
+        </div>
+        
+        <div class="debug-section">
+            <h2>Modal Event Test</h2>
+            <p>Test various event binding methods to see which ones work</p>
+            
+            <div class="button-row">
+                <button id="htmlOnClickBtn" onclick="document.getElementById('testModal1').style.display='block'">HTML onClick</button>
+                <button id="jsPropertyBtn">JS Property onClick</button>
+                <button id="addEventListenerBtn">addEventListener</button>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h2>Document Structure</h2>
+            <button class="btn" onclick="analyzeDOM()">Analyze DOM Structure</button>
+            <pre id="domAnalysis">Click to analyze the DOM</pre>
+        </div>
+    </div>
+    
+    <!-- Standard Modal -->
+    <div id="standardModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Standard Modal</h2>
+            <p>This is a standard modal dialog that uses basic CSS to display over the page content.</p>
+            <button class="btn" onclick="document.getElementById('standardModal').style.display='none'">Close</button>
+        </div>
+    </div>
+    
+    <!-- Custom Modal -->
+    <div id="customModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Custom Modal</h2>
+            <p>This is a custom modal dialog with different styling and event handlers.</p>
+            <div class="button-row">
+                <button class="btn btn-success">Accept</button>
+                <button class="btn btn-danger">Reject</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Test Modals -->
+    <div id="testModal1" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('testModal1').style.display='none'">&times;</span>
+            <h2>HTML onClick Modal</h2>
+            <p>This modal was opened using inline HTML onclick attribute.</p>
+        </div>
+    </div>
+    
+    <div id="testModal2" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>JS Property Modal</h2>
+            <p>This modal was opened using JavaScript property assignment (element.onclick).</p>
+        </div>
+    </div>
+    
+    <div id="testModal3" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>addEventListener Modal</h2>
+            <p>This modal was opened using addEventListener method.</p>
+        </div>
+    </div>
+    
+    <!-- Firebase scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+            authDomain: "lafsys.firebaseapp.com",
+            projectId: "lafsys",
+            storageBucket: "lafsys.appspot.com",
+            messagingSenderId: "103945210522",
+            appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+            measurementId: "G-EJ2X0PTDNH"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // Modal functions
+        function showStandardModal() {
+            document.getElementById('standardModal').style.display = 'block';
+            updateStatus('Standard modal displayed', 'success');
+        }
+        
+        function showCustomModal() {
+            document.getElementById('customModal').style.display = 'block';
+            updateStatus('Custom modal displayed', 'success');
+        }
+        
+        function checkModalStyles() {
+            const modal = document.getElementById('standardModal');
+            const computedStyle = window.getComputedStyle(modal);
+            
+            const styleInfo = {
+                display: computedStyle.display,
+                position: computedStyle.position,
+                zIndex: computedStyle.zIndex,
+                backgroundColor: computedStyle.backgroundColor
+            };
+            
+            updateStatus('Modal style properties: ' + JSON.stringify(styleInfo, null, 2), 'success');
+        }
+        
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+        
+        // Firebase function
+        async function fetchItemDetails() {
+            const itemId = document.getElementById('itemId').value;
+            const output = document.getElementById('itemDetails');
+            
+            if (!itemId) {
+                output.textContent = 'Please enter an item ID';
+                return;
+            }
+            
+            output.textContent = 'Fetching item details...';
+            
+            try {
+                const docRef = db.collection('items').doc(itemId);
+                const doc = await docRef.get();
+                
+                if (doc.exists) {
+                    output.textContent = JSON.stringify(doc.data(), null, 2);
+                } else {
+                    output.textContent = 'No item found with ID: ' + itemId;
+                }
+            } catch (error) {
+                output.textContent = 'Error fetching item: ' + error.message;
+            }
+        }
+        
+        // DOM analysis function
+        function analyzeDOM() {
+            const output = document.getElementById('domAnalysis');
+            
+            try {
+                const modals = document.querySelectorAll('.modal');
+                let analysis = {
+                    modals: {
+                        count: modals.length,
+                        details: []
+                    },
+                    buttons: {
+                        withOnClick: document.querySelectorAll('[onclick]').length,
+                        withId: document.querySelectorAll('button[id]').length
+                    }
+                };
+                
+                modals.forEach((modal, index) => {
+                    analysis.modals.details.push({
+                        id: modal.id || `modal-${index}`,
+                        visible: modal.style.display === 'block',
+                        hasCloseButton: modal.querySelector('.close') !== null
+                    });
+                });
+                
+                output.textContent = JSON.stringify(analysis, null, 2);
+            } catch (error) {
+                output.textContent = 'Error analyzing DOM: ' + error.message;
+            }
+        }
+        
+        // Setup event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Close buttons for all modals
+            const closeButtons = document.querySelectorAll('.close');
+            closeButtons.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const modal = btn.closest('.modal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Close modals when clicking outside
+            window.addEventListener('click', function(event) {
+                document.querySelectorAll('.modal').forEach(function(modal) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Set up test buttons
+            document.getElementById('jsPropertyBtn').onclick = function() {
+                document.getElementById('testModal2').style.display = 'block';
+            };
+            
+            document.getElementById('addEventListenerBtn').addEventListener('click', function() {
+                document.getElementById('testModal3').style.display = 'block';
+            });
+        });
+    </script>
+</body>
+</html>

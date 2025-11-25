@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase CORS Workaround</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 10px;
+            color: #1e40af;
+        }
+        .container {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .btn {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .btn:hover {
+            background-color: #1d4ed8;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .info {
+            background-color: #e0f2fe;
+            color: #075985;
+        }
+        pre {
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Firebase CORS Workaround Tool</h1>
+    
+    <div class="container">
+        <h2>Step 1: Update Firebase Rules</h2>
+        <p>First, update your Firebase Storage and Firestore rules directly in the Firebase Console:</p>
+        
+        <h3>Storage Rules</h3>
+        <pre>
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;  // Temporary for development
+    }
+  }
+}
+        </pre>
+        
+        <h3>Firestore Rules</h3>
+        <pre>
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;  // Temporary for development
+    }
+  }
+}
+        </pre>
+        
+        <a href="https://console.firebase.google.com/project/lafsys/" class="btn" target="_blank">Open Firebase Console</a>
+    </div>
+    
+    <div class="container">
+        <h2>Step 2: Test Firebase Connection</h2>
+        <p>Click the button below to test your Firebase connection and verify your rules are working:</p>
+        
+        <button id="testConnectionBtn" class="btn">Test Firebase Connection</button>
+        <div id="connectionStatus" class="status info">Ready to test</div>
+    </div>
+    
+    <div class="container">
+        <h2>Step 3: Test File Upload</h2>
+        <p>Upload a test file to Firebase Storage to check if CORS is configured correctly:</p>
+        
+        <input type="file" id="testFile" accept="image/*">
+        <button id="uploadBtn" class="btn">Upload Test File</button>
+        <div id="uploadStatus" class="status info">Select a file to upload</div>
+    </div>
+    
+    <div class="container">
+        <h2>Step 4: Test Database Write</h2>
+        <p>Test writing a document to Firestore:</p>
+        
+        <textarea id="testData" placeholder="{ &quot;name&quot;: &quot;Test Item&quot;, &quot;description&quot;: &quot;This is a test&quot; }"></textarea>
+        <button id="writeBtn" class="btn">Write Test Document</button>
+        <div id="writeStatus" class="status info">Ready to write</div>
+    </div>
+
+    <!-- Firebase CDN Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+            authDomain: "lafsys.firebaseapp.com",
+            projectId: "lafsys",
+            storageBucket: "lafsys.appspot.com",
+            messagingSenderId: "103945210522",
+            appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+            measurementId: "G-EJ2X0PTDNH"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // Get Firebase services
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        
+        // Test Connection
+        document.getElementById('testConnectionBtn').addEventListener('click', async function() {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Testing connection...';
+            
+            try {
+                // Test Firestore connection
+                await db.collection('test').doc('connection-test').set({
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    message: 'Connection test'
+                });
+                
+                // Test Storage connection
+                const storageRef = storage.ref('test/connection-test.txt');
+                const testBlob = new Blob(['Test content'], { type: 'text/plain' });
+                await storageRef.put(testBlob);
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✓ Connection successful! Your Firebase is working correctly.';
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ Connection error: ' + error.message;
+                console.error('Firebase connection test error:', error);
+            }
+        });
+        
+        // Test Upload
+        document.getElementById('uploadBtn').addEventListener('click', async function() {
+            const fileInput = document.getElementById('testFile');
+            const statusDiv = document.getElementById('uploadStatus');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Please select a file first';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Uploading file...';
+            
+            try {
+                const fileName = `test-uploads/${Date.now()}_${file.name}`;
+                const storageRef = storage.ref(fileName);
+                
+                const metadata = {
+                    contentType: file.type,
+                    customMetadata: {
+                        'origin': window.location.origin
+                    }
+                };
+                
+                const uploadTask = await storageRef.put(file, metadata);
+                const downloadURL = await storageRef.getDownloadURL();
+                
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `✓ File uploaded successfully!<br>URL: <a href="${downloadURL}" target="_blank">${downloadURL}</a>`;
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ Upload error: ' + error.message;
+                console.error('File upload error:', error);
+            }
+        });
+        
+        // Test Write
+        document.getElementById('writeBtn').addEventListener('click', async function() {
+            const dataTextarea = document.getElementById('testData');
+            const statusDiv = document.getElementById('writeStatus');
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Writing to database...';
+            
+            try {
+                let data = {};
+                
+                try {
+                    data = JSON.parse(dataTextarea.value || '{}');
+                } catch (parseError) {
+                    throw new Error('Invalid JSON format: ' + parseError.message);
+                }
+                
+                // Add timestamp
+                data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                
+                const docRef = await db.collection('test-items').add(data);
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✓ Document written successfully! Document ID: ${docRef.id}`;
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ Write error: ' + error.message;
+                console.error('Database write error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
