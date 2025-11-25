@@ -128,39 +128,95 @@
   function renderAllItems(){
     const container = document.getElementById('allItemsContainer');
     if (!container) return;
-    const items = (window.DataStore?.getItemsSync?.() || []);
-    if (!items.length) { container.innerHTML = '<div class="table-row"><div>No items found.</div></div>'; return; }
+    
+    // Show loading state
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading items...</div></div>';
+    
+    // Check if we have Firebase-enabled DataStore
+    if (window.DataStore?.getItemsAsync) {
+      // Use async version
+      window.DataStore.getItemsAsync().then(items => {
+        displayItems(items, container);
+      }).catch(err => {
+        console.error('Error loading items:', err);
+        container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Error loading items</div></div>';
+      });
+    } else {
+      // Fall back to old method
+      const items = (window.DataStore?.getItemsSync?.() || []);
+      displayItems(items, container);
+    }
+  }
+  
+  // Helper to display items
+  function displayItems(items, container) {
+    if (!items.length) { 
+      container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No items found.</div></div>'; 
+      return; 
+    }
+    
     container.innerHTML = items.map(item => `
       <div class="table-row" data-id="${item.id}">
         <div class="item-info">
-          <img src="${item.image}" alt="${item.title}" class="item-image">
+          <img src="${item.image}" alt="${item.title}" class="item-image" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
           <div>
             <div class="item-name">${item.title}</div>
             <div class="item-category">${item.category || ''}</div>
           </div>
         </div>
-        <div>${item.location}</div>
+        <div>${item.location || ''}</div>
         <div>${formatDate(item.date)}</div>
         <div>${statusBadge(item.status)}</div>
         <div class="action-buttons">
           <button class="btn-icon" title="Edit" data-action="edit"><i data-lucide="edit-2" width="16" height="16"></i></button>
           <button class="btn-icon delete" title="Delete" data-action="delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
+          <button class="btn-icon" title="View" data-action="view"><i data-lucide="eye" width="16" height="16"></i></button>
         </div>
       </div>
     `).join('');
+    
     if (window.lucide?.createIcons) lucide.createIcons();
+    
     container.querySelectorAll('.btn-icon').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const row = btn.closest('.table-row');
+        const id = row?.dataset?.id;
         const action = btn.getAttribute('data-action');
+        
         if (action === 'delete') {
-          row.style.opacity = '0.5';
-          row.style.pointerEvents = 'none';
-          setTimeout(()=>{ row.style.display = 'none'; }, 200);
+          if (confirm('Are you sure you want to delete this item?')) {
+            row.style.opacity = '0.5';
+            row.style.pointerEvents = 'none';
+            
+            try {
+              // Try to delete from Firebase if available
+              if (window.firebase?.firestore) {
+                await firebase.firestore().collection('items').doc(id).delete();
+                console.log('Item deleted from Firebase:', id);
+              }
+            } catch (error) {
+              console.error('Error deleting item:', error);
+            }
+            
+            setTimeout(()=>{ row.style.display = 'none'; }, 200);
+          }
+        } else if (action === 'edit') {
+          window.location.href = 'add-item.html?edit=true&id=' + id;
+        } else if (action === 'view') {
+          window.location.href = 'item-details.html?id=' + id;
         }
-        if (action === 'edit') window.location.href = 'add-item.html?edit=true&id=' + row.dataset.id;
       });
+    });
+    
+    // Make rows clickable to view details
+    container.querySelectorAll('.table-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (!e.target.closest('.btn-icon')) {
+          window.location.href = 'item-details.html?id=' + row.dataset.id;
+        }
+      });
+      row.style.cursor = 'pointer';
     });
   }
 
@@ -173,17 +229,45 @@
   function renderRecentItems(){
     const container = document.getElementById('recentItemsContainer');
     if (!container) return;
-    const items = (window.DataStore?.getItemsSync?.() || []).slice(0, 10);
+    
+    // Show loading state
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading recent items...</div></div>';
+    
+    // Check if we have Firebase-enabled DataStore
+    if (window.DataStore?.getItemsAsync) {
+      // Use async version
+      window.DataStore.getItemsAsync().then(items => {
+        // Take the first 10 items
+        const recentItems = items.slice(0, 10);
+        displayRecentItems(recentItems, container);
+      }).catch(err => {
+        console.error('Error loading recent items:', err);
+        container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Error loading items</div></div>';
+      });
+    } else {
+      // Fall back to old method
+      const items = (window.DataStore?.getItemsSync?.() || []).slice(0, 10);
+      displayRecentItems(items, container);
+    }
+  }
+  
+  // Helper to display recent items
+  function displayRecentItems(items, container) {
+    if (!items.length) { 
+      container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No items found.</div></div>'; 
+      return; 
+    }
+    
     container.innerHTML = items.map(item => `
       <div class="table-row" data-id="${item.id}">
         <div class="item-info">
-          <img src="${item.image}" alt="${item.title}" class="item-image">
+          <img src="${item.image}" alt="${item.title}" class="item-image" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
           <div>
             <div class="item-name">${item.title}</div>
             <div class="item-category">${item.category || ''}</div>
           </div>
         </div>
-        <div>${item.location}</div>
+        <div>${item.location || ''}</div>
         <div>${formatDate(item.date)}</div>
         <div>${statusBadge(item.status)}</div>
         <div class="action-buttons">
@@ -193,6 +277,9 @@
           <button class="btn-icon delete" title="Delete" data-action="delete">
             <i data-lucide="trash-2" width="16" height="16"></i>
           </button>
+          <button class="btn-icon" title="View" data-action="view">
+            <i data-lucide="eye" width="16" height="16"></i>
+          </button>
         </div>
       </div>
     `).join('');
@@ -200,26 +287,80 @@
     // Re-init icons
     if (window.lucide?.createIcons) lucide.createIcons();
 
-    // Wire actions (UI only)
+    // Wire actions
     container.querySelectorAll('.btn-icon').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const row = btn.closest('.table-row');
+        const id = row?.dataset?.id;
         const action = btn.getAttribute('data-action');
+        
         if (action === 'delete') {
-          row.style.opacity = '0.5';
-          row.style.pointerEvents = 'none';
-          setTimeout(()=>{ row.style.display = 'none'; }, 200);
-        }
-        if (action === 'edit') {
-          window.location.href = 'add-item.html?edit=true&id=' + row.dataset.id;
+          if (confirm('Are you sure you want to delete this item?')) {
+            row.style.opacity = '0.5';
+            row.style.pointerEvents = 'none';
+            
+            try {
+              // Try to delete from Firebase if available
+              if (window.firebase?.firestore) {
+                await firebase.firestore().collection('items').doc(id).delete();
+                console.log('Item deleted from Firebase:', id);
+              }
+            } catch (error) {
+              console.error('Error deleting item:', error);
+            }
+            
+            setTimeout(()=>{ row.style.display = 'none'; }, 200);
+          }
+        } else if (action === 'edit') {
+          window.location.href = 'add-item.html?edit=true&id=' + id;
+        } else if (action === 'view') {
+          window.location.href = 'item-details.html?id=' + id;
         }
       });
+    });
+    
+    // Make rows clickable to view details
+    container.querySelectorAll('.table-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (!e.target.closest('.btn-icon')) {
+          window.location.href = 'item-details.html?id=' + row.dataset.id;
+        }
+      });
+      row.style.cursor = 'pointer';
     });
   }
 
   function renderStats(){
-    const items = window.DataStore?.getItemsSync?.() || [];
+    // Show loading state
+    const byId = id => document.getElementById(id);
+    const safe = (id, v) => { const el = byId(id); if (el) el.textContent = String(v); };
+    
+    safe('statTotalItems', '...');
+    safe('statClaimed', '...');
+    safe('statSoon', '...');
+    safe('statPending', '...');
+    
+    // Check if we have Firebase-enabled DataStore
+    if (window.DataStore?.getItemsAsync) {
+      // Use async version
+      window.DataStore.getItemsAsync().then(items => {
+        updateStats(items);
+      }).catch(err => {
+        console.error('Error loading items for stats:', err);
+        // Fall back to sync method
+        const items = window.DataStore?.getItemsSync?.() || [];
+        updateStats(items);
+      });
+    } else {
+      // Fall back to old method
+      const items = window.DataStore?.getItemsSync?.() || [];
+      updateStats(items);
+    }
+  }
+  
+  // Helper to update stats
+  function updateStats(items) {
     const total = items.length;
     const claimed = items.filter(i => i.status === 'claimed').length;
     const soon = items.filter(i => i.status === 'soon').length;
