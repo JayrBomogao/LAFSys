@@ -169,6 +169,14 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
             overflow: auto;
+            visibility: visible !important; /* Force visibility */
+            opacity: 1 !important; /* Force opacity */
+        }
+        
+        /* Force modal display when active */
+        .modal[style*="display: block"] {
+            visibility: visible !important;
+            opacity: 1 !important;
         }
         
         .modal-content {
@@ -271,15 +279,47 @@
                 </div>
                 
                 <div class="actions">
-                    <button id="claim-btn" class="btn btn-primary" onclick="document.getElementById('claim-modal').style.display='block';">
+                    <button id="claim-btn" class="btn btn-primary" style="margin-right: 10px;" onclick="window.forceShowModal('claim-modal')">
                         <i data-lucide="check-circle"></i>
                         Claim This Item
                     </button>
-                    <button id="contact-btn" class="btn btn-outline" onclick="document.getElementById('contact-modal').style.display='block';">
+                    <button id="contact-btn" class="btn btn-outline" onclick="window.forceShowModal('contact-modal')">
                         <i data-lucide="message-circle"></i>
-                        Contact Staff
+                        Chat with Staff
                     </button>
                 </div>
+                
+                <!-- Firebase integration for buttons -->
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    console.log('Setting up modal buttons with Firebase integration');
+                    
+                    // Claim Button
+                    const claimBtn = document.getElementById('claim-btn');
+                    if (claimBtn) {
+                        claimBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            console.log('Claim button clicked');
+                            document.getElementById('claim-modal').style.display = 'block';
+                        });
+                    }
+                    
+                    // Chat Button
+                    const contactBtn = document.getElementById('contact-btn');
+                    if (contactBtn) {
+                        contactBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            console.log('Chat button clicked');
+                            document.getElementById('contact-modal').style.display = 'block';
+                            
+                            setTimeout(function() {
+                                const chatInput = document.getElementById('chat-input');
+                                if (chatInput) chatInput.focus();
+                            }, 300);
+                        });
+                    }
+                });
+                </script>
             </div>
         </div>
     </div>
@@ -287,7 +327,7 @@
     <!-- Claim Modal -->
     <div id="claim-modal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('claim-modal').style.display='none';">&times;</span>
             <h2>Submit Claim</h2>
             <form id="claim-form">
                 <div class="form-group">
@@ -314,7 +354,7 @@
     <!-- Chat Modal -->
     <div id="contact-modal" class="modal">
         <div class="modal-content chat-modal">
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('contact-modal').style.display='none';">&times;</span>
             <h2>Chat with Staff</h2>
             <div class="chat-container">
                 <div class="chat-messages" id="chat-messages">
@@ -438,14 +478,21 @@
     </style>
     
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="js/icon-fix.js"></script>
-    <script src="js/modal-fix.js"></script>
-    
+
     <!-- Firebase CDN Scripts - using version 9.22.2 which supports modular web v9 API -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    
+    <!-- App scripts that depend on Firebase -->
+    <script src="js/icon-fix.js"></script>
+    <script src="js/modal-fix.js"></script>
+    <script src="js/messages.js"></script>
+    <script src="js/firebase-messages.js"></script>
+    <script src="js/firebase-item-details.js"></script>
+    <script src="js/force-modal.js"></script>
+    <script src="js/debug-modal.js"></script>
     
     <script>
         // Firebase configuration
@@ -683,17 +730,42 @@
                     }
                 }
                 
-                // Function to store message in Firebase
+                // Function to store message in Firebase using MessagesStore
                 async function storeMessageInFirebase(text) {
                     try {
+                        // Get item and user info
                         const itemId = document.getElementById('contact-btn').dataset.itemId;
-                        await db.collection('messages').add({
-                            itemId: itemId,
-                            message: text,
-                            sender: 'user',
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log('Message stored in Firebase');
+                        const item = await db.collection('items').doc(itemId).get();
+                        const itemData = item.exists ? item.data() : {};
+                        const itemTitle = itemData.title || 'Unknown item';
+                        
+                        // Store user data in session storage to be remembered
+                        let userName = sessionStorage.getItem('userName') || 'Visitor';
+                        let userEmail = sessionStorage.getItem('userEmail') || `visitor_${Date.now()}@example.com`;
+                        
+                        // If we have window.MessagesStore with sendAsync, use that
+                        if (window.MessagesStore?.sendAsync) {
+                            await window.MessagesStore.sendAsync(userEmail, userName, text, userEmail);
+                            console.log('Message sent via MessagesStore');
+                            
+                            // Send admin notification with item details
+                            const adminMsg = `User asking about item: ${itemTitle} (ID: ${itemId})`;
+                            setTimeout(() => {
+                                window.MessagesStore.sendAsync(userEmail, 'System', adminMsg, 'admin@lafsys.gov');
+                            }, 500);
+                        } else {
+                            // Legacy direct Firebase access
+                            await db.collection('messages').add({
+                                itemId: itemId,
+                                from: userName,
+                                email: userEmail,
+                                subject: `Question about ${itemTitle}`,
+                                body: text,
+                                date: new Date().toISOString(),
+                                unread: true
+                            });
+                            console.log('Message stored directly in Firebase');
+                        }
                         
                         // Simulate staff response
                         setTimeout(() => {
@@ -730,5 +802,63 @@
             }
         }
     </script>
+<script>
+// Extra script to make sure modals work
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Final modal fix script loaded');
+    
+    // Make sure claim button works
+    document.getElementById('claim-btn').onclick = function() {
+        console.log('Claim button clicked (final handler)');
+        document.getElementById('claim-modal').style.display = 'block';
+    };
+    
+    // Make sure contact button works
+    document.getElementById('contact-btn').onclick = function() {
+        console.log('Contact button clicked (final handler)');
+        document.getElementById('contact-modal').style.display = 'block';
+        
+        // Focus the input field
+        setTimeout(function() {
+            var chatInput = document.getElementById('chat-input');
+            if (chatInput) chatInput.focus();
+        }, 300);
+    };
+    
+    // Global functions for inline onclick attributes
+    window.showClaimModal = function() {
+        console.log('Global showClaimModal called');
+        document.getElementById('claim-modal').style.display = 'block';
+    };
+    
+    window.showChatModal = function() {
+        console.log('Global showChatModal called');
+        document.getElementById('contact-modal').style.display = 'block';
+        setTimeout(function() {
+            var chatInput = document.getElementById('chat-input');
+            if (chatInput) chatInput.focus();
+        }, 300);
+    };
+    
+    // Fix all close buttons
+    var closeButtons = document.querySelectorAll('.modal .close');
+    closeButtons.forEach(function(btn) {
+        btn.onclick = function() {
+            var modal = this.closest('.modal');
+            if (modal) modal.style.display = 'none';
+        };
+    });
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        var modals = document.querySelectorAll('.modal');
+        modals.forEach(function(modal) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    };
+});
+</script>
 </body>
 </html>

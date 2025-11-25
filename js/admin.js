@@ -9,14 +9,42 @@
   function renderInbox(){
     const container = document.getElementById('inboxContainer');
     if (!container) return;
-    const msgs = (window.MessagesStore?.getAll?.() || []);
-    if (!msgs.length) { container.innerHTML = '<div class="table-row"><div>No messages.</div></div>'; return; }
-    container.innerHTML = msgs.map(m => `
+    
+    // Show loading state
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading messages...</div></div>';
+    
+    // Check if we have Firebase-enabled MessagesStore
+    if (window.MessagesStore?.getAllAsync) {
+      // Use async version
+      window.MessagesStore.getAllAsync().then(msgs => {
+        displayInboxMessages(msgs, container);
+      }).catch(err => {
+        console.error('Error loading messages:', err);
+        container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Error loading messages</div></div>';
+      });
+    } else {
+      // Fall back to old method
+      const msgs = (window.MessagesStore?.getAll?.() || []);
+      displayInboxMessages(msgs, container);
+    }
+  }
+  
+  // Helper to display inbox messages
+  function displayInboxMessages(msgs, container) {
+    if (!msgs.length) { 
+      container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No messages.</div></div>'; 
+      return; 
+    }
+    
+    container.innerHTML = msgs.map(m => {
+      const unreadBadge = m.unread ? '<span style="margin-left:8px; background:#3b82f6; color:white; border-radius:9999px; font-size:0.7rem; padding:2px 8px;">New</span>' : '';
+      
+      return `
       <div class="table-row" style="grid-template-columns: 2fr 3fr 1fr 140px;" data-id="${m.id}">
         <div class="item-info">
           <img src="https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(m.from)}" alt="${m.from}" class="item-image" style="border-radius:50%; width:36px; height:36px;">
           <div>
-            <div class="item-name">${m.from}</div>
+            <div class="item-name">${m.from}${unreadBadge}</div>
             <div class="item-category" style="text-transform: none;">${m.email || ''}</div>
           </div>
         </div>
@@ -27,28 +55,71 @@
           <button class="btn-icon delete" title="Delete" data-action="delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
         </div>
       </div>
-    `).join('');
+    `}).join('');
+    
     if (window.lucide?.createIcons) lucide.createIcons();
+    
     // Row click navigates to chat
     container.querySelectorAll('.table-row').forEach(row => {
-      row.addEventListener('click', ()=>{
-        const id = Number(row?.dataset?.id);
-        const msg = (window.MessagesStore?.getAll?.() || []).find(x=>x.id===id);
-        if (msg) window.location.href = `chat.html?email=${encodeURIComponent(msg.email||'')}&name=${encodeURIComponent(msg.from||'')}`;
+      row.addEventListener('click', async ()=>{
+        const id = row?.dataset?.id;
+        
+        // Try to mark as read if Firebase-enabled
+        if (window.MessagesStore?.markAsReadAsync) {
+          try {
+            await window.MessagesStore.markAsReadAsync(id);
+          } catch (err) {
+            console.error('Error marking message as read:', err);
+          }
+        }
+        
+        // Find the message in current list
+        let msg;
+        if (window.MessagesStore?.getAllAsync) {
+          // Get fresh data from Firebase
+          const msgs = await window.MessagesStore.getAllAsync();
+          msg = msgs.find(m => m.id === id);
+        } else {
+          // Use local data
+          msg = (window.MessagesStore?.getAll?.() || []).find(m => m.id === id);
+        }
+        
+        if (msg) {
+          window.location.href = `chat.html?email=${encodeURIComponent(msg.email||'')}&name=${encodeURIComponent(msg.from||'')}`;
+        }
       });
     });
+    
     container.querySelectorAll('.btn-icon').forEach(btn => {
-      btn.addEventListener('click', (e)=>{
+      btn.addEventListener('click', async (e)=>{
         e.stopPropagation();
         const row = btn.closest('.table-row');
-        const id = Number(row?.dataset?.id);
+        const id = row?.dataset?.id;
         const action = btn.getAttribute('data-action');
+        
         if (action === 'open'){
-          const msg = (window.MessagesStore?.getAll?.() || []).find(x=>x.id===id);
-          if (msg) window.location.href = `chat.html?email=${encodeURIComponent(msg.email||'')}&name=${encodeURIComponent(msg.from||'')}`;
+          let msg;
+          if (window.MessagesStore?.getAllAsync) {
+            // Get fresh data from Firebase
+            const msgs = await window.MessagesStore.getAllAsync();
+            msg = msgs.find(m => m.id === id);
+          } else {
+            // Use local data
+            msg = (window.MessagesStore?.getAll?.() || []).find(m => m.id === id);
+          }
+          
+          if (msg) {
+            if (window.MessagesStore?.markAsReadAsync) {
+              await window.MessagesStore.markAsReadAsync(id);
+            }
+            window.location.href = `chat.html?email=${encodeURIComponent(msg.email||'')}&name=${encodeURIComponent(msg.from||'')}`;
+          }
         }
+        
         if (action === 'delete'){
-          window.MessagesStore?.remove?.(id);
+          if (confirm('Are you sure you want to delete this message?')) {
+            window.MessagesStore?.remove?.(id);
+          }
         }
       });
     });
@@ -221,9 +292,39 @@
     wireSidebar();
     renderStats();
     renderRecentItems();
+    
     // Update dashboard when items change
-    window.addEventListener('itemsUpdated', () => { renderStats(); renderRecentItems(); renderAllItems(); });
-    window.addEventListener('messagesUpdated', () => { renderInbox(); });
+    window.addEventListener('itemsUpdated', () => { 
+      renderStats(); 
+      renderRecentItems(); 
+      renderAllItems(); 
+    });
+    
+    // Legacy message events
+    window.addEventListener('messagesUpdated', () => { 
+      renderInbox(); 
+    });
+    
+    // Firebase message events
+    window.addEventListener('messagesLoaded', () => { 
+      renderInbox(); 
+    });
+    
+    window.addEventListener('messageAdded', () => { 
+      renderInbox(); 
+    });
+    
+    window.addEventListener('messageModified', () => { 
+      renderInbox(); 
+    });
+    
+    window.addEventListener('messageRemoved', () => { 
+      renderInbox(); 
+    });
+    
+    window.addEventListener('messagesChanged', () => { 
+      renderInbox(); 
+    });
   }
 
   document.addEventListener('DOMContentLoaded', init);

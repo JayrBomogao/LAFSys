@@ -43,7 +43,67 @@
     </div>
   </div>
   <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  
+  <!-- App Scripts -->
   <script src="js/messages.js"></script>
+  <script src="js/firebase-messages.js"></script>
   <script src="js/chat.js"></script>
+  
+  <script>
+    // Add real-time updates
+    document.addEventListener('DOMContentLoaded', function() {
+      const email = new URLSearchParams(window.location.search).get('email');
+      if (email) {
+        // Set up real-time listener for this thread
+        const db = firebase.firestore();
+        db.collection('threads').doc(email)
+          .onSnapshot(function(doc) {
+            if (doc.exists) {
+              const data = doc.data();
+              if (data.messages && Array.isArray(data.messages)) {
+                // Update chat UI
+                renderThread(email);
+              }
+            }
+          }, function(error) {
+            console.error("Error listening to thread:", error);
+          });
+      }
+      
+      // Helper function to re-render thread
+      function renderThread(email) {
+        const box = document.getElementById('chatThread');
+        if (!box) return;
+        
+        // Use async version if available
+        if (window.MessagesStore?.getThreadAsync) {
+          window.MessagesStore.getThreadAsync(email).then(thread => {
+            if (!thread || !thread.length) return;
+            
+            box.innerHTML = thread.map(m => {
+              const me = m.sender === 'admin@lafsys.gov';
+              const avatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(m.name || (me?'Admin':'User'))}`;
+              const dt = new Date(m.date).toLocaleString();
+              return `
+                <div class="msg ${me ? 'me' : ''}">
+                  <img class="avatar" alt="" src="${avatar}">
+                  <div class="bubble">
+                    <div style="font-weight:600; font-size:.9rem; margin-bottom:.15rem;">${m.name || (me?'Admin':'User')}</div>
+                    <div style="white-space:pre-wrap;">${m.body}</div>
+                    <div style="font-size:.75rem; color:#64748b; margin-top:.25rem;">${dt}</div>
+                  </div>
+                </div>`;
+            }).join('');
+            
+            box.scrollTop = box.scrollHeight;
+          });
+        }
+      }
+    });
+  </script>
 </body>
 </html>

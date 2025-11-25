@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inbox - Lost & Found Baguio</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .inbox-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .inbox-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .inbox-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .inbox-controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        .inbox-search {
+            display: flex;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+        
+        .inbox-search input {
+            border: none;
+            padding: 0.5rem 0.75rem;
+            outline: none;
+            min-width: 250px;
+        }
+        
+        .inbox-search button {
+            background: #f8fafc;
+            border: none;
+            border-left: 1px solid #e2e8f0;
+            padding: 0 0.75rem;
+            cursor: pointer;
+            color: #64748b;
+        }
+        
+        .inbox-list {
+            background: white;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .inbox-item {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.2s;
+            cursor: pointer;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .inbox-item:hover {
+            background-color: #f8fafc;
+        }
+        
+        .inbox-item.unread {
+            background-color: #f0f9ff;
+        }
+        
+        .inbox-item.unread:hover {
+            background-color: #e0f2fe;
+        }
+        
+        .inbox-item.active {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .inbox-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #e2e8f0;
+            overflow: hidden;
+        }
+        
+        .inbox-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .inbox-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            overflow: hidden;
+        }
+        
+        .inbox-sender {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .inbox-subject {
+            font-size: 0.875rem;
+            color: #334155;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .inbox-preview {
+            font-size: 0.75rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .inbox-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
+            min-width: 100px;
+        }
+        
+        .inbox-date {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        
+        .inbox-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .inbox-action {
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            color: #64748b;
+            transition: background-color 0.2s;
+        }
+        
+        .inbox-action:hover {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+        
+        .inbox-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.5rem;
+            height: 1.5rem;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0 0.375rem;
+        }
+        
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: #64748b;
+        }
+        
+        .empty-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 4rem;
+            height: 4rem;
+            background-color: #f1f5f9;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-text {
+            font-size: 1.125rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .empty-subtext {
+            color: #94a3b8;
+        }
+        
+        .loading-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(203, 213, 225, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 2rem;
+            height: 2rem;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+        }
+        
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        
+        @media (max-width: 768px) {
+            .inbox-item {
+                grid-template-columns: auto 1fr;
+            }
+            
+            .inbox-meta {
+                grid-column: 1 / -1;
+                flex-direction: row;
+                justify-content: space-between;
+                padding-left: 50px;
+            }
+            
+            .inbox-search input {
+                min-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="inbox-container">
+        <div class="inbox-header">
+            <a href="admin.html" class="back-link">
+                <i data-lucide="arrow-left"></i>
+                Back to Admin
+            </a>
+            <div class="inbox-title">Inbox</div>
+            <div class="inbox-controls">
+                <div class="inbox-search">
+                    <input type="text" id="searchInput" placeholder="Search messages...">
+                    <button id="searchBtn">
+                        <i data-lucide="search" width="16" height="16"></i>
+                    </button>
+                </div>
+                <button class="btn btn-secondary" id="refreshBtn">
+                    <i data-lucide="refresh-cw" width="16" height="16"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+        
+        <div class="inbox-list" id="inboxList">
+            <!-- Loading state will show initially -->
+            <div class="loading-state" id="loadingState">
+                <div class="spinner"></div>
+            </div>
+            
+            <!-- Empty state will show when no messages -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon">
+                    <i data-lucide="inbox" width="32" height="32"></i>
+                </div>
+                <div class="empty-text">No messages</div>
+                <div class="empty-subtext">Your inbox is empty</div>
+            </div>
+            
+            <!-- Messages will be added here dynamically -->
+        </div>
+    </div>
+    
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    
+    <!-- Other Scripts -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="js/messages.js"></script>
+    <script src="js/firebase-messages.js"></script>
+    
+    <script>
+        // Initialize Lucide icons
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+            
+            // Get elements
+            const inboxList = document.getElementById('inboxList');
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
+            
+            // Format date helper
+            function formatDate(dateString) {
+                const date = new Date(dateString);
+                const now = new Date();
+                
+                if (date.toDateString() === now.toDateString()) {
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else if (date.getFullYear() === now.getFullYear()) {
+                    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                } else {
+                    return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+                }
+            }
+            
+            // Render inbox items
+            function renderInboxItems(messages) {
+                if (!messages || messages.length === 0) {
+                    loadingState.style.display = 'none';
+                    emptyState.style.display = 'flex';
+                    return;
+                }
+                
+                loadingState.style.display = 'none';
+                emptyState.style.display = 'none';
+                
+                // Clear existing items (except loading and empty states)
+                const existingItems = inboxList.querySelectorAll('.inbox-item');
+                existingItems.forEach(item => item.remove());
+                
+                // Add messages
+                messages.forEach(message => {
+                    const itemEl = document.createElement('div');
+                    itemEl.className = `inbox-item${message.unread ? ' unread' : ''}`;
+                    itemEl.dataset.id = message.id;
+                    
+                    const avatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(message.from || 'User')}`;
+                    
+                    itemEl.innerHTML = `
+                        <div class="inbox-avatar">
+                            <img src="${avatar}" alt="${message.from}">
+                        </div>
+                        <div class="inbox-content">
+                            <div class="inbox-sender">${message.from || 'Anonymous'}</div>
+                            <div class="inbox-subject">${message.subject || 'No Subject'}</div>
+                            <div class="inbox-preview">${message.body?.substring(0, 100) || ''}${message.body?.length > 100 ? '...' : ''}</div>
+                        </div>
+                        <div class="inbox-meta">
+                            <div class="inbox-date">${formatDate(message.date)}</div>
+                            <div class="inbox-actions">
+                                <div class="inbox-action" data-action="reply" title="Reply">
+                                    <i data-lucide="reply" width="16" height="16"></i>
+                                </div>
+                                <div class="inbox-action" data-action="delete" title="Delete">
+                                    <i data-lucide="trash-2" width="16" height="16"></i>
+                                </div>
+                                ${message.unread ? '<div class="inbox-badge">New</div>' : ''}
+                            </div>
+                        </div>
+                    `;
+                    
+                    inboxList.appendChild(itemEl);
+                    
+                    // Initialize icons in the newly added element
+                    lucide.createIcons({
+                        icons: {
+                            Reply: 'reply',
+                            Trash2: 'trash-2'
+                        },
+                        attrs: {
+                            width: 16,
+                            height: 16
+                        }
+                    }, itemEl.querySelectorAll('[data-lucide]'));
+                    
+                    // Add event listeners
+                    itemEl.addEventListener('click', function(e) {
+                        const actionEl = e.target.closest('.inbox-action');
+                        if (actionEl) {
+                            const action = actionEl.dataset.action;
+                            e.stopPropagation();
+                            
+                            if (action === 'reply') {
+                                window.location.href = `chat.html?email=${encodeURIComponent(message.email)}&name=${encodeURIComponent(message.from)}`;
+                            } else if (action === 'delete') {
+                                handleDelete(message.id);
+                            }
+                            return;
+                        }
+                        
+                        // Mark as read and open chat
+                        if (message.unread && window.MessagesStore?.markAsReadAsync) {
+                            window.MessagesStore.markAsReadAsync(message.id);
+                        }
+                        
+                        window.location.href = `chat.html?email=${encodeURIComponent(message.email)}&name=${encodeURIComponent(message.from)}`;
+                    });
+                });
+                
+                // Re-initialize Lucide icons
+                lucide.createIcons();
+            }
+            
+            // Handle delete
+            function handleDelete(id) {
+                if (confirm('Are you sure you want to delete this message?')) {
+                    window.MessagesStore.remove(id);
+                }
+            }
+            
+            // Handle search
+            function handleSearch() {
+                const query = searchInput.value.toLowerCase().trim();
+                if (!query) {
+                    loadMessages();
+                    return;
+                }
+                
+                window.MessagesStore.getAllAsync().then(messages => {
+                    const filtered = messages.filter(message => 
+                        message.from?.toLowerCase().includes(query) || 
+                        message.subject?.toLowerCase().includes(query) || 
+                        message.body?.toLowerCase().includes(query) ||
+                        message.email?.toLowerCase().includes(query)
+                    );
+                    renderInboxItems(filtered);
+                });
+            }
+            
+            // Add search event listeners
+            searchBtn.addEventListener('click', handleSearch);
+            searchInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    handleSearch();
+                }
+            });
+            
+            // Refresh button
+            refreshBtn.addEventListener('click', loadMessages);
+            
+            // Listen for message updates
+            window.addEventListener('messagesLoaded', function(e) {
+                renderInboxItems(e.detail.messages);
+            });
+            
+            window.addEventListener('messageAdded', function() {
+                loadMessages();
+            });
+            
+            window.addEventListener('messageRemoved', function() {
+                loadMessages();
+            });
+            
+            window.addEventListener('messageModified', function() {
+                loadMessages();
+            });
+            
+            // Load messages
+            function loadMessages() {
+                loadingState.style.display = 'flex';
+                emptyState.style.display = 'none';
+                
+                if (window.MessagesStore) {
+                    window.MessagesStore.getAll(renderInboxItems);
+                } else {
+                    console.error('MessagesStore not found');
+                    loadingState.style.display = 'none';
+                    emptyState.style.display = 'flex';
+                }
+            }
+            
+            // Initial load
+            loadMessages();
+        });
+    </script>
+</body>
+</html>
