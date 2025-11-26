@@ -603,6 +603,25 @@ body {
     background-color: var(--primary-light);
 }
 
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius);
+    background-color: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: var(--primary-light);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .header {

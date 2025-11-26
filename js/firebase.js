@@ -13,7 +13,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
   authDomain: "lafsys.firebaseapp.com",
   projectId: "lafsys",
-  storageBucket: "lafsys.firebasestorage.app",
+  storageBucket: "lafsys.appspot.com",
   messagingSenderId: "103945210522",
   appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
   measurementId: "G-EJ2X0PTDNH"

@@ -6,6 +6,34 @@
     } catch(e){ return dateStr; }
   }
 
+  // Function to update inbox notification badge
+  function updateInboxNotification(messages) {
+    const badge = document.getElementById('inboxNotificationBadge');
+    if (!badge) return;
+    
+    // Count unread messages
+    const unreadCount = messages.filter(m => m.unread).length;
+    
+    if (unreadCount > 0) {
+      // Show badge with count
+      badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      badge.style.display = 'flex';
+      
+      // Also add an indicator to the title if not already present
+      if (!document.title.includes('(')) {
+        document.title = `(${unreadCount}) ${document.title}`;
+      }
+    } else {
+      // Hide badge if no unread messages
+      badge.style.display = 'none';
+      
+      // Reset document title if it was modified
+      if (document.title.includes('(')) {
+        document.title = document.title.replace(/\(\d+\+?\) /, '');
+      }
+    }
+  }
+  
   function renderInbox(){
     const container = document.getElementById('inboxContainer');
     if (!container) return;
@@ -17,6 +45,9 @@
     if (window.MessagesStore?.getAllAsync) {
       // Use async version
       window.MessagesStore.getAllAsync().then(msgs => {
+        // Update the notification badge
+        updateInboxNotification(msgs);
+        // Display the messages
         displayInboxMessages(msgs, container);
       }).catch(err => {
         console.error('Error loading messages:', err);
@@ -25,6 +56,7 @@
     } else {
       // Fall back to old method
       const msgs = (window.MessagesStore?.getAll?.() || []);
+      updateInboxNotification(msgs);
       displayInboxMessages(msgs, container);
     }
   }
@@ -451,8 +483,18 @@
       renderInbox(); 
     });
     
-    window.addEventListener('messageAdded', () => { 
-      renderInbox(); 
+    // Show desktop notification and update badge when new message arrives
+    window.addEventListener('messageAdded', (event) => {
+      // Check if the message is unread
+      const message = event.detail?.message;
+      if (message && message.unread) {
+        // Show a desktop notification if permitted and we're not in inbox
+        const currentSection = document.querySelector('.nav-link.active')?.getAttribute('data-section');
+        if (currentSection !== 'inbox') {
+          showDesktopNotification(message);
+        }
+      }
+      renderInbox();
     });
     
     window.addEventListener('messageModified', () => { 
@@ -463,9 +505,61 @@
       renderInbox(); 
     });
     
-    window.addEventListener('messagesChanged', () => { 
-      renderInbox(); 
+    window.addEventListener('messagesChanged', (event) => {
+      // Check if there are any new unread messages
+      const changes = event.detail?.changes || [];
+      const hasNewUnread = changes.some(change => 
+        change.type === 'added' && change.data && change.data.unread
+      );
+      
+      // We keep track of new unread messages, but don't play sound
+      // Visual notification badge will still show
+      
+      renderInbox();
     });
+    
+    // Initial check for unread messages when page loads
+    checkUnreadMessages();
+  }
+  
+  // Sound alert removed as requested
+  
+  // Function to show desktop notification
+  function showDesktopNotification(message) {
+    // Check if browser supports notifications and permission is granted
+    if ("Notification" in window && Notification.permission === "granted") {
+      const notification = new Notification("New Message", {
+        body: `From: ${message.from}\n${message.subject || 'No subject'}`
+      });
+      
+      // Close notification after 5 seconds
+      setTimeout(() => notification.close(), 5000);
+      
+      // When notification is clicked, go to inbox
+      notification.onclick = function() {
+        window.focus();
+        switchSection('inbox');
+        this.close();
+      };
+    }
+    // If permission not yet requested
+    else if ("Notification" in window && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  }
+  
+  // Function to check for unread messages on page load
+  function checkUnreadMessages() {
+    if (window.MessagesStore?.getAllAsync) {
+      window.MessagesStore.getAllAsync().then(msgs => {
+        updateInboxNotification(msgs);
+      }).catch(err => {
+        console.error('Error checking unread messages:', err);
+      });
+    } else {
+      const msgs = (window.MessagesStore?.getAll?.() || []);
+      updateInboxNotification(msgs);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

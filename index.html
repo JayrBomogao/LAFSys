@@ -23,6 +23,12 @@
             font-size: 1.25rem;
             font-weight: 600;
             color: #1e293b;
+            margin-right: 10px;
+        }
+        
+        .title-with-refresh {
+            display: flex;
+            align-items: center;
         }
         
         .items-grid {
@@ -193,10 +199,12 @@
 
         <section class="items-section">
             <div class="items-header">
-                <h2 class="items-title">Recently Found Items</h2>
-                <button id="refresh-items" class="btn btn-primary">
-                    <i data-lucide="refresh-cw"></i> Refresh
-                </button>
+                <div class="title-with-refresh">
+                    <h2 class="items-title">Recently Found Items</h2>
+                    <button id="refresh-items" class="btn btn-icon" title="Refresh Items">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                </div>
             </div>
             <div class="items-grid" id="items-container">
                 <!-- Items will be loaded here by JavaScript -->
@@ -415,8 +423,23 @@
                     const dateFound = data.date ? new Date(data.date) : null;
                     const formattedDate = dateFound ? dateFound.toLocaleDateString() : 'Unknown date';
                     
-                    // Default image if none
-                    const imageUrl = data.image || 'https://via.placeholder.com/300x200?text=No+Image';
+                    // Use the actual image URL from Firebase Storage or fallback to placeholder
+                    let imageUrl = data.image || 'https://via.placeholder.com/300x200?text=No+Image';
+                    
+                    // Ensure we're not using a placeholder when we actually have an uploaded image
+                    if (imageUrl.startsWith('https://via.placeholder.com') && data.image && data.image.trim() !== '') {
+                        imageUrl = data.image;
+                    }
+                    
+                    // Check if the image is a data URL (starts with data:image)
+                    const isDataUrl = typeof imageUrl === 'string' && imageUrl.startsWith('data:image');
+                    
+                    // If it's a very long data URL, add special handling
+                    if (isDataUrl) {
+                        console.log(`Item ${id} uses a data URL for image`);
+                    } else {
+                        console.log(`Item ${id} uses an external URL for image:`, imageUrl);
+                    }
                     
                     // Build HTML for this item
                     allItemsHTML += `

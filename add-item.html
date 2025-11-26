@@ -368,7 +368,7 @@
             apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
             authDomain: "lafsys.firebaseapp.com",
             projectId: "lafsys",
-            storageBucket: "lafsys.appspot.com", // Fixed storage bucket URL
+            storageBucket: "lafsys.appspot.com", // Correct storage bucket format
             messagingSenderId: "103945210522",
             appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
             measurementId: "G-EJ2X0PTDNH"
@@ -556,35 +556,62 @@
                         statusDiv.textContent = 'Uploading image...';
                         
                         try {
-                            // For demo and testing purposes, we'll skip actual upload and use a placeholder
-                            // This will avoid CORS issues during development
-                            console.log('Using placeholder image for development');
+                            console.log('Starting image upload process');
                             
-                            // Comment the following line and uncomment the Firebase code when CORS is fixed
-                            imageUrl = 'https://via.placeholder.com/400x300?text=Item+Image';
+                            // For development: first try using a data URL approach as fallback
+                            const reader = new FileReader();
                             
-                            // CORS-fixed code (uncomment when Firebase Storage rules are properly set)
-                            /*
-                            const fileName = `items/${Date.now()}_${imageFile.name}`;
-                            const storageRef = storage.ref(fileName);
-                            console.log('Storage reference created:', fileName);
+                            // Create a promise for the FileReader
+                            const readImageAsDataURL = new Promise((resolve, reject) => {
+                                reader.onload = (e) => resolve(e.target.result);
+                                reader.onerror = (e) => reject(e);
+                                reader.readAsDataURL(imageFile);
+                            });
                             
-                            // Set metadata to avoid CORS issues
-                            const metadata = {
-                                contentType: imageFile.type,
-                                customMetadata: {
-                                    'origin': window.location.origin
-                                }
-                            };
+                            // Get data URL as fallback
+                            const dataURL = await readImageAsDataURL;
+                            console.log('Image converted to data URL successfully');
                             
-                            const uploadTask = await storageRef.put(imageFile, metadata);
-                            console.log('Image uploaded:', uploadTask);
+                            try {
+                                // Now try Firebase Storage upload
+                                console.log('Attempting Firebase Storage upload');
+                                statusDiv.textContent = 'Uploading to Firebase Storage...';
+                                
+                                const fileName = `items/${Date.now()}_${imageFile.name}`;
+                                const storageRef = storage.ref(fileName);
+                                console.log('Storage reference created:', fileName);
+                                
+                                // Set metadata to avoid CORS issues
+                                const metadata = {
+                                    contentType: imageFile.type,
+                                    customMetadata: {
+                                        'origin': window.location.origin
+                                    }
+                                };
+                                
+                                // Attempt the upload with a timeout
+                                const uploadPromise = storageRef.put(imageFile, metadata);
+                                
+                                // Create a timeout promise
+                                const timeoutPromise = new Promise((_, reject) => {
+                                    setTimeout(() => reject(new Error('Upload timeout after 15 seconds')), 15000);
+                                });
+                                
+                                // Race the upload against the timeout
+                                const uploadTask = await Promise.race([uploadPromise, timeoutPromise]);
+                                console.log('Image uploaded to Firebase:', uploadTask);
+                                
+                                imageUrl = await storageRef.getDownloadURL();
+                                console.log('Firebase download URL obtained:', imageUrl);
+                                statusDiv.textContent = 'Image uploaded successfully!';
+                            } catch (firebaseError) {
+                                // Firebase upload failed, use data URL instead
+                                console.warn('Firebase upload failed, using data URL fallback:', firebaseError);
+                                statusDiv.textContent = 'Using local image (Firebase upload failed)';
+                                imageUrl = dataURL;
+                            }
                             
-                            imageUrl = await storageRef.getDownloadURL();
-                            console.log('Image URL obtained:', imageUrl);
-                            */
-                            
-                            statusDiv.textContent = 'Image upload simulated (development mode)';
+                            // At this point we either have a Firebase URL or a data URL
                         } catch (imageError) {
                             console.error('Error uploading image:', imageError);
                             statusDiv.style.background = '#ef4444';
@@ -596,21 +623,9 @@
                     // Add image URL to item data
                     itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=No+Image';
                     
-                    // Test Firebase connection
-                    console.log('Testing Firestore connection...');
-                    statusDiv.textContent = 'Testing database connection...';
-                    
-                    try {
-                        await db.collection('test').doc('connection-test').set({
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log('Firestore connection working!');
-                    } catch (firestoreError) {
-                        console.error('Firestore connection test failed:', firestoreError);
-                        statusDiv.style.background = '#ef4444';
-                        statusDiv.textContent = 'Database connection failed: ' + firestoreError.message;
-                        throw firestoreError;
-                    }
+                    // Skip database test to improve performance
+                    console.log('Proceeding directly to database upload...');
+                    statusDiv.textContent = 'Saving to database...';
                     
                     // Add to Firestore
                     console.log('Adding item to Firestore...');
@@ -623,9 +638,10 @@
                     statusDiv.textContent = 'Item added successfully!';
                     
                     setTimeout(() => {
-                        alert('Item added successfully! Document ID: ' + docRef.id);
-                        window.location.href = 'admin.html'; // Redirect to admin page
-                    }, 1000);
+                        // Use a less intrusive notification instead of an alert
+                        console.log('Item added successfully with ID:', docRef.id);
+                        window.location.href = 'admin.html'; // Redirect to admin page immediately
+                    }, 300);
                     
                 } catch (error) {
                     console.error('Error adding item:', error);
@@ -680,14 +696,60 @@
                         statusDiv.textContent = 'Uploading image for draft...';
                         
                         try {
-                            const storageRef = storage.ref(`drafts/${Date.now()}_${imageFile.name}`);
-                            console.log('Draft storage reference created');
+                            console.log('Starting draft image upload process');
                             
-                            const uploadTask = await storageRef.put(imageFile);
-                            console.log('Draft image uploaded:', uploadTask);
+                            // For development: first try using a data URL approach as fallback
+                            const reader = new FileReader();
                             
-                            imageUrl = await storageRef.getDownloadURL();
-                            console.log('Draft image URL obtained:', imageUrl);
+                            // Create a promise for the FileReader
+                            const readImageAsDataURL = new Promise((resolve, reject) => {
+                                reader.onload = (e) => resolve(e.target.result);
+                                reader.onerror = (e) => reject(e);
+                                reader.readAsDataURL(imageFile);
+                            });
+                            
+                            // Get data URL as fallback
+                            const dataURL = await readImageAsDataURL;
+                            console.log('Draft image converted to data URL successfully');
+                            
+                            try {
+                                // Now try Firebase Storage upload
+                                console.log('Attempting Firebase Storage upload for draft');
+                                statusDiv.textContent = 'Uploading draft image to storage...';
+                                
+                                const fileName = `drafts/${Date.now()}_${imageFile.name}`;
+                                const storageRef = storage.ref(fileName);
+                                console.log('Draft storage reference created:', fileName);
+                                
+                                // Set metadata to avoid CORS issues
+                                const metadata = {
+                                    contentType: imageFile.type,
+                                    customMetadata: {
+                                        'origin': window.location.origin
+                                    }
+                                };
+                                
+                                // Attempt the upload with a timeout
+                                const uploadPromise = storageRef.put(imageFile, metadata);
+                                
+                                // Create a timeout promise
+                                const timeoutPromise = new Promise((_, reject) => {
+                                    setTimeout(() => reject(new Error('Draft upload timeout after 15 seconds')), 15000);
+                                });
+                                
+                                // Race the upload against the timeout
+                                const uploadTask = await Promise.race([uploadPromise, timeoutPromise]);
+                                console.log('Draft image uploaded to Firebase:', uploadTask);
+                                
+                                imageUrl = await storageRef.getDownloadURL();
+                                console.log('Draft image Firebase URL obtained:', imageUrl);
+                                statusDiv.textContent = 'Draft image uploaded successfully!';
+                            } catch (firebaseError) {
+                                // Firebase upload failed, use data URL instead
+                                console.warn('Firebase upload failed for draft, using data URL fallback:', firebaseError);
+                                statusDiv.textContent = 'Using local image for draft (Firebase upload failed)';
+                                imageUrl = dataURL;
+                            }
                         } catch (imageError) {
                             console.error('Error uploading draft image:', imageError);
                             statusDiv.style.background = '#ef4444';
@@ -710,8 +772,25 @@
                     statusDiv.textContent = 'Draft saved successfully!';
                     
                     setTimeout(() => {
-                        alert('Draft saved successfully! ID: ' + docRef.id);
-                    }, 1000);
+                        // Use a less intrusive notification
+                        const successNotification = document.createElement('div');
+                        successNotification.style.position = 'fixed';
+                        successNotification.style.bottom = '20px';
+                        successNotification.style.right = '20px';
+                        successNotification.style.padding = '10px 20px';
+                        successNotification.style.background = '#22c55e';
+                        successNotification.style.color = 'white';
+                        successNotification.style.borderRadius = '4px';
+                        successNotification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                        successNotification.style.zIndex = '9999';
+                        successNotification.textContent = 'Draft saved successfully!';
+                        document.body.appendChild(successNotification);
+                        
+                        // Remove notification after a few seconds
+                        setTimeout(() => {
+                            successNotification.remove();
+                        }, 3000);
+                    }, 300);
                     
                 } catch (error) {
                     console.error('Error saving draft:', error);

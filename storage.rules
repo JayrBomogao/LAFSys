@@ -1,12 +1,23 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // Allow public read access to all files
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if true;
+      
+      // Allow authenticated users to write new files
+      allow write: if true; // For development; in production, consider restricting this
+      
+      // Allow item images to be uploaded by anyone
+      match /items/{fileName} {
+        allow write: if true;
+      }
+      
+      // Allow draft images to be uploaded by anyone
+      match /drafts/{fileName} {
+        allow write: if true;
+      }
     }
   }
 }

@@ -583,8 +583,22 @@
                     
                     // Set image
                     if (data.image) {
-                        document.getElementById('item-image').src = data.image;
-                        document.getElementById('item-image').alt = data.title || 'Item image';
+                        const imgElement = document.getElementById('item-image');
+                        imgElement.src = data.image;
+                        imgElement.alt = data.title || 'Item image';
+                        
+                        // Check if this is a data URL and log it
+                        if (typeof data.image === 'string' && data.image.startsWith('data:image')) {
+                            console.log('Using Data URL for image');
+                            
+                            // Add error handling for data URLs
+                            imgElement.onerror = function() {
+                                console.error('Error loading data URL image');
+                                this.src = 'https://via.placeholder.com/800x600?text=Image+Error';
+                            };
+                        } else {
+                            console.log('Using external URL for image:', data.image);
+                        }
                     }
                     
                     // Set status
