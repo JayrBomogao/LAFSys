@@ -63,6 +63,92 @@
             object-fit: cover;
         }
         
+        /* Status badges */
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-active {
+            background-color: #10b981; /* Green */
+        }
+        
+        .status-claimed {
+            background-color: #f59e0b; /* Amber */
+        }
+        
+        .status-returned {
+            background-color: #3b82f6; /* Blue */
+        }
+        
+        .status-disposed {
+            background-color: #6b7280; /* Gray */
+        }
+        
+        /* Enhanced Search Styles */
+        .search-container {
+            display: flex;
+            align-items: center;
+            max-width: 600px;
+            margin-right: 1rem;
+        }
+        
+        #searchInput {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px 0 0 8px;
+            font-size: 1rem;
+            min-width: 250px;
+            transition: border-color 0.3s;
+            background-color: white;
+        }
+        
+        #searchInput:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        .search-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .search-btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-outline {
+            display: flex;
+            align-items: center;
+            padding: 9px 15px;
+            background-color: white;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            color: #3b82f6;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-outline:hover {
+            background-color: #f0f7ff;
+        }
+        
         .item-content {
             padding: 1.25rem;
         }
@@ -363,6 +449,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     
+    <!-- Search functionality script -->
+    <script src="js/search.js"></script>
+    
     <!-- Firebase Config (Non-module version for testing) -->
     <script>
         // Your web app's Firebase configuration
@@ -441,11 +530,26 @@
                         console.log(`Item ${id} uses an external URL for image:`, imageUrl);
                     }
                     
+                    // Determine the item status and the corresponding badge style
+                    const itemStatus = data.status || 'active';
+                    let statusBadge = '';
+                    
+                    if (itemStatus === 'claimed') {
+                        statusBadge = `<div class="status-badge status-claimed">Claimed</div>`;
+                    } else if (itemStatus === 'returned') {
+                        statusBadge = `<div class="status-badge status-returned">Returned</div>`;
+                    } else if (itemStatus === 'disposed') {
+                        statusBadge = `<div class="status-badge status-disposed">Disposed</div>`;
+                    } else {
+                        statusBadge = `<div class="status-badge status-active">Active</div>`;
+                    }
+                    
                     // Build HTML for this item
                     allItemsHTML += `
                         <div class="item-card" data-item-id="${id}">
                             <div class="item-image">
                                 <img src="${imageUrl}" alt="${data.title || 'Unknown item'}" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Error'">
+                                ${statusBadge}
                             </div>
                             <div class="item-content">
                                 <h3 class="item-title">${data.title || 'Unnamed Item'}</h3>
@@ -586,10 +690,16 @@
     </script>
     
     <!-- Keep original scripts for now, we'll migrate them one by one -->
+    <!-- Data and UI scripts -->
     <script src="js/data.js"></script>
     <script src="js/messages.js"></script>
     <script src="js/modal.js"></script>
-    <script src="js/imageSearch.js"></script>
+    
+    <!-- Improved image analysis and search -->
+    <script src="js/improvedImageAnalyzer.js"></script>
+    <script src="js/accurateImageSearch.js"></script>
+    
+    <!-- Core app script -->
     <script src="js/main.js"></script>
 </body>
 </html>

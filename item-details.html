@@ -6,6 +6,8 @@
     <title>Item Details - Lost & Found Baguio</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/form-debug.css"><!-- Added form debug CSS -->
+    <link rel="stylesheet" href="css/emergency-modal.css"><!-- Added emergency modal CSS -->
     <style>
         .container {
             max-width: 1200px;
@@ -162,7 +164,7 @@
         .modal {
             display: none;
             position: fixed;
-            z-index: 1000;
+            z-index: 9999;
             left: 0;
             top: 0;
             width: 100%;
@@ -171,10 +173,13 @@
             overflow: auto;
             visibility: visible !important; /* Force visibility */
             opacity: 1 !important; /* Force opacity */
+            align-items: center;
+            justify-content: center;
         }
         
         /* Force modal display when active */
         .modal[style*="display: block"] {
+            display: flex !important;
             visibility: visible !important;
             opacity: 1 !important;
         }
@@ -217,6 +222,10 @@
             border: 1px solid #e2e8f0;
             border-radius: 0.375rem;
             font-size: 1rem;
+            box-sizing: border-box;
+            display: block;
+            margin-bottom: 0.5rem;
+            background-color: #fff;
         }
         
         .form-group input:focus,
@@ -279,11 +288,11 @@
                 </div>
                 
                 <div class="actions">
-                    <button id="claim-btn" class="btn btn-primary" style="margin-right: 10px;" onclick="window.forceShowModal('claim-modal')">
+                    <button id="claim-btn" class="btn btn-primary" style="margin-right: 10px;">
                         <i data-lucide="check-circle"></i>
                         Claim This Item
                     </button>
-                    <button id="contact-btn" class="btn btn-outline" onclick="window.forceShowModal('contact-modal')">
+                    <button id="contact-btn" class="btn btn-outline">
                         <i data-lucide="message-circle"></i>
                         Chat with Staff
                     </button>
@@ -321,35 +330,6 @@
                 });
                 </script>
             </div>
-        </div>
-    </div>
-    
-    <!-- Claim Modal -->
-    <div id="claim-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="document.getElementById('claim-modal').style.display='none';">&times;</span>
-            <h2>Submit Claim</h2>
-            <form id="claim-form">
-                <div class="form-group">
-                    <label for="claimant-name">Your Name</label>
-                    <input type="text" id="claimant-name" required>
-                </div>
-                <div class="form-group">
-                    <label for="claimant-email">Email</label>
-                    <input type="email" id="claimant-email" required>
-                </div>
-                <div class="form-group">
-                    <label for="claimant-phone">Phone Number</label>
-                    <input type="tel" id="claimant-phone" required>
-                </div>
-                <div class="form-group">
-                    <label for="claim-description">Proof of Ownership (Describe identifying details)</label>
-                    <textarea id="claim-description" rows="4" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Submit Claim</button>
-            </form>
-        </div>
-    </div>
     
     <!-- Chat Modal -->
     <div id="contact-modal" class="modal">
@@ -372,6 +352,33 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Claim Modal -->
+    <div id="claim-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('claim-modal').style.display='none';">&times;</span>
+            <h2>Submit Claim</h2>
+            <form id="claim-form" method="post" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="claimant-name">Your Name</label>
+                    <input type="text" id="claimant-name" name="claimant-name" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group">
+                    <label for="claimant-email">Email</label>
+                    <input type="email" id="claimant-email" name="claimant-email" placeholder="Enter your email address" required>
+                </div>
+                <div class="form-group">
+                    <label for="claimant-phone">Phone Number</label>
+                    <input type="tel" id="claimant-phone" name="claimant-phone" placeholder="Enter your phone number" required>
+                </div>
+                <div class="form-group">
+                    <label for="claim-description">Proof of Ownership (Describe identifying details)</label>
+                    <textarea id="claim-description" name="claim-description" rows="4" placeholder="Describe specific details about the item that prove your ownership" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Claim</button>
+            </form>
         </div>
     </div>
     
@@ -479,11 +486,17 @@
     
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- FIX AUTO MODAL - HIGHEST PRIORITY -->
+    <script src="js/fix-auto-modal.js"></script>
+
     <!-- Firebase CDN Scripts - using version 9.22.2 which supports modular web v9 API -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    
+    <!-- Emergency form fix script - HIGH PRIORITY -->
+    <script src="js/emergency-form-fix.js"></script>
     
     <!-- App scripts that depend on Firebase -->
     <script src="js/icon-fix.js"></script>
@@ -493,6 +506,8 @@
     <script src="js/firebase-item-details.js"></script>
     <script src="js/force-modal.js"></script>
     <script src="js/debug-modal.js"></script>
+    <script src="js/form-fix.js"></script><!-- Added form fix script -->
+    <script src="js/test-form.js"></script><!-- Added test form script -->
     
     <script>
         // Firebase configuration
@@ -686,17 +701,34 @@
                 
                 const itemId = claimBtn.dataset.itemId;
                 
+                // Get input values
+                const claimantName = document.getElementById('claimant-name').value;
+                const claimantEmail = document.getElementById('claimant-email').value;
+                const claimantPhone = document.getElementById('claimant-phone').value;
+                const claimDescription = document.getElementById('claim-description').value;
+                
+                // Validate form fields
+                if (!claimantName || !claimantEmail || !claimantPhone || !claimDescription) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+                
                 try {
-                    // Add claim to Firestore
+                    // Add claim to Firestore using proper field names for Claims section
                     await db.collection('claims').add({
                         itemId: itemId,
-                        name: document.getElementById('claimant-name').value,
-                        email: document.getElementById('claimant-email').value,
-                        phone: document.getElementById('claimant-phone').value,
-                        description: document.getElementById('claim-description').value,
+                        claimantName: claimantName,
+                        claimantEmail: claimantEmail,
+                        claimantPhone: claimantPhone,
+                        description: claimDescription,
                         status: 'pending',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    
+                    console.log('Claim submitted successfully for item ID:', itemId);
+                    
+                    // Reset form
+                    claimForm.reset();
                     
                     // Close modal and show success message
                     claimModal.style.display = 'none';

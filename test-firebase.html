@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { color: #2563eb; }
+        pre {
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #1d4ed8; }
+        .result {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <h1>Firebase Connection Test</h1>
+    <p>This page tests connection to Firebase and performs basic operations.</p>
+    
+    <div style="margin-bottom: 20px;">
+        <button id="test-connection">Test Connection</button>
+        <button id="list-collections">List Collections</button>
+        <button id="create-sample">Create Sample Data</button>
+        <button id="get-claims">Get Claims</button>
+    </div>
+    
+    <div id="result" class="result"></div>
+    
+    <h2>Console Output</h2>
+    <pre id="console-output">// Console output will appear here</pre>
+    
+    <div style="margin-top: 20px;">
+        <a href="claims.html">Go to Claims Page</a> | 
+        <a href="test-data.html">Go to Test Data Generator</a>
+    </div>
+    
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    
+    <script>
+        // Capture console output
+        const consoleOutput = document.getElementById('console-output');
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const resultDiv = document.getElementById('result');
+        
+        console.log = function() {
+            originalConsoleLog.apply(console, arguments);
+            consoleOutput.textContent += Array.from(arguments).join(' ') + '\n';
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+        
+        console.error = function() {
+            originalConsoleError.apply(console, arguments);
+            consoleOutput.textContent += 'ERROR: ' + Array.from(arguments).join(' ') + '\n';
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+        
+        // Show result
+        function showResult(message, isError = false) {
+            resultDiv.textContent = message;
+            resultDiv.className = isError ? 'result error' : 'result success';
+        }
+        
+        // Initialize Firebase
+        console.log('Initializing Firebase...');
+        const firebaseConfig = {
+          apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+          authDomain: "lafsys.firebaseapp.com",
+          projectId: "lafsys",
+          storageBucket: "lafsys.appspot.com",
+          messagingSenderId: "103945210522",
+          appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+          measurementId: "G-EJ2X0PTDNH"
+        };
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Error initializing Firebase:', error);
+        }
+        
+        // Test connection
+        document.getElementById('test-connection').addEventListener('click', async () => {
+            try {
+                console.log('Testing Firebase connection...');
+                const testDoc = await firebase.firestore().collection('_test').add({
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    message: 'Test connection ' + new Date().toISOString()
+                });
+                
+                console.log('Connection successful! Document written with ID:', testDoc.id);
+                showResult(`Connection successful! Test document written with ID: ${testDoc.id}`);
+                
+                // Clean up test document
+                await firebase.firestore().collection('_test').doc(testDoc.id).delete();
+                console.log('Test document deleted');
+                
+            } catch (error) {
+                console.error('Connection test failed:', error);
+                showResult(`Connection test failed: ${error.message}`, true);
+            }
+        });
+        
+        // List collections
+        document.getElementById('list-collections').addEventListener('click', async () => {
+            try {
+                console.log('Listing collections...');
+                showResult('Checking collections...');
+                
+                // Check items collection
+                const itemsSnapshot = await firebase.firestore().collection('items').get();
+                console.log(`Found ${itemsSnapshot.size} items`);
+                
+                // Check claims collection
+                const claimsSnapshot = await firebase.firestore().collection('claims').get();
+                console.log(`Found ${claimsSnapshot.size} claims`);
+                
+                showResult(`Collections: \n- items: ${itemsSnapshot.size} documents\n- claims: ${claimsSnapshot.size} documents`);
+                
+            } catch (error) {
+                console.error('Error listing collections:', error);
+                showResult(`Error listing collections: ${error.message}`, true);
+            }
+        });
+        
+        // Create sample data
+        document.getElementById('create-sample').addEventListener('click', async () => {
+            try {
+                console.log('Creating sample data...');
+                showResult('Creating sample data...');
+                
+                // Create a sample item
+                const itemRef = await firebase.firestore().collection('items').add({
+                    title: "Test Wallet",
+                    description: "This is a test wallet created for debugging",
+                    category: "personal",
+                    location: "Test Location",
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: "active",
+                    image: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                console.log('Created sample item with ID:', itemRef.id);
+                
+                // Create a sample claim
+                const claimRef = await firebase.firestore().collection('claims').add({
+                    itemId: itemRef.id,
+                    claimantName: "Test User",
+                    claimantEmail: "test@example.com",
+                    description: "This is a test claim created for debugging",
+                    status: "pending",
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                console.log('Created sample claim with ID:', claimRef.id);
+                
+                showResult(`Sample data created:\n- Item ID: ${itemRef.id}\n- Claim ID: ${claimRef.id}`);
+                
+            } catch (error) {
+                console.error('Error creating sample data:', error);
+                showResult(`Error creating sample data: ${error.message}`, true);
+            }
+        });
+        
+        // Get claims
+        document.getElementById('get-claims').addEventListener('click', async () => {
+            try {
+                console.log('Getting claims...');
+                showResult('Retrieving claims...');
+                
+                const claimsRef = firebase.firestore().collection('claims');
+                const snapshot = await claimsRef.get();
+                
+                if (snapshot.empty) {
+                    console.log('No claims found');
+                    showResult('No claims found in the database. Try creating sample data first.');
+                    return;
+                }
+                
+                let claimsData = [];
+                snapshot.forEach(doc => {
+                    claimsData.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                console.log('Claims retrieved:', claimsData);
+                
+                const resultText = claimsData.map(claim => 
+                    `ID: ${claim.id}\nItem: ${claim.itemId}\nStatus: ${claim.status}\nClaimant: ${claim.claimantName}\n`
+                ).join('\n---\n\n');
+                
+                showResult(`Found ${claimsData.length} claims:\n\n${resultText}`);
+                
+            } catch (error) {
+                console.error('Error getting claims:', error);
+                showResult(`Error getting claims: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>

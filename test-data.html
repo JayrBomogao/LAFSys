@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAFSys - Test Data Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #1e40af;
+        }
+        button {
+            background-color: #1e40af;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 15px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #1e3a8a;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f9ff;
+            border-radius: 4px;
+        }
+        .nav {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+        }
+        .nav a {
+            color: #1e40af;
+            margin-right: 15px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>LAFSys Test Data Generator</h1>
+    <p>Use this page to generate test data for the Lost and Found System.</p>
+
+    <div class="card">
+        <h2>Create Test Items</h2>
+        <button id="create-items">Create 3 Test Items</button>
+        <button id="clear-items" style="background-color: #dc2626;">Clear All Items</button>
+        <div id="items-result" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Create Test Claims</h2>
+        <button id="create-claims">Create Test Claims</button>
+        <button id="clear-claims" style="background-color: #dc2626;">Clear All Claims</button>
+        <div id="claims-result" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Console Output</h2>
+        <pre id="console-output">// Console logs will appear here</pre>
+    </div>
+
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="admin.html">Admin Dashboard</a>
+        <a href="claims.html">Claims Management</a>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
+    <script>
+        // Capture console output
+        const consoleOutput = document.getElementById('console-output');
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+
+        console.log = function() {
+            originalConsoleLog.apply(console, arguments);
+            if (consoleOutput) {
+                consoleOutput.textContent += Array.from(arguments).join(' ') + '\n';
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        };
+
+        console.error = function() {
+            originalConsoleError.apply(console, arguments);
+            if (consoleOutput) {
+                consoleOutput.textContent += 'ERROR: ' + Array.from(arguments).join(' ') + '\n';
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        };
+
+        // Initialize Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+          authDomain: "lafsys.firebaseapp.com",
+          projectId: "lafsys",
+          storageBucket: "lafsys.appspot.com",
+          messagingSenderId: "103945210522",
+          appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+          measurementId: "G-EJ2X0PTDNH"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        console.log('Firebase initialized');
+
+        // Collection references
+        const ITEMS_COLLECTION = 'items';
+        const CLAIMS_COLLECTION = 'claims';
+
+        // Create test items
+        document.getElementById('create-items').addEventListener('click', async () => {
+            try {
+                const itemsResult = document.getElementById('items-result');
+                itemsResult.textContent = 'Creating test items...';
+                
+                const testItems = [
+                    {
+                        title: "Black Leather Wallet",
+                        description: "Found near the entrance of the park. Contains some ID cards and cash.",
+                        category: "personal",
+                        location: "Burnham Park Main Entrance",
+                        date: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: "active",
+                        image: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                        disposalDate: null,
+                        foundBy: "Park Staff",
+                        storageLocation: "Admin Office",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    },
+                    {
+                        title: "iPhone 13 Pro",
+                        description: "Gold iPhone 13 Pro found at the food court. Has a blue protective case.",
+                        category: "electronics",
+                        location: "SM City Baguio, Food Court",
+                        date: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: "active",
+                        image: "https://images.unsplash.com/photo-1632809947610-8fefdb8f9c2f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                        disposalDate: null,
+                        foundBy: "Security Personnel",
+                        storageLocation: "Security Office",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    },
+                    {
+                        title: "Laptop Bag",
+                        description: "Black laptop bag found at Session Road. Contains charger and documents.",
+                        category: "personal",
+                        location: "Session Road, near jeepney terminal",
+                        date: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: "active",
+                        image: "https://images.unsplash.com/photo-1593062096033-9a26b09da705?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                        disposalDate: null,
+                        foundBy: "Good Samaritan",
+                        storageLocation: "Admin Office",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                ];
+                
+                const batch = db.batch();
+                const itemIds = [];
+                
+                testItems.forEach(item => {
+                    const docRef = db.collection(ITEMS_COLLECTION).doc();
+                    batch.set(docRef, item);
+                    itemIds.push(docRef.id);
+                });
+                
+                await batch.commit();
+                console.log(`Created ${testItems.length} test items with IDs:`, itemIds);
+                itemsResult.textContent = `Successfully created ${testItems.length} test items. IDs: ${itemIds.join(', ')}`;
+                
+                return itemIds;
+            } catch (error) {
+                console.error('Error creating test items:', error);
+                document.getElementById('items-result').textContent = `Error: ${error.message}`;
+                return [];
+            }
+        });
+
+        // Clear all items
+        document.getElementById('clear-items').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete ALL items? This will also delete all claims.')) return;
+            
+            try {
+                const itemsResult = document.getElementById('items-result');
+                itemsResult.textContent = 'Clearing all items...';
+                
+                // First clear all claims
+                const claimsSnapshot = await db.collection(CLAIMS_COLLECTION).get();
+                
+                if (!claimsSnapshot.empty) {
+                    console.log(`Clearing ${claimsSnapshot.size} claims first...`);
+                    const batch1 = db.batch();
+                    claimsSnapshot.docs.forEach(doc => {
+                        batch1.delete(doc.ref);
+                    });
+                    await batch1.commit();
+                }
+                
+                // Now clear items
+                const itemsSnapshot = await db.collection(ITEMS_COLLECTION).get();
+                
+                if (itemsSnapshot.empty) {
+                    itemsResult.textContent = 'No items to delete.';
+                    return;
+                }
+                
+                const batch2 = db.batch();
+                itemsSnapshot.docs.forEach(doc => {
+                    batch2.delete(doc.ref);
+                });
+                
+                await batch2.commit();
+                
+                console.log(`Deleted ${itemsSnapshot.size} items.`);
+                itemsResult.textContent = `Successfully deleted ${itemsSnapshot.size} items.`;
+            } catch (error) {
+                console.error('Error clearing items:', error);
+                document.getElementById('items-result').textContent = `Error: ${error.message}`;
+            }
+        });
+
+        // Create test claims
+        document.getElementById('create-claims').addEventListener('click', async () => {
+            try {
+                const claimsResult = document.getElementById('claims-result');
+                claimsResult.textContent = 'Creating test claims...';
+                
+                // Get available items
+                const itemsSnapshot = await db.collection(ITEMS_COLLECTION).get();
+                
+                if (itemsSnapshot.empty) {
+                    console.log('No items found. Creating items first...');
+                    const itemIds = await document.getElementById('create-items').click();
+                    
+                    if (!itemIds || itemIds.length === 0) {
+                        claimsResult.textContent = 'Failed to create items. Cannot create claims.';
+                        return;
+                    }
+                }
+                
+                // Get items again (in case they were just created)
+                const updatedItemsSnapshot = await db.collection(ITEMS_COLLECTION).get();
+                const itemIds = updatedItemsSnapshot.docs.map(doc => doc.id);
+                
+                if (itemIds.length === 0) {
+                    claimsResult.textContent = 'No items available to create claims for.';
+                    return;
+                }
+                
+                const testClaims = [
+                    {
+                        itemId: itemIds[0] || '',
+                        claimantName: "Juan Dela Cruz",
+                        claimantEmail: "juan.delacruz@example.com",
+                        claimantPhone: "+63 912 345 6789",
+                        description: "The wallet contains my driver's license (License #: ABC123456), two credit cards (BDO and BPI), and approximately ₱2,000 in cash. The driver's license has my photo and the name matches my ID.",
+                        status: "pending",
+                        notes: "I can come to claim the wallet anytime this week. Please let me know what documents I need to bring for verification.",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                ];
+                
+                if (itemIds.length > 1) {
+                    testClaims.push({
+                        itemId: itemIds[1] || '',
+                        claimantName: "Maria Santos",
+                        claimantEmail: "maria.santos@example.com",
+                        claimantPhone: "+63 917 654 3210",
+                        description: "Gold iPhone 13 Pro with a blue protective case. I can provide the IMEI number and describe the home screen wallpaper to verify ownership.",
+                        status: "pending",
+                        notes: "I lost my phone yesterday while having lunch at the food court. I've already locked it remotely.",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                
+                if (itemIds.length > 2) {
+                    testClaims.push({
+                        itemId: itemIds[2] || '',
+                        claimantName: "Robert Johnson",
+                        claimantEmail: "robert.j@example.com",
+                        claimantPhone: "+63 918 765 4321",
+                        description: "Black Lenovo laptop bag containing a charger and some documents. The bag has a small tear on the front pocket and a luggage handle strap on the back.",
+                        status: "pending",
+                        notes: "I believe I left it at the jeepney terminal yesterday around 5pm. The documents inside are very important for my work.",
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                
+                const batch = db.batch();
+                const claimIds = [];
+                
+                testClaims.forEach(claim => {
+                    const docRef = db.collection(CLAIMS_COLLECTION).doc();
+                    batch.set(docRef, claim);
+                    claimIds.push(docRef.id);
+                });
+                
+                await batch.commit();
+                
+                console.log(`Created ${testClaims.length} test claims with IDs:`, claimIds);
+                claimsResult.textContent = `Successfully created ${testClaims.length} test claims. IDs: ${claimIds.join(', ')}`;
+            } catch (error) {
+                console.error('Error creating test claims:', error);
+                document.getElementById('claims-result').textContent = `Error: ${error.message}`;
+            }
+        });
+
+        // Clear all claims
+        document.getElementById('clear-claims').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete ALL claims?')) return;
+            
+            try {
+                const claimsResult = document.getElementById('claims-result');
+                claimsResult.textContent = 'Clearing all claims...';
+                
+                const claimsSnapshot = await db.collection(CLAIMS_COLLECTION).get();
+                
+                if (claimsSnapshot.empty) {
+                    claimsResult.textContent = 'No claims to delete.';
+                    return;
+                }
+                
+                const batch = db.batch();
+                claimsSnapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                
+                console.log(`Deleted ${claimsSnapshot.size} claims.`);
+                claimsResult.textContent = `Successfully deleted ${claimsSnapshot.size} claims.`;
+            } catch (error) {
+                console.error('Error clearing claims:', error);
+                document.getElementById('claims-result').textContent = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

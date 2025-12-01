@@ -523,229 +523,14 @@
                 </div>
             </div>
 
-            <!-- Claims List -->
+            <!-- Claims List -->            
             <div id="claimsList">
-                <!-- Claim Card 1 -->
-                <div class="claim-card">
-                    <div class="claim-header">
-                        <div>
-                            <h3 class="claim-title">Claim for Black Leather Wallet</h3>
-                            <div class="claim-meta">
-                                <div class="claim-id">
-                                    <i data-lucide="hash" width="14" height="14"></i>
-                                    #CLM-2023-0012
-                                </div>
-                                <div class="claim-date">
-                                    <i data-lucide="calendar" width="14" height="14"></i>
-                                    November 16, 2023
-                                </div>
-                            </div>
-                        </div>
-                        <div class="claim-status status-pending">
-                            Pending Review
-                        </div>
-                    </div>
-                    
-                    <div class="claim-content">
-                        <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="Black Wallet" class="claim-item-image">
-                        <div class="claim-details">
-                            <h4 class="claim-item-name">Black Leather Wallet</h4>
-                            <div class="claim-item-location">
-                                <i data-lucide="map-pin" width="14" height="14"></i>
-                                Found at Burnham Park, near the boat station
-                            </div>
-                            <p class="claim-item-description">
-                                The wallet contains my driver's license, two credit cards, and some cash. The driver's license has my photo and the name matches my ID.
-                            </p>
-                            
-                            <div class="claim-claimant">
-                                <div class="claim-claimant-title">Claimant Information</div>
-                                <div class="claim-claimant-info">
-                                    <div class="claim-claimant-avatar">JD</div>
-                                    <div class="claim-claimant-details">
-                                        <div class="claim-claimant-name">Juan Dela Cruz</div>
-                                        <div class="claim-claimant-contact">
-                                            <a href="mailto:juan.delacruz@example.com" class="claim-claimant-email">
-                                                <i data-lucide="mail" width="14" height="14"></i>
-                                                juan.delacruz@example.com
-                                            </a>
-                                            <span class="claim-claimant-phone">
-                                                <i data-lucide="phone" width="14" height="14"></i>
-                                                +63 912 345 6789
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="claim-actions">
-                        <a href="#" class="btn btn-outline btn-sm" id="viewDetailsBtn">
-                            <i data-lucide="eye" width="14" height="14" style="margin-right: 6px;"></i>
-                            View Details
-                        </a>
-                        <button class="btn btn-success btn-sm" id="approveBtn">
-                            <i data-lucide="check" width="14" height="14" style="margin-right: 6px;"></i>
-                            Approve
-                        </button>
-                        <button class="btn btn-danger btn-sm" id="rejectBtn">
-                            <i data-lucide="x" width="14" height="14" style="margin-right: 6px;"></i>
-                            Reject
-                        </button>
-                    </div>
+                <!-- Claims will be dynamically loaded here -->
+                <div class="loading-claims">
+                    <div class="loading-spinner"></div>
+                    <p>Loading claims...</p>
                 </div>
-                
-                <!-- Claim Card 2 -->
-                <div class="claim-card">
-                    <div class="claim-header">
-                        <div>
-                            <h3 class="claim-title">Claim for iPhone 13 Pro</h3>
-                            <div class="claim-meta">
-                                <div class="claim-id">
-                                    <i data-lucide="hash" width="14" height="14"></i>
-                                    #CLM-2023-0011
-                                </div>
-                                <div class="claim-date">
-                                    <i data-lucide="calendar" width="14" height="14"></i>
-                                    November 15, 2023
-                                </div>
-                            </div>
-                        </div>
-                        <div class="claim-status status-approved">
-                            Approved
-                        </div>
-                    </div>
-                    
-                    <div class="claim-content">
-                        <img src="https://images.unsplash.com/photo-1632809947610-8fefdb8f9c2f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="iPhone 13 Pro" class="claim-item-image">
-                        <div class="claim-details">
-                            <h4 class="claim-item-name">iPhone 13 Pro (Gold)</h4>
-                            <div class="claim-item-location">
-                                <i data-lucide="map-pin" width="14" height="14"></i>
-                                Found at SM City Baguio, Food Court
-                            </div>
-                            <p class="claim-item-description">
-                                Gold iPhone 13 Pro with a blue protective case. I can provide the IMEI number and describe the home screen wallpaper to verify ownership.
-                            </p>
-                            
-                            <div class="claim-claimant">
-                                <div class="claim-claimant-title">Claimant Information</div>
-                                <div class="claim-claimant-info">
-                                    <div class="claim-claimant-avatar">MS</div>
-                                    <div class="claim-claimant-details">
-                                        <div class="claim-claimant-name">Maria Santos</div>
-                                        <div class="claim-claimant-contact">
-                                            <a href="mailto:maria.santos@example.com" class="claim-claimant-email">
-                                                <i data-lucide="mail" width="14" height="14"></i>
-                                                maria.santos@example.com
-                                            </a>
-                                            <span class="claim-claimant-phone">
-                                                <i data-lucide="phone" width="14" height="14"></i>
-                                                +63 917 654 3210
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="claim-actions">
-                        <a href="#" class="btn btn-outline btn-sm">
-                            <i data-lucide="eye" width="14" height="14" style="margin-right: 6px;"></i>
-                            View Details
-                        </a>
-                        <button class="btn btn-outline btn-sm" disabled>
-                            <i data-lucide="check" width="14" height="14" style="margin-right: 6px;"></i>
-                            Approved on Nov 15, 2023
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Claim Card 3 -->
-                <div class="claim-card">
-                    <div class="claim-header">
-                        <div>
-                            <h3 class="claim-title">Claim for Laptop Bag</h3>
-                            <div class="claim-meta">
-                                <div class="claim-id">
-                                    <i data-lucide="hash" width="14" height="14"></i>
-                                    #CLM-2023-0010
-                                </div>
-                                <div class="claim-date">
-                                    <i data-lucide="calendar" width="14" height="14"></i>
-                                    November 12, 2023
-                                </div>
-                            </div>
-                        </div>
-                        <div class="claim-status status-rejected">
-                            Rejected
-                        </div>
-                    </div>
-                    
-                    <div class="claim-content">
-                        <img src="https://images.unsplash.com/photo-1593062096033-9a26b09da705?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="Laptop Bag" class="claim-item-image">
-                        <div class="claim-details">
-                            <h4 class="claim-item-name">Black Laptop Bag</h4>
-                            <div class="claim-item-location">
-                                <i data-lucide="map-pin" width="14" height="14"></i>
-                                Found at Session Road, near the jeepney terminal
-                            </div>
-                            <p class="claim-item-description">
-                                Black Lenovo laptop bag containing a charger and some documents. The bag has a small tear on the front pocket and a luggage handle strap on the back.
-                            </p>
-                            
-                            <div class="claim-claimant">
-                                <div class="claim-claimant-title">Claimant Information</div>
-                                <div class="claim-claimant-info">
-                                    <div class="claim-claimant-avatar">RJ</div>
-                                    <div class="claim-claimant-details">
-                                        <div class="claim-claimant-name">Robert Johnson</div>
-                                        <div class="claim-claimant-contact">
-                                            <a href="mailto:robert.j@example.com" class="claim-claimant-email">
-                                                <i data-lucide="mail" width="14" height="14"></i>
-                                                robert.j@example.com
-                                            </a>
-                                            <span class="claim-claimant-phone">
-                                                <i data-lucide="phone" width="14" height="14"></i>
-                                                +63 918 765 4321
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="claim-actions">
-                        <a href="#" class="btn btn-outline btn-sm">
-                            <i data-lucide="eye" width="14" height="14" style="margin-right: 6px;"></i>
-                            View Details
-                        </a>
-                        <button class="btn btn-outline btn-sm" disabled>
-                            <i data-lucide="x" width="14" height="14" style="margin-right: 6px;"></i>
-                            Rejected - Insufficient proof of ownership
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Empty State (commented out, shown when no claims) -->
-                <!--
-                <div class="no-claims">
-                    <div class="no-claims-icon">
-                        <i data-lucide="inbox" width="32" height="32"></i>
-                    </div>
-                    <h3 class="no-claims-title">No claims found</h3>
-                    <p class="no-claims-text">
-                        There are no item claims matching your current filters. Check back later or try adjusting your search criteria.
-                    </p>
-                    <button class="btn btn-primary">
-                        <i data-lucide="refresh-ccw" width="16" height="16" style="margin-right: 8px;"></i>
-                        Refresh
-                    </button>
-                </div>
-                -->
+            </div>
             </div>
         </main>
     </div>
@@ -892,213 +677,97 @@
     </div>
 
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Firebase Scripts - load these BEFORE our app scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    
+    <!-- Firebase Config - IMPORTANT: This needs to run before our app scripts -->
     <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
-        
-        // Modal functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('claimDetailsModal');
-            const viewDetailsBtn = document.getElementById('viewDetailsBtn');
-            const closeModalBtn = document.getElementById('closeModalBtn');
-            const cancelBtn = document.getElementById('cancelBtn');
-            
-            // Show modal when View Details button is clicked
-            if (viewDetailsBtn) {
-                viewDetailsBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    modal.style.display = 'flex';
-                });
-            }
-            
-            // Close modal when X button is clicked
-            if (closeModalBtn) {
-                closeModalBtn.addEventListener('click', function() {
-                    modal.style.display = 'none';
-                });
-            }
-            
-            // Close modal when Cancel button is clicked
-            if (cancelBtn) {
-                cancelBtn.addEventListener('click', function() {
-                    modal.style.display = 'none';
-                });
-            }
-            
-            // Close modal when clicking outside the modal content
-            window.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-            
-            // Approve/Reject functionality
-            const approveBtn = document.getElementById('approveBtn');
-            const rejectBtn = document.getElementById('rejectBtn');
-            const approveClaimBtn = document.getElementById('approveClaimBtn');
-            const rejectClaimBtn = document.getElementById('rejectClaimBtn');
-            
-            function showToast(message, type = 'success') {
-                // In a real app, you would show a toast notification
-                alert(message);
-            }
-            
-            function updateClaimStatus(claimId, status, message) {
-                // In a real app, this would make an API call to update the claim status
-                console.log(`Updating claim ${claimId} to status: ${status}`);
-                showToast(message);
-                
-                // Close the modal if it's open
-                modal.style.display = 'none';
-                
-                // Update the UI to reflect the new status
-                if (status === 'approved') {
-                    const statusBadge = document.querySelector('.claim-status');
-                    if (statusBadge) {
-                        statusBadge.textContent = 'Approved';
-                        statusBadge.className = 'claim-status status-approved';
-                    }
-                    
-                    // Disable action buttons
-                    if (approveBtn) approveBtn.disabled = true;
-                    if (rejectBtn) rejectBtn.disabled = true;
-                    if (approveClaimBtn) approveClaimBtn.disabled = true;
-                    if (rejectClaimBtn) rejectClaimBtn.disabled = true;
-                } else if (status === 'rejected') {
-                    const statusBadge = document.querySelector('.claim-status');
-                    if (statusBadge) {
-                        statusBadge.textContent = 'Rejected';
-                        statusBadge.className = 'claim-status status-rejected';
-                    }
-                    
-                    // Disable action buttons
-                    if (approveBtn) approveBtn.disabled = true;
-                    if (rejectBtn) rejectBtn.disabled = true;
-                    if (approveClaimBtn) approveClaimBtn.disabled = true;
-                    if (rejectClaimBtn) rejectClaimBtn.disabled = true;
-                }
-            }
-            
-            // Set up event listeners for approve/reject buttons
-            if (approveBtn) {
-                approveBtn.addEventListener('click', function() {
-                    if (confirm('Are you sure you want to approve this claim?')) {
-                        updateClaimStatus('CLM-2023-0012', 'approved', 'Claim approved successfully');
-                    }
-                });
-            }
-            
-            if (rejectBtn) {
-                rejectBtn.addEventListener('click', function() {
-                    const reason = prompt('Please provide a reason for rejection:');
-                    if (reason !== null) {
-                        updateClaimStatus('CLM-2023-0012', 'rejected', 'Claim has been rejected');
-                    }
-                });
-            }
-            
-            if (approveClaimBtn) {
-                approveClaimBtn.addEventListener('click', function() {
-                    if (confirm('Are you sure you want to approve this claim?')) {
-                        updateClaimStatus('CLM-2023-0012', 'approved', 'Claim approved successfully');
-                    }
-                });
-            }
-            
-            if (rejectClaimBtn) {
-                rejectClaimBtn.addEventListener('click', function() {
-                    const reason = prompt('Please provide a reason for rejection:');
-                    if (reason !== null) {
-                        updateClaimStatus('CLM-2023-0012', 'rejected', 'Claim has been rejected');
-                    }
-                });
-            }
-            
-            // Filter functionality
-            const filterSelect = document.querySelector('.filter-select');
-            const searchInput = document.querySelector('.search-input');
-            const claimCards = document.querySelectorAll('.claim-card');
-            
-            function filterClaims() {
-                const statusFilter = filterSelect ? filterSelect.value : 'all';
-                const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-                
-                claimCards.forEach(card => {
-                    const status = card.querySelector('.claim-status').textContent.toLowerCase();
-                    const title = card.querySelector('.claim-title').textContent.toLowerCase();
-                    const description = card.querySelector('.claim-item-description') ? 
-                        card.querySelector('.claim-item-description').textContent.toLowerCase() : '';
-                    const claimantName = card.querySelector('.claim-claimant-name') ? 
-                        card.querySelector('.claim-claimant-name').textContent.toLowerCase() : '';
-                    
-                    const matchesStatus = statusFilter === 'all' || status.includes(statusFilter);
-                    const matchesSearch = searchTerm === '' || 
-                        title.includes(searchTerm) || 
-                        description.includes(searchTerm) ||
-                        claimantName.includes(searchTerm);
-                    
-                    if (matchesStatus && matchesSearch) {
-                        card.style.display = 'block';
-                    } else {
-                        card.style.display = 'none';
-                    }
-                });
-                
-                // Show no results message if no cards are visible
-                const visibleCards = document.querySelectorAll('.claim-card[style="display: block"]');
-                const noClaimsDiv = document.querySelector('.no-claims');
-                
-                if (visibleCards.length === 0 && !document.querySelector('.no-claims')) {
-                    if (noClaimsDiv) {
-                        noClaimsDiv.style.display = 'block';
-                    } else {
-                        const noResults = document.createElement('div');
-                        noResults.className = 'no-claims';
-                        noResults.innerHTML = `
-                            <div class="no-claims-icon">
-                                <i data-lucide="search" width="32" height="32"></i>
-                            </div>
-                            <h3 class="no-claims-title">No matching claims found</h3>
-                            <p class="no-claims-text">
-                                There are no claims matching your current filters. Try adjusting your search criteria.
-                            </p>
-                            <button class="btn btn-primary" id="resetFiltersBtn">
-                                <i data-lucide="refresh-ccw" width="16" height="16" style="margin-right: 8px;"></i>
-                                Reset Filters
-                            </button>
-                        `;
-                        document.getElementById('claimsList').appendChild(noResults);
-                        lucide.createIcons();
-                        
-                        // Add event listener to reset filters button
-                        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
-                        if (resetFiltersBtn) {
-                            resetFiltersBtn.addEventListener('click', function() {
-                                if (filterSelect) filterSelect.value = 'all';
-                                if (searchInput) searchInput.value = '';
-                                filterClaims();
-                                noResults.remove();
-                            });
-                        }
-                    }
-                } else if (noClaimsDiv) {
-                    noClaimsDiv.style.display = 'none';
-                }
-            }
-            
-            // Add event listeners for filter and search
-            if (filterSelect) {
-                filterSelect.addEventListener('change', filterClaims);
-            }
-            
-            if (searchInput) {
-                searchInput.addEventListener('input', filterClaims);
-            }
-            
-            // Initialize filter on page load
-            filterClaims();
-        });
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+          authDomain: "lafsys.firebaseapp.com",
+          projectId: "lafsys",
+          storageBucket: "lafsys.appspot.com",
+          messagingSenderId: "103945210522",
+          appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+          measurementId: "G-EJ2X0PTDNH"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        console.log('Firebase initialized in claims.html');
     </script>
+    
+    <!-- App Scripts - these will now use the global firebase object -->
+    <script src="js/firestore-data.js"></script>
+    <script src="js/claims.js"></script>
+    
+    <style>
+        /* Additional styles for loading states */
+        .loading-claims {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 1.5rem;
+            border-radius: 50%;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0ea5e9;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 0.5rem;
+            color: #dc2626;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        body.loading::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        body.loading::before {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0ea5e9;
+            animation: spin 1s linear infinite;
+            z-index: 10000;
+        }
+    </style>
 </body>
 </html>

@@ -1,10 +1,9 @@
-// Import Firebase services
-import { db, storage } from './firebase.js';
-import { 
-    collection, getDocs, getDoc, doc, query, where, 
-    addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp 
-} from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// Use Firebase global objects provided by compat version
+console.log('Firestore-data.js loaded');
+
+// Get references to the functions we need from the global firebase object
+const db = firebase.firestore();
+const storage = firebase.storage();
 
 // Collection references
 const ITEMS_COLLECTION = 'items';
@@ -14,8 +13,8 @@ const MESSAGES_COLLECTION = 'messages';
 // Function to get all items
 async function getItems() {
     try {
-        const itemsRef = collection(db, ITEMS_COLLECTION);
-        const itemsSnapshot = await getDocs(query(itemsRef, orderBy('date', 'desc')));
+        const itemsRef = db.collection(ITEMS_COLLECTION);
+        const itemsSnapshot = await itemsRef.orderBy('date', 'desc').get();
         return itemsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -29,10 +28,10 @@ async function getItems() {
 // Function to get item by ID
 async function getItemById(id) {
     try {
-        const docRef = doc(db, ITEMS_COLLECTION, id);
-        const docSnap = await getDoc(docRef);
+        const docRef = db.collection(ITEMS_COLLECTION).doc(id);
+        const docSnap = await docRef.get();
         
-        if (docSnap.exists()) {
+        if (docSnap.exists) {
             return {
                 id: docSnap.id,
                 ...docSnap.data()
@@ -50,16 +49,16 @@ async function getItemById(id) {
 // Function to filter items by status
 async function getItemsByStatus(status) {
     try {
-        const itemsRef = collection(db, ITEMS_COLLECTION);
-        let q;
+        const itemsRef = db.collection(ITEMS_COLLECTION);
+        let query;
         
         if (status === 'all') {
-            q = query(itemsRef, orderBy('date', 'desc'));
+            query = itemsRef.orderBy('date', 'desc');
         } else {
-            q = query(itemsRef, where('status', '==', status), orderBy('date', 'desc'));
+            query = itemsRef.where('status', '==', status).orderBy('date', 'desc');
         }
         
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await query.get();
         return querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -101,9 +100,9 @@ async function addItem(itemData, imageFile) {
         
         // Upload image if provided
         if (imageFile) {
-            const storageRef = ref(storage, `items/${Date.now()}_${imageFile.name}`);
-            const uploadResult = await uploadBytes(storageRef, imageFile);
-            imageUrl = await getDownloadURL(uploadResult.ref);
+            const storageRef = storage.ref(`items/${Date.now()}_${imageFile.name}`);
+            const uploadTask = await storageRef.put(imageFile);
+            imageUrl = await uploadTask.ref.getDownloadURL();
         }
         
         // Prepare the item data
@@ -112,17 +111,17 @@ async function addItem(itemData, imageFile) {
             description: itemData.description || '',
             category: itemData.category || 'other',
             location: itemData.location || '',
-            date: itemData.date ? new Date(itemData.date) : serverTimestamp(),
+            date: itemData.date ? new Date(itemData.date) : firebase.firestore.FieldValue.serverTimestamp(),
             status: itemData.status || 'active',
             image: imageUrl || 'https://via.placeholder.com/400x300?text=No+Image',
             disposalDate: itemData.disposalDate ? new Date(itemData.disposalDate) : null,
             foundBy: itemData.foundBy || '',
             storageLocation: itemData.storageLocation || '',
-            createdAt: serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
         // Add to Firestore
-        const docRef = await addDoc(collection(db, ITEMS_COLLECTION), newItem);
+        const docRef = await db.collection(ITEMS_COLLECTION).add(newItem);
         
         return {
             id: docRef.id,
@@ -137,11 +136,11 @@ async function addItem(itemData, imageFile) {
 // Function to update an item
 async function updateItem(id, itemData, imageFile) {
     try {
-        const itemRef = doc(db, ITEMS_COLLECTION, id);
+        const itemRef = db.collection(ITEMS_COLLECTION).doc(id);
         
         // Check if item exists
-        const docSnap = await getDoc(itemRef);
-        if (!docSnap.exists()) {
+        const docSnap = await itemRef.get();
+        if (!docSnap.exists) {
             throw new Error('Item not found');
         }
         
@@ -149,9 +148,9 @@ async function updateItem(id, itemData, imageFile) {
         
         // Handle image upload if new image is provided
         if (imageFile) {
-            const storageRef = ref(storage, `items/${Date.now()}_${imageFile.name}`);
-            const uploadResult = await uploadBytes(storageRef, imageFile);
-            updateData.image = await getDownloadURL(uploadResult.ref);
+            const storageRef = storage.ref(`items/${Date.now()}_${imageFile.name}`);
+            const uploadTask = await storageRef.put(imageFile);
+            updateData.image = await uploadTask.ref.getDownloadURL();
         }
         
         // Convert date strings to Firestore timestamps
@@ -164,10 +163,10 @@ async function updateItem(id, itemData, imageFile) {
         }
         
         // Add last updated timestamp
-        updateData.updatedAt = serverTimestamp();
+        updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
         
         // Update the item
-        await updateDoc(itemRef, updateData);
+        await itemRef.update(updateData);
         
         return {
             id,
@@ -183,7 +182,7 @@ async function updateItem(id, itemData, imageFile) {
 // Function to delete an item
 async function deleteItem(id) {
     try {
-        await deleteDoc(doc(db, ITEMS_COLLECTION, id));
+        await db.collection(ITEMS_COLLECTION).doc(id).delete();
         return true;
     } catch (error) {
         console.error("Error deleting item: ", error);
@@ -200,10 +199,10 @@ async function submitClaim(itemId, claimData) {
             claimantEmail: claimData.email,
             description: claimData.description,
             status: 'pending', // pending, approved, rejected
-            createdAt: serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        const docRef = await addDoc(collection(db, CLAIMS_COLLECTION), newClaim);
+        const docRef = await db.collection(CLAIMS_COLLECTION).add(newClaim);
         
         return {
             id: docRef.id,
@@ -218,10 +217,9 @@ async function submitClaim(itemId, claimData) {
 // Function to get claims for an item
 async function getItemClaims(itemId) {
     try {
-        const claimsRef = collection(db, CLAIMS_COLLECTION);
-        const q = query(claimsRef, where('itemId', '==', itemId), orderBy('createdAt', 'desc'));
+        const claimsRef = db.collection(CLAIMS_COLLECTION);
+        const querySnapshot = await claimsRef.where('itemId', '==', itemId).orderBy('createdAt', 'desc').get();
         
-        const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -235,13 +233,17 @@ async function getItemClaims(itemId) {
 // Function to get all claims (for admin)
 async function getAllClaims() {
     try {
-        const claimsRef = collection(db, CLAIMS_COLLECTION);
-        const querySnapshot = await getDocs(query(claimsRef, orderBy('createdAt', 'desc')));
+        console.log('Getting all claims from Firestore...');
+        const claimsRef = db.collection(CLAIMS_COLLECTION);
+        const querySnapshot = await claimsRef.orderBy('createdAt', 'desc').get();
         
-        return querySnapshot.docs.map(doc => ({
+        const claims = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+        
+        console.log('Claims retrieved:', claims.length, claims);
+        return claims;
     } catch (error) {
         console.error("Error getting all claims: ", error);
         return [];
@@ -251,23 +253,56 @@ async function getAllClaims() {
 // Function to update a claim status
 async function updateClaimStatus(claimId, status) {
     try {
-        const claimRef = doc(db, CLAIMS_COLLECTION, claimId);
-        await updateDoc(claimRef, { 
+        console.log(`Updating claim ${claimId} to status: ${status}`);
+        const claimRef = db.collection(CLAIMS_COLLECTION).doc(claimId);
+        
+        // Get the current time as a JavaScript Date object for consistent display
+        const currentDate = new Date();
+        
+        // Update with both server timestamp and JavaScript date
+        const updateData = {
             status,
-            updatedAt: serverTimestamp()
-        });
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // Add approval-specific data if approving
+        if (status === 'approved') {
+            updateData.approvalDate = currentDate;
+        } else if (status === 'rejected') {
+            updateData.rejectionDate = currentDate;
+        }
+        
+        // Update the claim
+        await claimRef.update(updateData);
+        console.log(`Claim ${claimId} updated to ${status}`);
         
         // If claim is approved, update the item status
         if (status === 'approved') {
-            const claimDoc = await getDoc(claimRef);
+            const claimDoc = await claimRef.get();
             const claimData = claimDoc.data();
             
             if (claimData && claimData.itemId) {
-                const itemRef = doc(db, ITEMS_COLLECTION, claimData.itemId);
-                await updateDoc(itemRef, { 
-                    status: 'claimed',
-                    updatedAt: serverTimestamp()
-                });
+                console.log(`Updating item ${claimData.itemId} to claimed status`);
+                const itemRef = db.collection(ITEMS_COLLECTION).doc(claimData.itemId);
+                
+                // Get the item to verify it exists
+                const itemDoc = await itemRef.get();
+                
+                if (itemDoc.exists) {
+                    // Update the item with claimed status and reference to the claim
+                    await itemRef.update({ 
+                        status: 'claimed',
+                        claimId: claimId,
+                        claimedAt: currentDate,
+                        claimedBy: claimData.claimantName || 'Unknown',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log(`Item ${claimData.itemId} updated to claimed status`);
+                } else {
+                    console.error(`Item ${claimData.itemId} not found when approving claim`);
+                }
+            } else {
+                console.error(`Claim ${claimId} has no itemId`);
             }
         }
         
@@ -278,8 +313,8 @@ async function updateClaimStatus(claimId, status) {
     }
 }
 
-// Export all functions for use in other files
-export {
+// Make functions available to the global scope
+window.DataStore = {
     getItems,
     getItemById,
     getItemsByStatus,

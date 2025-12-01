@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAFSys Debug Console</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #2563eb;
+        }
+        .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        .danger {
+            background-color: #dc2626;
+        }
+        .danger:hover {
+            background-color: #b91c1c;
+        }
+        .warning {
+            background-color: #f59e0b;
+        }
+        .warning:hover {
+            background-color: #d97706;
+        }
+        .success {
+            background-color: #10b981;
+        }
+        .success:hover {
+            background-color: #059669;
+        }
+        pre {
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 4px;
+            overflow: auto;
+            height: 300px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .navigation {
+            margin-top: 30px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+        }
+        .navigation a {
+            color: #2563eb;
+            text-decoration: none;
+            margin-right: 15px;
+        }
+        .navigation a:hover {
+            text-decoration: underline;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: inherit;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success-result {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .error-result {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <h1>LAFSys Debug Console</h1>
+    <p>Use this page to debug the Lost and Found System database and perform maintenance tasks.</p>
+    
+    <div class="grid">
+        <div class="card">
+            <h2>Database Status</h2>
+            <button id="check-connection-btn">Check Firebase Connection</button>
+            <button id="list-collections-btn">List Collections</button>
+            <div id="db-status-result" class="result"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Claims Management</h2>
+            <button id="list-claims-btn">List All Claims</button>
+            <button id="add-sample-claim-btn" class="success">Add Sample Claim</button>
+            <button id="clear-claims-btn" class="warning">Clear All Claims</button>
+            <div id="claims-result" class="result"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Items Management</h2>
+            <button id="list-items-btn">List All Items</button>
+            <button id="add-sample-item-btn" class="success">Add Sample Item</button>
+            <button id="clear-items-btn" class="warning">Clear All Items</button>
+            <div id="items-result" class="result"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Advanced Operations</h2>
+            <button id="repair-db-btn">Repair Database Relations</button>
+            <button id="reset-db-btn" class="danger">Reset Entire Database</button>
+            <div id="advanced-result" class="result"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Console Output</h2>
+        <pre id="console-output">// Console output will appear here</pre>
+        <button id="clear-console-btn">Clear Console</button>
+    </div>
+    
+    <div class="navigation">
+        <a href="claims.html">Go to Claims Management</a>
+        <a href="admin.html">Go to Admin Dashboard</a>
+        <a href="index.html">Go to Homepage</a>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    
+    <script type="module">
+        import { db } from './js/firebase.js';
+        import { 
+            collection, getDocs, getDoc, doc, query, where, 
+            addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp, limit, writeBatch
+        } from "firebase/firestore";
+        
+        // Constants
+        const ITEMS_COLLECTION = 'items';
+        const CLAIMS_COLLECTION = 'claims';
+        
+        // DOM Elements
+        const consoleOutput = document.getElementById('console-output');
+        
+        // Capture console output
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        
+        console.log = function() {
+            const args = Array.from(arguments);
+            originalConsoleLog.apply(console, args);
+            
+            if (consoleOutput) {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+                ).join(' ');
+                consoleOutput.textContent += '> ' + message + '\n';
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        };
+        
+        console.error = function() {
+            const args = Array.from(arguments);
+            originalConsoleError.apply(console, args);
+            
+            if (consoleOutput) {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+                ).join(' ');
+                consoleOutput.textContent += '> ERROR: ' + message + '\n';
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        };
+        
+        console.warn = function() {
+            const args = Array.from(arguments);
+            originalConsoleWarn.apply(console, args);
+            
+            if (consoleOutput) {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+                ).join(' ');
+                consoleOutput.textContent += '> WARNING: ' + message + '\n';
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        };
+        
+        // Utility Functions
+        function showResult(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `result ${isError ? 'error-result' : 'success-result'}`;
+            }
+        }
+        
+        // Check Firebase Connection
+        document.getElementById('check-connection-btn').addEventListener('click', async () => {
+            try {
+                console.log('Checking Firebase connection...');
+                const timestamp = await db.collection('_health').add({
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                await db.collection('_health').doc(timestamp.id).delete();
+                
+                console.log('Firebase connection successful!');
+                showResult('db-status-result', 'Connection successful! Firebase is working properly.');
+            } catch (error) {
+                console.error('Firebase connection error:', error);
+                showResult('db-status-result', `Connection error: ${error.message}`, true);
+            }
+        });
+        
+        // List Collections
+        document.getElementById('list-collections-btn').addEventListener('click', async () => {
+            try {
+                console.log('Listing collections...');
+                
+                // This is a workaround since Firebase JS SDK doesn't expose a direct way to list collections
+                const itemsSnapshot = await getDocs(collection(db, ITEMS_COLLECTION));
+                const claimsSnapshot = await getDocs(collection(db, CLAIMS_COLLECTION));
+                
+                console.log(`Collections found:
+                - ${ITEMS_COLLECTION}: ${itemsSnapshot.size} documents
+                - ${CLAIMS_COLLECTION}: ${claimsSnapshot.size} documents`);
+                
+                showResult('db-status-result', `Collections found:
+                - ${ITEMS_COLLECTION}: ${itemsSnapshot.size} documents
+                - ${CLAIMS_COLLECTION}: ${claimsSnapshot.size} documents`);
+            } catch (error) {
+                console.error('Error listing collections:', error);
+                showResult('db-status-result', `Error listing collections: ${error.message}`, true);
+            }
+        });
+        
+        // Claims Management
+        // List Claims
+        document.getElementById('list-claims-btn').addEventListener('click', async () => {
+            try {
+                console.log('Listing all claims...');
+                const claimsSnapshot = await getDocs(collection(db, CLAIMS_COLLECTION));
+                
+                if (claimsSnapshot.empty) {
+                    console.log('No claims found in database.');
+                    showResult('claims-result', 'No claims found in database.');
+                    return;
+                }
+                
+                const claims = claimsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                console.log(`Found ${claims.length} claims:`, claims);
+                
+                showResult('claims-result', `Found ${claims.length} claims. See console for details.`);
+            } catch (error) {
+                console.error('Error listing claims:', error);
+                showResult('claims-result', `Error listing claims: ${error.message}`, true);
+            }
+        });
+        
+        // Add Sample Claim
+        document.getElementById('add-sample-claim-btn').addEventListener('click', async () => {
+            try {
+                console.log('Adding sample claim...');
+                
+                // Check for items
+                const itemsRef = collection(db, ITEMS_COLLECTION);
+                const itemsSnapshot = await getDocs(query(itemsRef, limit(1)));
+                
+                let itemId;
+                
+                if (itemsSnapshot.empty) {
+                    // Create sample item
+                    console.log('No items found, creating a sample item first');
+                    const newItem = {
+                        title: "Black Leather Wallet",
+                        description: "Found near the entrance of the park. Contains some ID cards and cash.",
+                        category: "personal",
+                        location: "Burnham Park Main Entrance",
+                        date: serverTimestamp(),
+                        status: "active",
+                        image: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                        disposalDate: null,
+                        foundBy: "Park Staff",
+                        storageLocation: "Admin Office",
+                        createdAt: serverTimestamp()
+                    };
+                    
+                    const itemDocRef = await addDoc(collection(db, ITEMS_COLLECTION), newItem);
+                    itemId = itemDocRef.id;
+                    console.log('Sample item created with ID:', itemId);
+                } else {
+                    // Use existing item
+                    itemId = itemsSnapshot.docs[0].id;
+                    console.log('Using existing item with ID:', itemId);
+                }
+                
+                // Create claim
+                const newClaim = {
+                    itemId: itemId,
+                    claimantName: "Juan Dela Cruz",
+                    claimantEmail: "juan.delacruz@example.com",
+                    claimantPhone: "+63 912 345 6789",
+                    description: "The wallet contains my driver's license (License #: ABC123456), two credit cards (BDO and BPI), and approximately ₱2,000 in cash. The driver's license has my photo and the name matches my ID.",
+                    status: "pending",
+                    notes: "I can come to claim the wallet anytime this week. Please let me know what documents I need to bring for verification.",
+                    createdAt: serverTimestamp()
+                };
+                
+                const claimDocRef = await addDoc(collection(db, CLAIMS_COLLECTION), newClaim);
+                console.log('Sample claim created with ID:', claimDocRef.id);
+                
+                showResult('claims-result', `Sample claim created successfully! Claim ID: ${claimDocRef.id}, Item ID: ${itemId}`);
+            } catch (error) {
+                console.error('Error adding sample claim:', error);
+                showResult('claims-result', `Error adding sample claim: ${error.message}`, true);
+            }
+        });
+        
+        // Clear Claims
+        document.getElementById('clear-claims-btn').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete ALL claims? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                console.log('Clearing all claims...');
+                const claimsSnapshot = await getDocs(collection(db, CLAIMS_COLLECTION));
+                
+                if (claimsSnapshot.empty) {
+                    console.log('No claims to delete.');
+                    showResult('claims-result', 'No claims to delete.');
+                    return;
+                }
+                
+                const batch = writeBatch(db);
+                
+                claimsSnapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                
+                console.log(`Successfully deleted ${claimsSnapshot.size} claims.`);
+                showResult('claims-result', `Successfully deleted ${claimsSnapshot.size} claims.`);
+            } catch (error) {
+                console.error('Error clearing claims:', error);
+                showResult('claims-result', `Error clearing claims: ${error.message}`, true);
+            }
+        });
+        
+        // Items Management
+        // List Items
+        document.getElementById('list-items-btn').addEventListener('click', async () => {
+            try {
+                console.log('Listing all items...');
+                const itemsSnapshot = await getDocs(collection(db, ITEMS_COLLECTION));
+                
+                if (itemsSnapshot.empty) {
+                    console.log('No items found in database.');
+                    showResult('items-result', 'No items found in database.');
+                    return;
+                }
+                
+                const items = itemsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                console.log(`Found ${items.length} items:`, items);
+                
+                showResult('items-result', `Found ${items.length} items. See console for details.`);
+            } catch (error) {
+                console.error('Error listing items:', error);
+                showResult('items-result', `Error listing items: ${error.message}`, true);
+            }
+        });
+        
+        // Add Sample Item
+        document.getElementById('add-sample-item-btn').addEventListener('click', async () => {
+            try {
+                console.log('Adding sample item...');
+                
+                // Create sample items
+                const items = [
+                    {
+                        title: "Black Leather Wallet",
+                        description: "Found near the entrance of the park. Contains some ID cards and cash.",
+                        category: "personal",
+                        location: "Burnham Park Main Entrance",
+                        date: serverTimestamp(),
+                        status: "active",
+                        image: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                        disposalDate: null,
+                        foundBy: "Park Staff",
+                        storageLocation: "Admin Office",
+                        createdAt: serverTimestamp()
+                    },
+                    {
+                        title: "iPhone 13 Pro",
+                        description: "Gold iPhone 13 Pro found at the food court. Has a blue protective case.",
+                        category: "electronics",
+                        location: "SM City Baguio, Food Court",
+                        date: serverTimestamp(),
+                        status: "active",
+                        image: "https://images.unsplash.com/photo-1632809947610-8fefdb8f9c2f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+                        disposalDate: null,
+                        foundBy: "Security Personnel",
+                        storageLocation: "Security Office",
+                        createdAt: serverTimestamp()
+                    }
+                ];
+                
+                const batch = writeBatch(db);
+                const itemsRef = collection(db, ITEMS_COLLECTION);
+                
+                items.forEach(item => {
+                    const docRef = doc(itemsRef);
+                    batch.set(docRef, item);
+                });
+                
+                await batch.commit();
+                
+                console.log(`Successfully added ${items.length} sample items.`);
+                showResult('items-result', `Successfully added ${items.length} sample items.`);
+            } catch (error) {
+                console.error('Error adding sample items:', error);
+                showResult('items-result', `Error adding sample items: ${error.message}`, true);
+            }
+        });
+        
+        // Clear Items
+        document.getElementById('clear-items-btn').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete ALL items? This will also delete associated claims and cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                console.log('Clearing all items...');
+                const itemsSnapshot = await getDocs(collection(db, ITEMS_COLLECTION));
+                
+                if (itemsSnapshot.empty) {
+                    console.log('No items to delete.');
+                    showResult('items-result', 'No items to delete.');
+                    return;
+                }
+                
+                // First, delete all claims
+                const claimsSnapshot = await getDocs(collection(db, CLAIMS_COLLECTION));
+                
+                if (!claimsSnapshot.empty) {
+                    console.log(`Deleting ${claimsSnapshot.size} associated claims first...`);
+                    const claimsBatch = writeBatch(db);
+                    
+                    claimsSnapshot.docs.forEach(doc => {
+                        claimsBatch.delete(doc.ref);
+                    });
+                    
+                    await claimsBatch.commit();
+                    console.log('Associated claims deleted.');
+                }
+                
+                // Now delete all items
+                const itemsBatch = writeBatch(db);
+                
+                itemsSnapshot.docs.forEach(doc => {
+                    itemsBatch.delete(doc.ref);
+                });
+                
+                await itemsBatch.commit();
+                
+                console.log(`Successfully deleted ${itemsSnapshot.size} items.`);
+                showResult('items-result', `Successfully deleted ${itemsSnapshot.size} items and all associated claims.`);
+            } catch (error) {
+                console.error('Error clearing items:', error);
+                showResult('items-result', `Error clearing items: ${error.message}`, true);
+            }
+        });
+        
+        // Advanced Operations
+        // Repair Database
+        document.getElementById('repair-db-btn').addEventListener('click', async () => {
+            try {
+                console.log('Repairing database relations...');
+                
+                // Check for claims with invalid itemIds
+                const claimsSnapshot = await getDocs(collection(db, CLAIMS_COLLECTION));
+                const itemsSnapshot = await getDocs(collection(db, ITEMS_COLLECTION));
+                
+                if (claimsSnapshot.empty) {
+                    console.log('No claims to repair.');
+                    showResult('advanced-result', 'No claims to repair.');
+                    return;
+                }
+                
+                if (itemsSnapshot.empty) {
+                    console.log('No items in database. Cannot repair claims.');
+                    showResult('advanced-result', 'No items in database. Cannot repair claims.', true);
+                    return;
+                }
+                
+                const itemIds = itemsSnapshot.docs.map(doc => doc.id);
+                const brokenClaims = [];
+                
+                // Find claims with invalid itemIds
+                claimsSnapshot.docs.forEach(doc => {
+                    const claim = doc.data();
+                    if (!claim.itemId || !itemIds.includes(claim.itemId)) {
+                        brokenClaims.push({
+                            id: doc.id,
+                            claim
+                        });
+                    }
+                });
+                
+                if (brokenClaims.length === 0) {
+                    console.log('No broken relations found. Database is healthy.');
+                    showResult('advanced-result', 'No broken relations found. Database is healthy.');
+                    return;
+                }
+                
+                console.log(`Found ${brokenClaims.length} claims with invalid itemIds.`);
+                
+                // Repair by assigning a random valid itemId
+                const batch = writeBatch(db);
+                
+                brokenClaims.forEach(({id}) => {
+                    const randomItemId = itemIds[Math.floor(Math.random() * itemIds.length)];
+                    const claimRef = doc(db, CLAIMS_COLLECTION, id);
+                    
+                    batch.update(claimRef, {
+                        itemId: randomItemId,
+                        updatedAt: serverTimestamp()
+                    });
+                    
+                    console.log(`Repaired claim ${id} by assigning itemId: ${randomItemId}`);
+                });
+                
+                await batch.commit();
+                
+                console.log(`Successfully repaired ${brokenClaims.length} claims.`);
+                showResult('advanced-result', `Successfully repaired ${brokenClaims.length} claims.`);
+            } catch (error) {
+                console.error('Error repairing database:', error);
+                showResult('advanced-result', `Error repairing database: ${error.message}`, true);
+            }
+        });
+        
+        // Reset Entire Database
+        document.getElementById('reset-db-btn').addEventListener('click', async () => {
+            if (!confirm('WARNING: This will DELETE ALL DATA in the database. This action CANNOT be undone. Are you absolutely sure?')) {
+                return;
+            }
+            
+            if (!confirm('FINAL WARNING: All items and claims will be permanently deleted. Type "RESET" to confirm.')) {
+                return;
+            }
+            
+            const confirmation = prompt('Type "RESET" to confirm database reset:');
+            if (confirmation !== 'RESET') {
+                alert('Reset cancelled.');
+                return;
+            }
+            
+            try {
+                console.log('Resetting entire database...');
+                
+                // Delete all claims
+                const claimsSnapshot = await getDocs(collection(db, CLAIMS_COLLECTION));
+                if (!claimsSnapshot.empty) {
+                    console.log(`Deleting ${claimsSnapshot.size} claims...`);
+                    const claimsBatch = writeBatch(db);
+                    
+                    claimsSnapshot.docs.forEach(doc => {
+                        claimsBatch.delete(doc.ref);
+                    });
+                    
+                    await claimsBatch.commit();
+                    console.log('All claims deleted.');
+                }
+                
+                // Delete all items
+                const itemsSnapshot = await getDocs(collection(db, ITEMS_COLLECTION));
+                if (!itemsSnapshot.empty) {
+                    console.log(`Deleting ${itemsSnapshot.size} items...`);
+                    const itemsBatch = writeBatch(db);
+                    
+                    itemsSnapshot.docs.forEach(doc => {
+                        itemsBatch.delete(doc.ref);
+                    });
+                    
+                    await itemsBatch.commit();
+                    console.log('All items deleted.');
+                }
+                
+                console.log('Database reset complete.');
+                showResult('advanced-result', 'Database reset complete. All data has been deleted.');
+            } catch (error) {
+                console.error('Error resetting database:', error);
+                showResult('advanced-result', `Error resetting database: ${error.message}`, true);
+            }
+        });
+        
+        // Clear Console
+        document.getElementById('clear-console-btn').addEventListener('click', () => {
+            consoleOutput.textContent = '// Console cleared\n';
+        });
+        
+        console.log('Debug utility loaded and ready.');
+    </script>
+</body>
+</html>

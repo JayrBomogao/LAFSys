@@ -1,0 +1,101 @@
+/* Emergency Modal CSS Fix */
+#claim-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: auto !important;
+}
+
+#claim-modal[style*="display: none"] {
+    display: none !important;
+}
+
+#claim-modal .modal-content {
+    background-color: white !important;
+    padding: 24px !important;
+    border-radius: 8px !important;
+    width: 90% !important;
+    max-width: 500px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    position: relative !important;
+}
+
+#claim-modal .close {
+    position: absolute !important;
+    top: 15px !important;
+    right: 20px !important;
+    font-size: 24px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    color: #6b7280 !important;
+}
+
+#claim-modal .close:hover {
+    color: #111827 !important;
+}
+
+#claim-modal input,
+#claim-modal textarea {
+    width: 100% !important;
+    padding: 12px !important;
+    margin-bottom: 16px !important;
+    border: 2px solid #d1d5db !important;
+    border-radius: 6px !important;
+    font-size: 16px !important;
+    background-color: white !important;
+    color: black !important;
+    box-sizing: border-box !important;
+    display: block !important;
+}
+
+#claim-modal input:focus,
+#claim-modal textarea:focus {
+    outline: none !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
+}
+
+#claim-modal textarea {
+    min-height: 120px !important;
+    resize: vertical !important;
+}
+
+#claim-modal label {
+    display: block !important;
+    margin-bottom: 8px !important;
+    font-weight: 500 !important;
+    color: #111827 !important;
+}
+
+#claim-modal button[type="submit"] {
+    width: 100% !important;
+    padding: 12px !important;
+    background-color: #2563eb !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+}
+
+#claim-modal button[type="submit"]:hover {
+    background-color: #1d4ed8 !important;
+}
+
+/* Force visibility of inputs */
+#new-claimant-name,
+#new-claimant-email,
+#new-claimant-phone,
+#new-claim-description {
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: static !important;
+}
