@@ -41,6 +41,8 @@
         try {
             // Check if messages collection exists and has documents
             const messagesSnapshot = await db.collection('messages').limit(1).get();
+            
+            // Force creation of demo data if messages collection is empty
             if (messagesSnapshot.empty) {
                 console.log('Creating demo messages data...');
                 
@@ -130,6 +132,221 @@
         },
         
         /**
+         * Subscribe to real-time updates for a specific thread
+         * @param {string} email - The email identifier for the thread
+         * @param {Function} callback - Callback function to receive updates
+         * @returns {Function} - Unsubscribe function
+         */
+        subscribeToThread(email, callback) {
+            if (!email) return null;
+            
+            const unsubscribe = db.collection('threads').doc(email)
+                .onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if (data && Array.isArray(data.messages)) {
+                            callback(data.messages);
+                        } else {
+                            callback([]);
+                        }
+                    } else {
+                        callback([]);
+                    }
+                }, error => {
+                    console.error('Error in thread subscription:', error);
+                    callback([]);
+                });
+                
+            return unsubscribe;
+        },
+        
+        /**
+         * Check if a user or admin is online
+         * @param {string} userId - User ID or email to check
+         * @returns {Promise<Object>} - Online status information
+         */
+        async checkOnlineStatus(userId) {
+            try {
+                const doc = await db.collection('online_status').doc(userId).get();
+                if (doc.exists) {
+                    return doc.data();
+                }
+                return { online: false, lastSeen: null };
+            } catch (error) {
+                console.error('Error checking online status:', error);
+                return { online: false, lastSeen: null };
+            }
+        },
+        
+        /**
+         * Subscribe to online status changes for a user or admin
+         * @param {string} userId - User ID or email to monitor
+         * @param {Function} callback - Callback function to receive status updates
+         * @returns {Function} - Unsubscribe function
+         */
+        subscribeToOnlineStatus(userId, callback) {
+            if (!userId) return null;
+            
+            return db.collection('online_status').doc(userId)
+                .onSnapshot(doc => {
+                    if (doc.exists) {
+                        callback(doc.data());
+                    } else {
+                        callback({ online: false, lastSeen: null });
+                    }
+                }, error => {
+                    console.error('Error in online status subscription:', error);
+                    callback({ online: false, lastSeen: null });
+                });
+        },
+        
+        /**
+         * Set online status for a user
+         * @param {string} userId - User ID or email to update
+         * @param {boolean} isOnline - Whether the user is online
+         * @param {string} [displayName] - Optional display name for the user
+         * @returns {Promise<void>}
+         */
+        async setOnlineStatusAsync(userId, isOnline, displayName = null) {
+            if (!userId) return Promise.reject(new Error('User ID is required'));
+            
+            try {
+                const statusData = {
+                    online: isOnline,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                // Add display name if provided
+                if (displayName) {
+                    statusData.displayName = displayName;
+                }
+                
+                await db.collection('online_status').doc(userId).set(statusData, { merge: true });
+                return true;
+            } catch (error) {
+                console.error('Error setting online status:', error);
+                throw error;
+            }
+        },
+        
+        /**
+         * Update typing status for a chat thread
+         * @param {string} threadId - The email/ID of the thread
+         * @param {boolean} isTyping - Whether the user is currently typing
+         * @returns {Promise<void>}
+         */
+        async updateTypingStatus(threadId, isTyping) {
+            if (!threadId) return Promise.reject(new Error('Thread ID is required'));
+            
+            try {
+                const typingRef = db.collection('typing_status').doc(threadId);
+                
+                // Get current user identity
+                const isAdmin = window.location.href.includes('admin.html') || 
+                                window.location.href.includes('chat.html');
+                const userId = isAdmin ? 'admin' : threadId;
+                
+                // Update typing status
+                await typingRef.set({
+                    [userId]: {
+                        isTyping,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                }, { merge: true });
+                
+                return true;
+            } catch (error) {
+                console.error('Error updating typing status:', error);
+                return false;
+            }
+        },
+        
+        /**
+         * Subscribe to typing status updates for a thread
+         * @param {string} threadId - The email/ID of the thread
+         * @param {Function} callback - Callback function to receive updates
+         * @returns {Function} - Unsubscribe function
+         */
+        subscribeToTypingStatus(threadId, callback) {
+            if (!threadId) return null;
+            
+            // Determine which user type we are
+            const isAdmin = window.location.href.includes('admin.html') || 
+                           window.location.href.includes('chat.html');
+                           
+            // We want to know if the other party is typing
+            const targetUser = isAdmin ? threadId : 'admin';
+            
+            return db.collection('typing_status').doc(threadId)
+                .onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if (data && data[targetUser]) {
+                            const typingData = data[targetUser];
+                            
+                            // Check if typing status is recent (within 5 seconds)
+                            let isRecent = true;
+                            if (typingData.timestamp) {
+                                const now = new Date();
+                                const typingTime = typingData.timestamp.toDate();
+                                isRecent = (now - typingTime) < 5000; // 5 seconds
+                            }
+                            
+                            callback({
+                                isTyping: typingData.isTyping && isRecent,
+                                timestamp: typingData.timestamp
+                            });
+                        } else {
+                            callback({ isTyping: false });
+                        }
+                    } else {
+                        callback({ isTyping: false });
+                    }
+                }, error => {
+                    console.error('Error in typing status subscription:', error);
+                    callback({ isTyping: false });
+                });
+        },
+        
+        /**
+         * Mark a thread as read
+         * @param {string} email - Thread identifier
+         * @returns {Promise<boolean>} Success status
+         */
+        async markThreadAsReadAsync(email) {
+            if (!email) return Promise.reject(new Error('Email is required'));
+            
+            try {
+                // Update the thread's read status
+                await db.collection('threads').doc(email).update({
+                    read: true,
+                    lastReadAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Also mark any inbox messages from this user as read
+                const messagesSnapshot = await db.collection('messages')
+                    .where('email', '==', email)
+                    .where('unread', '==', true)
+                    .get();
+                    
+                const batch = db.batch();
+                messagesSnapshot.docs.forEach(doc => {
+                    batch.update(doc.ref, { unread: false });
+                });
+                
+                if (messagesSnapshot.docs.length > 0) {
+                    await batch.commit();
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error marking thread as read:', error);
+                return false;
+            }
+        },
+        
+        
+        /**
          * Get all messages (synchronous version for compatibility)
          * @returns {Array} Empty array initially, use the callback for actual data
          */
@@ -180,8 +397,22 @@
                 const threadDoc = await db.collection('threads').doc(email).get();
                 if (threadDoc.exists) {
                     const data = threadDoc.data();
-                    return Array.isArray(data.messages) ? [...data.messages] : [];
+                    const messages = Array.isArray(data.messages) ? [...data.messages] : [];
+                    
+                    // Debug the thread messages
+                    console.log(`Retrieved ${messages.length} messages for thread ${email}`);
+                    if (messages.length > 0) {
+                        console.log('First message:', {
+                            id: messages[0].id,
+                            sender: messages[0].sender,
+                            bodyLength: messages[0].body ? messages[0].body.length : 0,
+                            bodyPreview: messages[0].body ? messages[0].body.substring(0, 30) : 'EMPTY'
+                        });
+                    }
+                    
+                    return messages;
                 }
+                console.log(`No thread found for ${email}`);
                 return [];
             } catch (error) {
                 console.error('Error getting thread:', error);
@@ -190,18 +421,106 @@
         },
         
         /**
-         * Get a chat thread (synchronous version for compatibility)
+         * Get thread messages (sync version)
          * @param {string} email Email identifier for the thread
-         * @returns {Array} Empty array initially
+         * @returns {Array} Thread messages or empty array
          */
-        getThread(email, callback) {
-            this.getThreadAsync(email).then(messages => {
-                if (callback && typeof callback === 'function') {
-                    callback(messages);
+        getThread(email) {
+            // Store the active thread email in session storage for real-time updates
+            if (email) {
+                sessionStorage.setItem('activeThreadEmail', email);
+            }
+            
+            // Debug
+            console.log(`Getting thread for ${email}`);
+            
+            // First check if we have this thread cached
+            const cachedThreadKey = `thread_${email}`;
+            const cachedThread = sessionStorage.getItem(cachedThreadKey);
+            if (cachedThread) {
+                try {
+                    const parsedThread = JSON.parse(cachedThread);
+                    console.log(`Retrieved cached thread with ${parsedThread.length} messages`);
+                    
+                    // Also fetch fresh data asynchronously for next time
+                    this.getThreadAsync(email).then(messages => {
+                        try {
+                            sessionStorage.setItem(cachedThreadKey, JSON.stringify(messages));
+                        } catch (e) {
+                            console.warn('Could not cache thread:', e);
+                        }
+                    }).catch(console.error);
+                    
+                    return parsedThread;
+                } catch (e) {
+                    console.warn('Error parsing cached thread:', e);
+                    // Fall through to fetch fresh data
                 }
-            });
-            return []; // Return empty array immediately for compatibility
+            }
+            
+            // We don't have cached data, so fetch it now
+            // This will be asynchronous so we'll return an empty array
+            // but we'll cache the result for next time
+            this.getThreadAsync(email)
+                .then(messages => {
+                    console.log(`Retrieved thread from Firestore with ${messages.length} messages`);
+                    
+                    // Cache the thread data for faster access
+                    try {
+                        sessionStorage.setItem(cachedThreadKey, JSON.stringify(messages));
+                    } catch (e) {
+                        console.warn('Could not cache thread:', e);
+                    }
+                    
+                    // Dispatch event to notify UI
+                    const evt = new CustomEvent('threadLoaded', { 
+                        detail: { email, messages } 
+                    });
+                    w.dispatchEvent(evt);
+                })
+                .catch(err => {
+                    console.error('Error getting thread:', err);
+                });
+            
+            // Return empty array immediately - async update will come later
+            return [];
         },
+        
+        /**
+         * Get all active threads
+         * @returns {Promise<Array>} Array of threads with summary information
+         */
+        async getAllThreadsAsync() {
+            try {
+                const snapshot = await db.collection('threads')
+                    .orderBy('lastUpdated', 'desc')
+                    .get();
+                    
+                return Promise.all(snapshot.docs.map(async doc => {
+                    const data = doc.data();
+                    const email = doc.id;
+                    const messages = Array.isArray(data.messages) ? data.messages : [];
+                    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+                    
+                    // Get online status
+                    const statusDoc = await db.collection('online_status').doc(email).get();
+                    const onlineStatus = statusDoc.exists ? statusDoc.data() : { online: false };
+                    
+                    return {
+                        email,
+                        name: lastMessage ? lastMessage.name : 'Unknown',
+                        lastMessage,
+                        messageCount: messages.length,
+                        lastUpdated: data.lastUpdated ? data.lastUpdated.toDate() : new Date(),
+                        isOnline: onlineStatus.online
+                    };
+                }));
+            } catch (error) {
+                console.error('Error getting all threads:', error);
+                return [];
+            }
+        },
+        
         
         /**
          * Send a message to a thread in Firestore
@@ -213,11 +532,23 @@
          */
         async sendAsync(email, name, body, from = 'admin@lafsys.gov') {
             try {
+                // Ensure body is a string and not null/undefined
+                const messageBody = body || '';
+                
+                // Debug what we're sending
+                console.log('Sending message:', {
+                    email,
+                    name,
+                    bodyLength: messageBody.length,
+                    body: messageBody.substring(0, 100),
+                    from
+                });
+                
                 const msg = {
                     id: `msg_${Date.now()}`,
                     sender: from,
                     name: from === 'admin@lafsys.gov' ? 'Admin' : name,
-                    body,
+                    body: messageBody, // Use sanitized body
                     date: new Date().toISOString()
                 };
                 
@@ -236,18 +567,38 @@
                         messages: [msg],
                         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                }
                     
-                    // Also create an inbox message if this is a new thread from a user
-                    if (from !== 'admin@lafsys.gov') {
-                        await db.collection('messages').add({
-                            from: name || 'User',
-                            email: email,
-                            subject: body.substring(0, 50) + (body.length > 50 ? '...' : ''),
-                            body: body,
-                            date: new Date().toISOString(),
-                            unread: true
-                        });
-                    }
+                // Always create an inbox message for user-initiated messages
+                // This ensures all user messages appear in the admin inbox
+                if (from !== 'admin@lafsys.gov') {
+                    // Create a unique ID for the message
+                    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    
+                    // Ensure we have at least some basic user information for display
+                    const displayName = name || 'Visitor';
+                    const emailAddress = email || `visitor_${Date.now()}@example.com`;
+                    const subjectText = body ? body.substring(0, 50) + (body.length > 50 ? '...' : '') : 'No subject';
+                    
+                    // Debug what's being saved
+                    console.log('Creating new message with:', {
+                        from: displayName,
+                        email: emailAddress,
+                        subject: subjectText,
+                        bodyLength: body ? body.length : 0
+                    });
+                    
+                    await db.collection('messages').doc(messageId).set({
+                        from: displayName,
+                        email: emailAddress,
+                        subject: subjectText,
+                        body: body || 'Empty message',
+                        date: new Date().toISOString(),
+                        unread: true,
+                        sender: from
+                    });
+                    
+                    console.log('Created new inbox message with ID:', messageId);
                 }
                 
                 const evt = new CustomEvent('threadUpdated', { detail: { email, message: msg } });
@@ -314,7 +665,13 @@
                     unread: true
                 };
                 
-                const docRef = await db.collection('messages').add(message);
+                // Create a unique ID for better tracking
+                const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Use set with document ID instead of add for more control
+                await db.collection('messages').doc(messageId).set(message);
+                
+                console.log('Created new message with ID:', messageId);
                 
                 // Create a thread for this message if needed
                 const threadRef = db.collection('threads').doc(message.email);
@@ -334,14 +691,26 @@
                         messages: [threadMsg],
                         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    
+                    console.log('Created new thread for email:', message.email);
                 }
                 
-                const evt = new CustomEvent('messagesUpdated', { 
-                    detail: { type: 'add', id: docRef.id, message } 
-                });
-                w.dispatchEvent(evt);
+                // Dispatch multiple events to ensure all listeners are notified
+                const messageWithId = { ...message, id: messageId };
                 
-                return docRef.id;
+                // Dispatch messageAdded event for real-time updates
+                const addedEvt = new CustomEvent('messageAdded', { 
+                    detail: { message: messageWithId } 
+                });
+                w.dispatchEvent(addedEvt);
+                
+                // Also dispatch general update event for backward compatibility
+                const updatedEvt = new CustomEvent('messagesUpdated', { 
+                    detail: { type: 'add', id: messageId, message } 
+                });
+                w.dispatchEvent(updatedEvt);
+                
+                return messageId;
             } catch (error) {
                 console.error('Error adding new message:', error);
                 throw error;
@@ -351,7 +720,7 @@
     
     // Set up real-time listeners for messages and threads
     function setupRealtimeListeners() {
-        // Listen for new messages
+        // Listen for new messages in inbox
         db.collection('messages').orderBy('date', 'desc')
             .onSnapshot(snapshot => {
                 const changes = snapshot.docChanges();
@@ -365,6 +734,11 @@
                             detail: { message: messageWithId } 
                         });
                         w.dispatchEvent(evt);
+                        
+                        // Play notification sound for new messages
+                        if (data.unread && data.sender !== 'admin@lafsys.gov') {
+                            playNotificationSound();
+                        }
                     } else if (change.type === 'modified') {
                         const evt = new CustomEvent('messageModified', { 
                             detail: { message: messageWithId } 
@@ -392,17 +766,185 @@
             }, error => {
                 console.error('Error in messages listener:', error);
             });
+            
+        // Listen for changes to individual chat threads
+        setupThreadListeners();
+        
+        // Set up online status tracking
+        setupOnlineStatusTracking();
+    }
+    
+    // Setup listeners for individual threads
+    function setupThreadListeners() {
+        // Listen for active thread if one is specified in the URL or session
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeEmail = urlParams.get('email') || sessionStorage.getItem('activeThreadEmail');
+        
+        if (activeEmail) {
+            // Listen for changes to this specific thread
+            const threadListener = db.collection('threads').doc(activeEmail)
+                .onSnapshot(doc => {
+                    if (doc.exists) {
+                        const threadData = doc.data();
+                        if (threadData && Array.isArray(threadData.messages)) {
+                            // Dispatch event with the updated thread
+                            const evt = new CustomEvent('threadUpdated', { 
+                                detail: { 
+                                    email: activeEmail,
+                                    messages: threadData.messages,
+                                    lastMessage: threadData.messages[threadData.messages.length - 1]
+                                } 
+                            });
+                            w.dispatchEvent(evt);
+                            
+                            // Play notification sound for new messages
+                            const lastMessage = threadData.messages[threadData.messages.length - 1];
+                            if (lastMessage && lastMessage.sender !== 'admin@lafsys.gov') {
+                                // Check if we're on the admin side
+                                const isAdmin = window.location.href.includes('admin.html') || 
+                                               window.location.href.includes('chat.html');
+                                               
+                                // Only play sound for admin if message is from user
+                                if (isAdmin && lastMessage.sender !== 'admin@lafsys.gov') {
+                                    playNotificationSound();
+                                }
+                                
+                                // Only play sound for user if message is from admin
+                                if (!isAdmin && lastMessage.sender === 'admin@lafsys.gov') {
+                                    playNotificationSound();
+                                }
+                            }
+                        }
+                    }
+                }, error => {
+                    console.error('Error in thread listener:', error);
+                });
+                
+            // Store the listener to unsubscribe later if needed
+            w.activeThreadListener = threadListener;
+        }
+    }
+    
+    // Function to handle online status tracking
+    function setupOnlineStatusTracking() {
+        // Get a reference to the online status collection
+        const onlineRef = db.collection('online_status');
+        
+        // Determine if we're on admin or user side
+        const isAdmin = window.location.href.includes('admin.html') || 
+                       window.location.href.includes('chat.html');
+        
+        // Get URL parameters if any
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Get user identifier (email for users, 'admin' for admin)
+        let userId = 'admin';
+        if (!isAdmin) {
+            userId = sessionStorage.getItem('userEmail') || 
+                    urlParams.get('email') || 
+                    `user_${Date.now()}`;
+        }
+        
+        // Create a reference to this user's online status
+        const userStatusRef = onlineRef.doc(userId);
+        
+        // Set user as online when they connect
+        const setOnlineStatus = async () => {
+            try {
+                await userStatusRef.set({
+                    online: true,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+                    displayName: isAdmin ? 'Admin Staff' : (sessionStorage.getItem('userName') || 'Visitor')
+                });
+                console.log('Online status set to online');
+            } catch (error) {
+                console.error('Error setting online status:', error);
+            }
+        };
+        
+        // Set user as offline when they disconnect
+        const setOfflineStatus = async () => {
+            try {
+                await userStatusRef.update({
+                    online: false,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('Online status set to offline');
+            } catch (error) {
+                console.error('Error setting offline status:', error);
+            }
+        };
+        
+        // Call setOnlineStatus when the page loads
+        setOnlineStatus();
+        
+        // Set up event listeners for page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                setOnlineStatus();
+            } else {
+                setOfflineStatus();
+            }
+        });
+        
+        // Set up event listener for page unload
+        window.addEventListener('beforeunload', () => {
+            setOfflineStatus();
+        });
+        
+        // Setup a cleanup function
+        w.cleanupOnlineStatus = setOfflineStatus;
+    }
+    
+    // Helper function to play notification sound
+    function playNotificationSound() {
+        try {
+            // Use a relative path that works in various deployment environments
+            const notificationSound = new Audio('sounds/notification.mp3');
+            notificationSound.volume = 0.5;
+            notificationSound.play().catch(err => console.log('Could not play notification sound:', err));
+        } catch (error) {
+            console.error('Error playing notification sound:', error);
+        }
     }
     
     // Initialize the system
     async function init() {
         console.log('Initializing Firebase Messages system...');
         try {
+            // Force creation of demo data - this is critical for the system to work
+            console.log('Creating demo data...');
             await checkAndCreateDemoData();
+            
+            // Setup real-time listeners for messages and threads
+            console.log('Setting up real-time listeners...');
             setupRealtimeListeners();
+            
+            // Setup demo sound notification if needed
+            try {
+                console.log('Checking notification sound...');
+                // Load the notification sound to verify it exists
+                const notificationSound = new Audio('sounds/notification.mp3');
+                notificationSound.load();
+            } catch (e) {
+                console.log('Sound setup not required or failed:', e);
+            }
+            
             console.log('Firebase Messages system initialized successfully');
+            
+            // Dispatch an event to notify the system is ready
+            const readyEvent = new CustomEvent('firebaseMessagesReady');
+            w.dispatchEvent(readyEvent);
+            
+            // Also check if we have any messages and dispatch the event
+            const messages = await FirebaseMessagesStore.getAllAsync();
+            const loadedEvent = new CustomEvent('messagesLoaded', { detail: { messages } });
+            w.dispatchEvent(loadedEvent);
+            
         } catch (error) {
             console.error('Failed to initialize Firebase Messages system:', error);
+            // Try to recover by at least setting up the store
+            setupRealtimeListeners();
         }
     }
     
@@ -416,6 +958,15 @@
         w.MessagesStore = FirebaseMessagesStore;
     }
     
-    // Initialize
+    // Add utility functions to MessagesStore
+    w.MessagesStore.playNotificationSound = playNotificationSound;
+    
+    // Expose initialization function to global scope so it can be called from other scripts
+    w.initFirebaseMessages = function() {
+        console.log('Manual initialization of Firebase Messages requested');
+        return init();
+    };
+    
+    // Initialize automatically
     init();
 })();

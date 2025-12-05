@@ -7,21 +7,154 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
   <link rel="stylesheet" href="css/styles.css">
   <style>
-    .chat-container { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
-    .chat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    /* Main layout */
+    .chat-container { max-width: 960px; margin: 2rem auto; padding: 0 1rem; display: flex; flex-direction: column; height: calc(100vh - 4rem); }
+    
+    /* Chat header */
+    .chat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; }
     .chat-title { display:flex; align-items:center; gap:.75rem; font-weight:600; font-size:1.125rem; }
-    .chat-box { background:#fff; border:1px solid #e2e8f0; border-radius:.5rem; height:60vh; overflow:auto; padding:1rem; }
-    .msg { display:flex; gap:.5rem; margin-bottom:1rem; }
+    .chat-title .user-info { display: flex; flex-direction: column; }
+    
+    /* Online status indicator */
+    .status-indicator { display: flex; align-items: center; font-size: 0.875rem; color: #64748b; margin-top: 0.25rem; }
+    .status-indicator::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; background-color: #94a3b8; }
+    .status-indicator.online::before { background-color: #10b981; }
+    .status-indicator.offline::before { background-color: #94a3b8; }
+    
+    /* Chat message thread */
+    .chat-box { background:#fff; border:1px solid #e2e8f0; border-radius:.5rem; flex-grow: 1; overflow:auto; padding:1rem; }
+    
+    /* Message styling */
+    .msg { display:flex; gap:.5rem; margin-bottom:0.5rem; }
+    .msg:not(.last-in-group) { margin-bottom: 0.25rem; }
+    .msg:not(.last-in-group) .avatar { visibility: hidden; }
+    .msg.last-in-group { margin-bottom: 1rem; }
+    
     .msg .avatar { width:36px; height:36px; border-radius:50%; overflow:hidden; flex:0 0 36px; }
-    .msg .bubble { background:#f1f5f9; border-radius:.5rem; padding:.5rem .75rem; max-width:70%; }
+    
+    .msg .bubble { 
+      background:#f1f5f9; 
+      border-radius:.75rem; 
+      padding:.75rem 1rem; 
+      max-width:70%; 
+      min-width: 100px;
+      min-height: 1em;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+    .msg .bubble .msg-header { 
+      display: flex; 
+      justify-content: space-between; 
+      margin-bottom: 0.25rem; 
+    }
+    .msg .bubble .sender-name { 
+      font-weight: 600; 
+      font-size: 0.9rem; 
+      color: #334155; 
+    }
+    .msg .bubble .msg-time { 
+      font-size: 0.75rem; 
+      color: #64748b; 
+    }
+    .msg .bubble .msg-body { 
+      white-space: pre-wrap; 
+      min-height: 1em;
+      color: #1f2937; /* Ensure text is visible */
+      word-break: break-word;
+    }
+    
     .msg.me { justify-content:flex-end; }
     .msg.me .bubble { background:#dbeafe; }
     .msg.me .avatar { order:2; }
-    .composer { display:flex; gap:.5rem; margin-top:1rem; }
-    .composer textarea { flex:1; min-height:48px; resize:vertical; }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .9rem; border:1px solid #2563eb; color:#2563eb; border-radius:.375rem; background:#fff; cursor:pointer; }
+    
+    /* Date separators */
+    .date-separator { display: flex; align-items: center; text-align: center; margin: 1.5rem 0; color: #64748b; font-size: 0.875rem; }
+    .date-separator::before, .date-separator::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
+    .date-separator span { padding: 0 1rem; }
+    
+    /* Typing indicator */
+    .typing-indicator { display: flex; padding: 0.5rem 0.75rem; margin-bottom: 1rem; align-items: flex-end; max-width: 150px; }
+    .typing-indicator span { height: 8px; width: 8px; float: left; margin: 0 1px; background-color: #9e9ea1; display: block; border-radius: 50%; opacity: 0.4; animation: typing 1s infinite; }
+    .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.25s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.5s; }
+    
+    @keyframes typing {
+      0% { transform: translateY(0px); }
+      28% { transform: translateY(-5px); }
+      44% { transform: translateY(0px); }
+    }
+    
+    /* Message composer */
+    .composer { 
+      display: flex; 
+      gap: 0.75rem; 
+      margin-top: 1rem; 
+      padding: 0.75rem 1rem;
+      border-top: 1px solid #e5e7eb;
+      align-items: center;
+      background-color: #f9fafb;
+      border-radius: 0 0 0.5rem 0.5rem;
+    }
+    .composer textarea { 
+      flex: 1; 
+      min-height: 40px; 
+      max-height: 120px; 
+      resize: none; 
+      padding: 0.75rem 1rem; 
+      border: 1px solid #e2e8f0; 
+      border-radius: 0.375rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      width: calc(100% - 120px);
+      overflow-y: auto;
+      background-color: white;
+    }
+    .composer textarea:focus { 
+      outline: none; 
+      border-color: #2563eb; 
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); 
+    }
+    
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; justify-content: center; gap:.5rem; padding:.5rem 1.25rem; border:1px solid #2563eb; color:#2563eb; border-radius:.375rem; background:#fff; cursor:pointer; font-size: 1rem; font-weight: 500; transition: all 0.2s; }
+    .btn:hover { background: #f8fafc; }
     .btn-primary { background:#2563eb; color:#fff; }
-    .back-link { text-decoration:none; color:#2563eb; display:inline-flex; align-items:center; gap:.4rem; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    /* Back link */
+    .back-link { text-decoration:none; color:#2563eb; display:inline-flex; align-items:center; gap:.4rem; font-weight: 500; transition: color 0.2s; }
+    .back-link:hover { color: #1d4ed8; }
+    
+    /* Error state for messages */
+    .msg.error .bubble { border: 1px solid #f87171; }
+    .msg.error .msg-time { color: #ef4444; }
+    
+    /* Message with image */
+    .message-image {
+      max-width: 250px;
+      max-height: 200px;
+      border-radius: 0.375rem;
+      margin: 0.5rem 0;
+      cursor: pointer;
+      display: block;
+      object-fit: contain;
+      background-color: #f9fafb;
+    }
+    
+    .message-image:hover {
+      opacity: 0.95;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .chat-container { margin: 0; padding: 0.5rem; height: 100vh; }
+      .chat-box { border-radius: 0.375rem; }
+    }
   </style>
 </head>
 <body>
@@ -30,23 +163,29 @@
       <a class="back-link" href="admin.html" onclick="event.preventDefault(); window.history.length>1 ? history.back() : (window.location.href='admin.html');"><i data-lucide="arrow-left"></i> Back</a>
       <div class="chat-title" id="chatTitle">
         <img id="chatAvatar" class="avatar" alt="" />
-        <div>
+        <div class="user-info">
           <div id="chatName"></div>
           <div id="chatEmail" style="font-size:.875rem;color:#64748b"></div>
+          <div id="chatStatus" class="status-indicator offline">Offline</div>
         </div>
       </div>
     </div>
     <div class="chat-box" id="chatThread"></div>
     <div class="composer">
-      <textarea id="chatInput" class="form-control" placeholder="Type your message..."></textarea>
-      <button id="sendBtn" class="btn btn-primary"><i data-lucide="send"></i> Send</button>
+      <textarea id="chatInput" class="form-control" placeholder="Type your message..." rows="1"></textarea>
+      <button id="sendBtn" class="btn btn-primary" style="min-width: 90px; max-width: 90px; height: 40px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        Send
+      </button>
     </div>
   </div>
+  
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <!-- Firebase Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   
   <!-- App Scripts -->
   <script src="js/messages.js"></script>
@@ -57,51 +196,33 @@
     // Add real-time updates
     document.addEventListener('DOMContentLoaded', function() {
       const email = new URLSearchParams(window.location.search).get('email');
-      if (email) {
-        // Set up real-time listener for this thread
-        const db = firebase.firestore();
-        db.collection('threads').doc(email)
-          .onSnapshot(function(doc) {
-            if (doc.exists) {
-              const data = doc.data();
-              if (data.messages && Array.isArray(data.messages)) {
-                // Update chat UI
-                renderThread(email);
-              }
-            }
-          }, function(error) {
-            console.error("Error listening to thread:", error);
-          });
-      }
       
-      // Helper function to re-render thread
-      function renderThread(email) {
-        const box = document.getElementById('chatThread');
-        if (!box) return;
+      if (email && window.MessagesStore) {
+        // Mark this thread as read when opened
+        if (window.MessagesStore.markThreadAsReadAsync) {
+          window.MessagesStore.markThreadAsReadAsync(email).catch(console.error);
+        }
         
-        // Use async version if available
-        if (window.MessagesStore?.getThreadAsync) {
-          window.MessagesStore.getThreadAsync(email).then(thread => {
-            if (!thread || !thread.length) return;
-            
-            box.innerHTML = thread.map(m => {
-              const me = m.sender === 'admin@lafsys.gov';
-              const avatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(m.name || (me?'Admin':'User'))}`;
-              const dt = new Date(m.date).toLocaleString();
-              return `
-                <div class="msg ${me ? 'me' : ''}">
-                  <img class="avatar" alt="" src="${avatar}">
-                  <div class="bubble">
-                    <div style="font-weight:600; font-size:.9rem; margin-bottom:.15rem;">${m.name || (me?'Admin':'User')}</div>
-                    <div style="white-space:pre-wrap;">${m.body}</div>
-                    <div style="font-size:.75rem; color:#64748b; margin-top:.25rem;">${dt}</div>
-                  </div>
-                </div>`;
-            }).join('');
-            
-            box.scrollTop = box.scrollHeight;
+        // Set admin as online
+        if (window.MessagesStore.setOnlineStatusAsync) {
+          window.MessagesStore.setOnlineStatusAsync('admin', true, 'Admin Staff').catch(console.error);
+        }
+        
+        // Set up typing indicator resize
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+          chatInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 150) + 'px';
           });
         }
+      }
+    });
+    
+    // Clean up when page is unloaded
+    window.addEventListener('beforeunload', function() {
+      if (window.MessagesStore && window.MessagesStore.setOnlineStatusAsync) {
+        window.MessagesStore.setOnlineStatusAsync('admin', false).catch(console.error);
       }
     });
   </script>

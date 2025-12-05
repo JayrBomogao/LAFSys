@@ -608,5 +608,54 @@
     <script src="js/firebase-data.js"></script>
     <script src="js/item-init.js"></script>
     <script src="js/admin.js"></script>
+    
+    <!-- Debug script to help diagnose Firebase issues -->
+    <script>
+        // Check if Firebase is properly initialized
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded, checking Firebase status...');
+            
+            // Check if Firebase is available
+            if (typeof firebase !== 'undefined') {
+                console.log('Firebase is available');
+                
+                // Check if Firestore is initialized
+                if (firebase.firestore) {
+                    console.log('Firestore is available');
+                    
+                    // Check MessagesStore
+                    if (window.MessagesStore) {
+                        console.log('MessagesStore is available');
+                        if (typeof window.MessagesStore.getAllAsync === 'function') {
+                            console.log('MessagesStore.getAllAsync is available');
+                            // Test getting messages
+                            window.MessagesStore.getAllAsync()
+                                .then(messages => {
+                                    console.log('Successfully retrieved', messages.length, 'messages');
+                                })
+                                .catch(error => {
+                                    console.error('Error retrieving messages:', error);
+                                });
+                        } else {
+                            console.error('MessagesStore.getAllAsync is not a function');
+                        }
+                    } else {
+                        console.error('MessagesStore is not available');
+                    }
+                } else {
+                    console.error('Firebase Firestore is not initialized');
+                }
+            } else {
+                console.error('Firebase is not available');
+            }
+            
+            // Check if there's a renderInbox function
+            if (typeof renderInbox === 'function') {
+                console.log('renderInbox function is available');
+            } else {
+                console.error('renderInbox function is not available');
+            }
+        });
+    </script>
 </body>
 </html>

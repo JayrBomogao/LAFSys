@@ -34,7 +34,8 @@
     }
   }
   
-  function renderInbox(){
+  // Load inbox messages with real-time updates
+  function loadInbox() {
     const container = document.getElementById('inboxContainer');
     if (!container) return;
     
@@ -43,12 +44,15 @@
     
     // Check if we have Firebase-enabled MessagesStore
     if (window.MessagesStore?.getAllAsync) {
-      // Use async version
+      // Use async version initially
       window.MessagesStore.getAllAsync().then(msgs => {
         // Update the notification badge
         updateInboxNotification(msgs);
         // Display the messages
         displayInboxMessages(msgs, container);
+        
+        // Set up real-time listener for inbox updates
+        setupInboxListener(container);
       }).catch(err => {
         console.error('Error loading messages:', err);
         container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Error loading messages</div></div>';
@@ -61,27 +65,78 @@
     }
   }
   
+  // Set up real-time listener for inbox updates
+  function setupInboxListener(container) {
+    // Set up event listeners for real-time updates
+    window.addEventListener('messageAdded', function(event) {
+      console.log('New message received:', event.detail);
+      // Refresh inbox when new message arrives
+      window.MessagesStore.getAllAsync().then(msgs => {
+        updateInboxNotification(msgs);
+        displayInboxMessages(msgs, container);
+      });
+    });
+    
+    window.addEventListener('messageModified', function(event) {
+      // Refresh inbox when message status changes
+      window.MessagesStore.getAllAsync().then(msgs => {
+        updateInboxNotification(msgs);
+        displayInboxMessages(msgs, container);
+      });
+    });
+    
+    window.addEventListener('messageRemoved', function(event) {
+      // Refresh inbox when message is deleted
+      window.MessagesStore.getAllAsync().then(msgs => {
+        updateInboxNotification(msgs);
+        displayInboxMessages(msgs, container);
+      });
+    });
+    
+    // Set admin as online
+    if (window.MessagesStore?.setOnlineStatusAsync) {
+      window.MessagesStore.setOnlineStatusAsync('admin', true, 'Admin Staff').catch(console.error);
+      
+      // Set as offline when leaving
+      window.addEventListener('beforeunload', function() {
+        window.MessagesStore.setOnlineStatusAsync('admin', false).catch(console.error);
+      });
+    }
+  }
+  
   // Helper to display inbox messages
   function displayInboxMessages(msgs, container) {
-    if (!msgs.length) { 
+    if (!msgs || !msgs.length) { 
       container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No messages.</div></div>'; 
       return; 
     }
     
+    // Log what we're about to display
+    console.log('Displaying messages:', msgs);
+    
     container.innerHTML = msgs.map(m => {
+      // Handle potentially missing fields
+      const messageId = m.id || `missing_id_${Date.now()}`;
+      const fromName = m.from || 'Unknown Sender';
+      const userEmail = m.email || 'no-email';
+      const subject = m.subject || 'No Subject';
+      const messageDate = m.date || new Date().toISOString();
       const unreadBadge = m.unread ? '<span style="margin-left:8px; background:#3b82f6; color:white; border-radius:9999px; font-size:0.7rem; padding:2px 8px;">New</span>' : '';
       
+      // For debugging
+      console.log('Message data:', { id: messageId, from: fromName, subject, bodyLength: m.body ? m.body.length : 0 });
+      
       return `
-      <div class="table-row" style="grid-template-columns: 2fr 3fr 1fr 140px;" data-id="${m.id}">
+      <div class="table-row" style="grid-template-columns: 2fr 3fr 1fr 140px;" data-id="${messageId}">
         <div class="item-info">
-          <img src="https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(m.from)}" alt="${m.from}" class="item-image" style="border-radius:50%; width:36px; height:36px;">
+          <img src="https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(fromName)}" alt="${fromName}" class="item-image" style="border-radius:50%; width:36px; height:36px;">
           <div>
-            <div class="item-name">${m.from}${unreadBadge}</div>
-            <div class="item-category" style="text-transform: none;">${m.email || ''}</div>
+            <div class="item-name">${fromName}${unreadBadge}</div>
+            <div class="item-category" style="text-transform: none;">${userEmail}</div>
           </div>
         </div>
-        <div>${m.subject || ''}</div>
-        <div>${formatDate(m.date)}</div>
+        <div>${subject}</div>
+        <div>${formatDate(messageDate)}</div>
         <div class="action-buttons">
           <button class="btn-icon" title="Open" data-action="open"><i data-lucide="mail-open" width="16" height="16"></i></button>
           <button class="btn-icon delete" title="Delete" data-action="delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
@@ -459,12 +514,40 @@
     body.innerHTML = rows;
     if (window.lucide?.createIcons) lucide.createIcons();
   }
+  
+  // Function to render inbox messages
+  function renderInbox() {
+    console.log('Rendering inbox messages...');
+    // Call loadInbox to retrieve and display messages
+    loadInbox();
+  }
+  
+  // Function to force refresh inbox data
+  function forceRefreshInbox() {
+    console.log('Forcing inbox refresh...');
+    if (window.MessagesStore?.getAllAsync) {
+      window.MessagesStore.getAllAsync().then(msgs => {
+        console.log('Retrieved', msgs.length, 'messages during forced refresh');
+        const container = document.getElementById('inboxContainer');
+        if (container) {
+          updateInboxNotification(msgs);
+          displayInboxMessages(msgs, container);
+        }
+      }).catch(err => {
+        console.error('Error during forced inbox refresh:', err);
+      });
+    }
+  }
 
   function init(){
+    console.log('Initializing admin panel...');
     if (window.lucide?.createIcons) lucide.createIcons();
     wireSidebar();
+    
+    // Initial loading of dashboard elements
     renderStats();
     renderRecentItems();
+    renderInbox(); // Load inbox messages at startup
     
     // Update dashboard when items change
     window.addEventListener('itemsUpdated', () => { 
@@ -473,18 +556,45 @@
       renderAllItems(); 
     });
     
+    // Initialize Firebase message system if needed
+    if (window.firebase && !window.MessagesStore?.getAllAsync) {
+      console.log('Firebase available but MessagesStore not initialized. Initializing...');
+      // Force initialization
+      if (typeof initFirebaseMessages === 'function') {
+        initFirebaseMessages();
+      }
+    }
+    
     // Legacy message events
     window.addEventListener('messagesUpdated', () => { 
+      console.log('messagesUpdated event received');
       renderInbox(); 
     });
     
     // Firebase message events
     window.addEventListener('messagesLoaded', () => { 
+      console.log('messagesLoaded event received');
       renderInbox(); 
+    });
+    
+    // Set up periodic refresh of inbox messages every 30 seconds
+    // This ensures we catch any messages that might have been missed by real-time listeners
+    const inboxRefreshInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        console.log('Auto-refreshing inbox...');
+        forceRefreshInbox();
+      }
+    }, 30000); // 30 seconds
+    
+    // Clean up interval when page is unloaded
+    window.addEventListener('beforeunload', () => {
+      clearInterval(inboxRefreshInterval);
     });
     
     // Show desktop notification and update badge when new message arrives
     window.addEventListener('messageAdded', (event) => {
+      console.log('messageAdded event received:', event.detail);
+      
       // Check if the message is unread
       const message = event.detail?.message;
       if (message && message.unread) {
@@ -493,8 +603,17 @@
         if (currentSection !== 'inbox') {
           showDesktopNotification(message);
         }
+        
+        // Play notification sound
+        if (typeof playNotificationSound === 'function') {
+          playNotificationSound();
+        } else if (window.MessagesStore?.playNotificationSound) {
+          window.MessagesStore.playNotificationSound();
+        }
       }
-      renderInbox();
+      
+      // Force an immediate refresh of the inbox
+      forceRefreshInbox();
     });
     
     window.addEventListener('messageModified', () => { 
@@ -545,6 +664,18 @@
     // If permission not yet requested
     else if ("Notification" in window && Notification.permission !== "denied") {
       Notification.requestPermission();
+    }
+  }
+  
+  // Local function to play notification sound
+  function playNotificationSound() {
+    try {
+      // Create a new Audio instance each time to ensure it plays
+      const notificationSound = new Audio('sounds/notification.mp3');
+      notificationSound.volume = 0.5;
+      notificationSound.play().catch(err => console.log('Could not play notification sound:', err));
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
     }
   }
   
