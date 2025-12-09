@@ -1,0 +1,74 @@
+/**
+ * Styles for highlighting new messages and improving chat visibility
+ */
+
+/* Animation for new messages */
+@keyframes highlight-message {
+    0% { background-color: rgba(59, 130, 246, 0.2); }
+    70% { background-color: rgba(59, 130, 246, 0.15); }
+    100% { background-color: transparent; }
+}
+
+/* Ensure staff message bubbles are distinctive */
+.message.staff-message .message-bubble {
+    background-color: #dbeafe !important;
+    border-color: #bfdbfe !important;
+}
+
+/* Make message bubbles more distinctive */
+.message .message-bubble {
+    position: relative;
+    transition: all 0.2s;
+}
+
+/* Add a subtle indicator to show the message is from admin */
+.message.staff-message::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 10px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: #3b82f6;
+}
+
+/* Animation class that can be applied programmatically */
+.message.new-message {
+    animation: highlight-message 2s ease;
+}
+
+/* Improve legibility of timestamps */
+.message-info {
+    opacity: 0.8;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+/* Status indicator styling */
+.status-indicator {
+    padding: 5px 10px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.status-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-indicator.online::before {
+    background-color: #10b981;
+}
+
+.status-indicator.offline::before {
+    background-color: #94a3b8;
+}

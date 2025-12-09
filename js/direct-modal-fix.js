@@ -15,13 +15,36 @@ console.log('Direct modal fix loading...');
     
     window.showChatModal = function() {
         console.log('DIRECT: Opening chat modal');
-        document.getElementById('contact-modal').style.display = 'block';
         
-        // Focus input field if it exists
-        setTimeout(function() {
-            var input = document.getElementById('chat-input');
-            if (input) input.focus();
-        }, 300);
+        // Use the ChatAuth system if available
+        if (window.ChatAuth) {
+            console.log('Using ChatAuth system for chat');
+            const userIdentity = window.ChatAuth.getUserIdentity();
+            
+            if (userIdentity && userIdentity.name && userIdentity.email) {
+                console.log('User already authenticated:', userIdentity);
+                document.getElementById('contact-modal').style.display = 'block';
+                window.ChatAuth.restoreChatHistory(userIdentity);
+                
+                setTimeout(function() {
+                    var input = document.getElementById('chat-input');
+                    if (input) input.focus();
+                }, 300);
+            } else {
+                console.log('User needs to authenticate first');
+                window.ChatAuth.showAuthModal();
+            }
+        } else {
+            // Fallback to old behavior if ChatAuth isn't available
+            console.log('ChatAuth not available, using default behavior');
+            document.getElementById('contact-modal').style.display = 'block';
+            
+            // Focus input field if it exists
+            setTimeout(function() {
+                var input = document.getElementById('chat-input');
+                if (input) input.focus();
+            }, 300);
+        }
     };
     
     window.closeModal = function(modalId) {
@@ -56,9 +79,9 @@ console.log('Direct modal fix loading...');
                 contactBtn.outerHTML = contactBtn.outerHTML;
                 // Get fresh reference after outerHTML replacement
                 contactBtn = document.getElementById('contact-btn');
-                // Add direct onclick
-                contactBtn.setAttribute('onclick', 'showChatModal()');
-                console.log('Contact button replaced with direct onclick');
+                // Add direct onclick with chat auth support
+                contactBtn.setAttribute('onclick', 'if(window.ChatAuth){const user=window.ChatAuth.getUserIdentity();if(user&&user.name&&user.email){document.getElementById("contact-modal").style.display="block";window.ChatAuth.restoreChatHistory(user);}else{window.ChatAuth.showAuthModal();}}else{showChatModal();}');
+                console.log('Contact button replaced with chat auth onclick');
             }
             
             // Add close button functionality to all close buttons

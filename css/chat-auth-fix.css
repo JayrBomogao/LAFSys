@@ -1,0 +1,93 @@
+/**
+ * Emergency fix for chat authentication modal inputs
+ * This CSS ensures that inputs are visible regardless of other CSS conflicts
+ */
+
+/* Ensure inputs in auth modal are visible */
+#chat-auth-modal input[type="text"],
+#chat-auth-modal input[type="email"],
+#chat-auth-modal input[type="password"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    padding: 10px !important;
+    border: 2px solid #d1d5db !important;
+    border-radius: 6px !important;
+    font-size: 16px !important;
+    background-color: white !important;
+    color: black !important;
+    box-sizing: border-box !important;
+    margin-bottom: 15px !important;
+    min-height: 42px !important;
+    height: auto !important;
+    position: relative !important;
+    z-index: 10001 !important;
+}
+
+/* Focus state for inputs */
+#chat-auth-modal input:focus {
+    outline: none !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Submit button styles */
+#chat-auth-modal button[type="submit"] {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    min-width: 120px !important;
+    padding: 10px 20px !important;
+    background-color: #3b82f6 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    position: relative !important;
+    z-index: 10001 !important;
+}
+
+/* Fix form group visibility */
+#chat-auth-modal .form-group {
+    margin-bottom: 15px !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Fix form visibility */
+#chat-auth-form {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+}
+
+/* Ensure modal content is visible and properly styled */
+#chat-auth-modal .modal-content {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background-color: #ffffff !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    padding: 20px 25px !important;
+    position: relative !important;
+    z-index: 10000 !important;
+}
+
+/* Emergency fix for modal visibility */
+#chat-auth-modal {
+    display: none; /* Initially hidden */
+    position: fixed !important;
+    z-index: 99999 !important; /* Higher than other modals */
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: auto !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}

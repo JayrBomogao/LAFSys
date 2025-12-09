@@ -7,10 +7,11 @@
 
 (function() {
     // Initialize when the DOM is loaded
-    document.addEventListener('DOMContentLoaded', function() {
-        initRealTimeChat();
-    });
-    
+    document.addEventListener('DOMContentLoaded', initRealTimeChat);
+
+    // Expose setupThreadListener to global scope for other components to use
+    window.setupThreadListener = setupThreadListener;
+
     // Initialize real-time chat functionality
     function initRealTimeChat() {
         // Get chat elements
@@ -26,26 +27,37 @@
         
         console.log('Initializing real-time chat functionality...');
         
-        // Generate default user info if none exists
-        const timestamp = Date.now();
-        const defaultUserName = `Visitor_${timestamp.toString().substr(-4)}`;
-        const defaultUserEmail = `visitor_${timestamp}@example.com`;
-        
-        // Get user information
+        // Get user information - this now comes from either sessionStorage or the user-chat-auth.js system
         let userName = sessionStorage.getItem('userName');
         let userEmail = sessionStorage.getItem('userEmail');
         const itemId = sessionStorage.getItem('currentItemId');
         const itemTitle = sessionStorage.getItem('currentItemTitle') || 'Unknown item';
         
-        // If user information is missing, store default values
-        if (!userName) {
-            userName = defaultUserName;
-            sessionStorage.setItem('userName', userName);
-        }
+        // Check if we have user authentication available
+        const hasAuthSystem = typeof window.ChatAuth !== 'undefined';
         
-        if (!userEmail) {
-            userEmail = defaultUserEmail;
+        // If user information is missing and we have auth system, we'll use it
+        // instead of generating default values
+        if ((!userName || !userEmail) && hasAuthSystem) {
+            console.log('User identity missing, will be handled by ChatAuth system');
+        } 
+        // Otherwise use the default behavior as a fallback
+        else if (!userName || !userEmail) {
+            // Generate default user info if none exists
+            const timestamp = Date.now();
+            const defaultUserName = `Visitor_${timestamp.toString().substr(-4)}`;
+            const defaultUserEmail = `visitor_${timestamp}@example.com`;
+            
+            userName = userName || defaultUserName;
+            userEmail = userEmail || defaultUserEmail;
+            
+            sessionStorage.setItem('userName', userName);
             sessionStorage.setItem('userEmail', userEmail);
+            
+            // Also save to localStorage via ChatAuth if available
+            if (hasAuthSystem) {
+                window.ChatAuth.saveUserIdentity(userName, userEmail);
+            }
         }
         
         console.log('User information loaded:', { userName, userEmail, itemId, itemTitle });
@@ -105,22 +117,120 @@
         // Set up message sending
         setupMessageSending(chatInput, sendBtn, chatMessages, userName, userEmail, itemId, itemTitle);
         
-        // Set up real-time thread listener
-        setupThreadListener(userEmail, chatMessages);
-        
-        // Set up online status tracking
-        setupOnlineStatusTracking(userEmail, userName);
+        // Only set up thread listener if we have user identity
+        if (userName && userEmail) {
+            setupThreadListener(userEmail, chatMessages);
+            setupOnlineStatusTracking(userEmail, userName);
+        } else if (typeof window.ChatAuth !== 'undefined') {
+            // If ChatAuth is available but no user identity, that means
+            // the user will need to authenticate first
+            console.log('Waiting for user authentication before setting up chat');
+            
+            // Add a simple message prompting the user
+            const promptMessage = document.createElement('div');
+            promptMessage.className = 'message staff-message';
+            promptMessage.innerHTML = `
+                <div class="message-bubble">
+                    <p>Please provide your name and email to start or continue a conversation.</p>
+                </div>
+                <div class="message-info">System • Just now</div>
+            `;
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(promptMessage);
+        }
         
         // Set up message notification sound
         setupNotificationSound();
         
         // Clean up when the modal is closed
         chatModal.addEventListener('hidden.bs.modal', function() {
-            if (window.threadUnsubscribe) window.threadUnsubscribe();
+            cleanupChatResources();
+        });
+        
+        // Also clean up when the page unloads
+        window.addEventListener('beforeunload', function() {
+            cleanupChatResources();
         });
     }
     
-    // User account functions have been removed as requested
+    // Function to manually refresh thread data
+    function refreshThreadData(email, container) {
+        if (!email || !container || !window.MessagesStore?.getThreadAsync) {
+            return;
+        }
+        
+        console.log(`Manually refreshing thread data for ${email}`);
+        
+        window.MessagesStore.getThreadAsync(email)
+            .then(messages => {
+                if (!messages || !messages.length) {
+                    return;
+                }
+                
+                console.log(`Manually retrieved ${messages.length} messages`);
+                
+                // Find admin messages
+                const adminMessages = messages.filter(m => m.sender === 'admin@lafsys.gov');
+                if (adminMessages.length > 0) {
+                    console.log(`Found ${adminMessages.length} admin messages in manual refresh`);
+                }
+                
+                // Force refresh the message display
+                if (window.setupThreadListener) {
+                    window.setupThreadListener(email, container);
+                }
+            })
+            .catch(error => {
+                console.error(`Error manually refreshing thread for ${email}:`, error);
+            });
+    }
+    
+    // Set up a periodic refresh for client chat to ensure messages are received
+    window.chatRefreshInterval = window.chatRefreshInterval || setInterval(() => {
+        const email = sessionStorage.getItem('userEmail');
+        const chatMessages = document.getElementById('chat-messages');
+        if (email && chatMessages && document.visibilityState === 'visible') {
+            refreshThreadData(email, chatMessages);
+        }
+    }, 10000); // Check every 10 seconds
+    
+    // Helper function to clean up all chat-related resources
+    function cleanupChatResources() {
+        console.log('Cleaning up chat resources');
+        
+        // Unsubscribe from thread updates
+        if (window.threadUnsubscribe) {
+            window.threadUnsubscribe();
+            window.threadUnsubscribe = null;
+        }
+        
+        // Unsubscribe from admin status updates
+        if (window.adminStatusUnsubscribe) {
+            window.adminStatusUnsubscribe();
+            window.adminStatusUnsubscribe = null;
+        }
+        
+        // Unsubscribe from typing indicator updates
+        if (window.typingStatusUnsubscribe) {
+            window.typingStatusUnsubscribe();
+            window.typingStatusUnsubscribe = null;
+        }
+        
+        // Set user as offline if we have their email
+        const userEmail = sessionStorage.getItem('userEmail');
+        if (userEmail && window.MessagesStore?.setOnlineStatusAsync) {
+            window.MessagesStore.setOnlineStatusAsync(userEmail, false).catch(console.error);
+        }
+        
+        // Clear the refresh interval if it exists
+        if (window.chatRefreshInterval) {
+            clearInterval(window.chatRefreshInterval);
+            window.chatRefreshInterval = null;
+            console.log('Cleared chat refresh interval');
+        }
+    }
+    
+    // setupThreadListener is already exposed globally at the top of the file
     
     // Add admin online status indicator
     function addAdminStatusIndicator(container) {
@@ -450,18 +560,39 @@
     }
     
     // Set up real-time thread listener
+    // This function is exposed globally via window.setupThreadListener for use by other components
     function setupThreadListener(email, container) {
-        if (!email || !container) return;
+        if (!email || !container) {
+            console.error('Cannot set up thread listener: Missing email or container');
+            return;
+        }
+        
+        console.log(`Setting up thread listener for ${email}`);
         
         // Check if we have the Firebase MessagesStore with subscription capability
         if (window.MessagesStore?.subscribeToThread) {
             // Subscribe to real-time updates for this thread
+            // Listen for specific admin message events first
+            window.addEventListener('adminMessageReceived', function(event) {
+                if (event.detail && event.detail.email === email) {
+                    console.log('Received admin message via event:', event.detail);
+                    
+                    // Play notification sound immediately for admin messages
+                    playNotificationSound();
+                }
+            });
+            
+            // Set up the main thread subscription
+            console.log(`Setting up thread listener for ${email} to receive real-time messages`);
             window.threadUnsubscribe = window.MessagesStore.subscribeToThread(email, function(messages) {
                 // Only redraw if there are messages
                 if (!messages || !messages.length) return;
                 
                 // Clear the container
                 container.innerHTML = '';
+                
+                // Keep track of admin messages to detect new ones
+                const adminMessages = [];
                 
                 // Add each message
                 messages.forEach(function(msg) {
@@ -471,13 +602,19 @@
                     // Determine if this is from the user or admin
                     const isUser = msg.sender !== 'admin@lafsys.gov';
                     
+                    // Collect admin messages for notification
+                    if (!isUser) {
+                        adminMessages.push(msg);
+                    }
+                    
                     // Debug message content
                     console.log('Rendering message:', {
                         sender: msg.sender,
                         name: msg.name,
                         bodyLength: msg.body ? msg.body.length : 0,
                         body: msg.body ? msg.body.substring(0, 100) : 'EMPTY',
-                        date: msg.date
+                        date: msg.date,
+                        isAdmin: !isUser
                     });
                     
                     // Check if this is an image message (JSON string)
@@ -505,6 +642,7 @@
                     // Create message element
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `message ${isUser ? 'user-message' : 'staff-message'}`;
+                    messageDiv.id = `msg-${msg.id || Date.now() + Math.random().toString(36).substring(2, 9)}`;
                     
                     const messageBubble = document.createElement('div');
                     messageBubble.className = 'message-bubble';
@@ -561,18 +699,69 @@
                 // Scroll to bottom
                 container.scrollTop = container.scrollHeight;
                 
-                // Play notification sound for new messages from admin
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg && lastMsg.sender === 'admin@lafsys.gov') {
-                    playNotificationSound();
+                // Get the last message to check if it's a new admin message
+                if (adminMessages.length > 0) {
+                    // Find the latest admin message
+                    const lastAdminMsg = adminMessages.reduce((latest, current) => {
+                        // Compare dates to find the latest
+                        const currentDate = new Date(current.date);
+                        const latestDate = latest ? new Date(latest.date) : new Date(0);
+                        return currentDate > latestDate ? current : latest;
+                    }, null);
+                    
+                    // Check if this admin message is new (less than 10 seconds old)
+                    if (lastAdminMsg) {
+                        const now = new Date();
+                        const msgTime = new Date(lastAdminMsg.date);
+                        const ageInSeconds = (now - msgTime) / 1000;
+                        
+                        if (ageInSeconds < 10) {
+                            console.log('New admin message detected, playing notification');
+                            playNotificationSound();
+                            
+                            // Highlight the new message briefly
+                            const msgElement = document.getElementById(`msg-${lastAdminMsg.id}`);
+                            if (msgElement) {
+                                msgElement.style.animation = 'highlight-message 2s ease';
+                                // Add this style to document head if it doesn't exist
+                                if (!document.getElementById('highlight-animation-style')) {
+                                    const style = document.createElement('style');
+                                    style.id = 'highlight-animation-style';
+                                    style.textContent = `
+                                        @keyframes highlight-message {
+                                            0% { background-color: rgba(59, 130, 246, 0.1); }
+                                            70% { background-color: rgba(59, 130, 246, 0.1); }
+                                            100% { background-color: transparent; }
+                                        }
+                                    `;
+                                    document.head.appendChild(style);
+                                }
+                            }
+                        }
+                    }
                 }
             });
+            
+            // Initialize with existing messages
+            window.MessagesStore.getThreadAsync(email)
+                .then(messages => {
+                    console.log(`Loaded ${messages.length} initial messages for thread ${email}`);
+                    // Initial rendering will happen through the listener
+                })
+                .catch(error => {
+                    console.error(`Error loading initial messages for thread ${email}:`, error);
+                });
         }
     }
     
     // Set up online status tracking
     function setupOnlineStatusTracking(email, name) {
-        if (!email) return;
+        if (!email) {
+            console.error('Cannot set up online status tracking: Missing email');
+            return;
+        }
+        
+        console.log(`Setting up online status tracking for ${email}`);
         
         // Check if we have the Firebase MessagesStore
         if (window.MessagesStore?.setOnlineStatusAsync) {

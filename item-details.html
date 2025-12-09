@@ -6,6 +6,12 @@
     <title>Item Details - Lost & Found Baguio</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/chat-auth.css">
+    <link rel="stylesheet" href="css/chat-system.css">
+    <!-- Emergency fix for chat auth modal -->
+    <link rel="stylesheet" href="css/chat-auth-fix.css">
+    <!-- Message highlighting for better visibility of new messages -->
+    <link rel="stylesheet" href="css/chat-message-highlight.css">
     <link rel="stylesheet" href="css/form-debug.css"><!-- Added form debug CSS -->
     <link rel="stylesheet" href="css/emergency-modal.css"><!-- Added emergency modal CSS -->
     <style>
@@ -319,12 +325,35 @@
                         contactBtn.addEventListener('click', function(e) {
                             e.preventDefault();
                             console.log('Chat button clicked');
-                            document.getElementById('contact-modal').style.display = 'block';
                             
-                            setTimeout(function() {
-                                const chatInput = document.getElementById('chat-input');
-                                if (chatInput) chatInput.focus();
-                            }, 300);
+                            // Use the ChatAuth system if available
+                            if (window.ChatAuth) {
+                                console.log('Using ChatAuth system for chat');
+                                const userIdentity = window.ChatAuth.getUserIdentity();
+                                
+                                if (userIdentity && userIdentity.name && userIdentity.email) {
+                                    console.log('User already authenticated:', userIdentity);
+                                    document.getElementById('contact-modal').style.display = 'block';
+                                    window.ChatAuth.restoreChatHistory(userIdentity);
+                                    
+                                    setTimeout(function() {
+                                        const chatInput = document.getElementById('chat-input');
+                                        if (chatInput) chatInput.focus();
+                                    }, 300);
+                                } else {
+                                    console.log('User needs to authenticate first');
+                                    window.ChatAuth.showAuthModal();
+                                }
+                            } else {
+                                // Fallback to old behavior if ChatAuth isn't available
+                                console.log('ChatAuth not available, using default behavior');
+                                document.getElementById('contact-modal').style.display = 'block';
+                                
+                                setTimeout(function() {
+                                    const chatInput = document.getElementById('chat-input');
+                                    if (chatInput) chatInput.focus();
+                                }, 300);
+                            }
                         });
                     }
                 });
@@ -693,6 +722,8 @@
     <script src="js/debug-modal.js"></script>
     <script src="js/form-fix.js"></script><!-- Added form fix script -->
     <script src="js/test-form.js"></script><!-- Added test form script -->
+    <script src="js/user-chat-auth.js"></script>
+    <script src="js/chat-auth-fix.js"></script><!-- Emergency fix for chat auth modal -->
     
     <script>
         // Firebase configuration
@@ -862,7 +893,35 @@
             // Direct onclick handler for contact button
             contactBtn.onclick = function() {
                 console.log('Contact button clicked');
-                contactModal.style.display = 'block';
+                
+                // Use the ChatAuth system if available
+                if (window.ChatAuth) {
+                    console.log('Using ChatAuth system for chat');
+                    const userIdentity = window.ChatAuth.getUserIdentity();
+                    
+                    if (userIdentity && userIdentity.name && userIdentity.email) {
+                        console.log('User already authenticated:', userIdentity);
+                        document.getElementById('contact-modal').style.display = 'block';
+                        window.ChatAuth.restoreChatHistory(userIdentity);
+                        
+                        setTimeout(function() {
+                            var chatInput = document.getElementById('chat-input');
+                            if (chatInput) chatInput.focus();
+                        }, 300);
+                    } else {
+                        console.log('User needs to authenticate first');
+                        window.ChatAuth.showAuthModal();
+                    }
+                } else {
+                    // Fallback to old behavior if ChatAuth isn't available
+                    console.log('ChatAuth not available, using default behavior');
+                    document.getElementById('contact-modal').style.display = 'block';
+                    
+                    setTimeout(function() {
+                        var chatInput = document.getElementById('chat-input');
+                        if (chatInput) chatInput.focus();
+                    }, 300);
+                }
             };
             
             contactClose.onclick = function() {
@@ -1040,20 +1099,42 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Make sure claim button works
     document.getElementById('claim-btn').onclick = function() {
-        console.log('Claim button clicked (final handler)');
+        console.log('Claim button clicked (direct handler)');
         document.getElementById('claim-modal').style.display = 'block';
     };
     
     // Make sure contact button works
     document.getElementById('contact-btn').onclick = function() {
         console.log('Contact button clicked (final handler)');
-        document.getElementById('contact-modal').style.display = 'block';
         
-        // Focus the input field
-        setTimeout(function() {
-            var chatInput = document.getElementById('chat-input');
-            if (chatInput) chatInput.focus();
-        }, 300);
+        // Use the ChatAuth system if available
+        if (window.ChatAuth) {
+            console.log('Using ChatAuth system for chat');
+            const userIdentity = window.ChatAuth.getUserIdentity();
+            
+            if (userIdentity && userIdentity.name && userIdentity.email) {
+                console.log('User already authenticated:', userIdentity);
+                document.getElementById('contact-modal').style.display = 'block';
+                window.ChatAuth.restoreChatHistory(userIdentity);
+                
+                setTimeout(function() {
+                    var chatInput = document.getElementById('chat-input');
+                    if (chatInput) chatInput.focus();
+                }, 300);
+            } else {
+                console.log('User needs to authenticate first');
+                window.ChatAuth.showAuthModal();
+            }
+        } else {
+            // Fallback to old behavior if ChatAuth isn't available
+            console.log('ChatAuth not available, using default behavior');
+            document.getElementById('contact-modal').style.display = 'block';
+            
+            setTimeout(function() {
+                var chatInput = document.getElementById('chat-input');
+                if (chatInput) chatInput.focus();
+            }, 300);
+        }
     };
     
     // Global functions for inline onclick attributes
@@ -1064,11 +1145,35 @@ document.addEventListener('DOMContentLoaded', function() {
     
     window.showChatModal = function() {
         console.log('Global showChatModal called');
-        document.getElementById('contact-modal').style.display = 'block';
-        setTimeout(function() {
-            var chatInput = document.getElementById('chat-input');
-            if (chatInput) chatInput.focus();
-        }, 300);
+        
+        // Use the ChatAuth system if available
+        if (window.ChatAuth) {
+            console.log('Using ChatAuth system for chat');
+            const userIdentity = window.ChatAuth.getUserIdentity();
+            
+            if (userIdentity && userIdentity.name && userIdentity.email) {
+                console.log('User already authenticated:', userIdentity);
+                document.getElementById('contact-modal').style.display = 'block';
+                window.ChatAuth.restoreChatHistory(userIdentity);
+                
+                setTimeout(function() {
+                    var chatInput = document.getElementById('chat-input');
+                    if (chatInput) chatInput.focus();
+                }, 300);
+            } else {
+                console.log('User needs to authenticate first');
+                window.ChatAuth.showAuthModal();
+            }
+        } else {
+            // Fallback to old behavior if ChatAuth isn't available
+            console.log('ChatAuth not available, using default behavior');
+            document.getElementById('contact-modal').style.display = 'block';
+            
+            setTimeout(function() {
+                var chatInput = document.getElementById('chat-input');
+                if (chatInput) chatInput.focus();
+            }, 300);
+        }
     };
     
     // Fix all close buttons

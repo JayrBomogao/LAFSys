@@ -57,12 +57,31 @@ window.addEventListener('load', function() {
         contactBtn.style.borderRadius = '3px';
         contactBtn.style.cursor = 'pointer';
         contactBtn.onclick = function() {
-            const modal = document.getElementById('contact-modal');
-            if (modal) {
-                modal.style.display = 'block';
-                modal.style.visibility = 'visible';
-                modal.style.opacity = '1';
-                console.log('Emergency: Showing contact modal');
+            // Use the ChatAuth system if available
+            if (window.ChatAuth) {
+                console.log('Emergency: Using ChatAuth for chat modal');
+                const userIdentity = window.ChatAuth.getUserIdentity();
+                
+                if (userIdentity && userIdentity.name && userIdentity.email) {
+                    console.log('User already authenticated:', userIdentity);
+                    const modal = document.getElementById('contact-modal');
+                    if (modal) {
+                        modal.style.display = 'block';
+                        window.ChatAuth.restoreChatHistory(userIdentity);
+                    }
+                } else {
+                    console.log('User needs to authenticate first');
+                    window.ChatAuth.showAuthModal();
+                }
+            } else {
+                // Fallback to direct modal display
+                const modal = document.getElementById('contact-modal');
+                if (modal) {
+                    modal.style.display = 'block';
+                    modal.style.visibility = 'visible';
+                    modal.style.opacity = '1';
+                    console.log('Emergency: Showing contact modal (fallback)');
+                }
             }
         };
         container.appendChild(contactBtn);

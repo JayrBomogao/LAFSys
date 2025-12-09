@@ -60,24 +60,51 @@
     const box = document.getElementById('chatThread');
     if (!box) return;
     
-    // Get thread messages
-    const thread = window.MessagesStore?.getThread?.(email) || [];
-    
-    // Debug message thread
-    console.log(`Rendering thread for ${email}:`, thread.length, 'messages');
-    if (thread.length > 0) {
-      console.log('First message sample:', {
-        sender: thread[0].sender,
-        name: thread[0].name,
-        body: thread[0].body ? thread[0].body.substring(0, 50) + '...' : 'EMPTY',
-        date: thread[0].date
-      });
-    }
-    
-    // Handle empty thread
-    if (thread.length === 0) {
-      box.innerHTML = '<div class="empty-thread">No messages yet. Start a conversation!</div>';
-      return;
+    // Use getThreadAsync instead of getThread if available
+    if (window.MessagesStore?.getThreadAsync) {
+      console.log(`Getting thread messages for ${email} using async method...`);
+      window.MessagesStore.getThreadAsync(email)
+        .then(messages => {
+          if (!messages || messages.length === 0) {
+            box.innerHTML = '<div class="empty-thread">No messages yet. Start a conversation!</div>';
+            return;
+          }
+          
+          console.log(`Retrieved ${messages.length} messages for ${email}`);
+          if (messages.length > 0) {
+            console.log('First message sample:', {
+              sender: messages[0].sender,
+              name: messages[0].name,
+              body: messages[0].body ? messages[0].body.substring(0, 50) + '...' : 'EMPTY',
+              date: messages[0].date
+            });
+          }
+          
+          // We don't need to render here as the subscription will do it
+        })
+        .catch(error => {
+          console.error(`Error getting thread for ${email}:`, error);
+          box.innerHTML = '<div class="empty-thread">Error loading conversation. Please try again.</div>';
+        });
+    } else {
+      // Legacy synchronous approach
+      const thread = window.MessagesStore?.getThread?.(email) || [];
+      
+      console.log(`Rendering thread for ${email} using sync method:`, thread.length, 'messages');
+      if (thread.length > 0) {
+        console.log('First message sample:', {
+          sender: thread[0].sender,
+          name: thread[0].name,
+          body: thread[0].body ? thread[0].body.substring(0, 50) + '...' : 'EMPTY',
+          date: thread[0].date
+        });
+      }
+      
+      // Handle empty thread
+      if (thread.length === 0) {
+        box.innerHTML = '<div class="empty-thread">No messages yet. Start a conversation!</div>';
+        return;
+      }
     }
     
     // Group messages by date for better readability
@@ -336,13 +363,144 @@
     
     // Use real-time subscription if available
     if (email && window.MessagesStore?.subscribeToThread) {
+      console.log(`Setting up thread subscription for ${email}...`);
+      
       window.threadUnsubscribe = window.MessagesStore.subscribeToThread(email, (messages) => {
         console.log('Thread updated with new messages:', messages.length);
         const box = document.getElementById('chatThread');
-        if (box) {
-          const wasAtBottom = box.scrollHeight - box.clientHeight <= box.scrollTop + 50;
-          renderThread(email);
-          if (wasAtBottom) box.scrollTop = box.scrollHeight;
+        if (!box) return;
+        
+        // Keep track of scroll position
+        const wasAtBottom = box.scrollHeight - box.clientHeight <= box.scrollTop + 50;
+        
+        // Group messages by date for better readability
+        let lastDate = '';
+        
+        // Clear the thread container
+        box.innerHTML = '';
+        
+        // Process messages
+        messages.forEach((m, index) => {
+          // Determine if this is from admin or user
+          const isAdmin = m.sender === 'admin@lafsys.gov';
+          
+          // Get avatar
+          const avatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(m.name || (isAdmin ? 'Admin' : 'User'))}`;
+          
+          // Parse message content
+          let imageUrl = null;
+          let messageText = '';
+          
+          try {
+            // Try to parse as JSON to see if it's an image message
+            if (m.body && (m.body.startsWith('{') || m.body.includes('"imageUrl"'))) {
+              const parsedMsg = JSON.parse(m.body);
+              if (parsedMsg.type === 'image' && parsedMsg.imageUrl) {
+                imageUrl = parsedMsg.imageUrl;
+                messageText = parsedMsg.body || '';
+              } else {
+                messageText = m.body;
+              }
+            } else {
+              messageText = m.body || '';
+            }
+          } catch (e) {
+            // If parsing fails, use the message body directly
+            messageText = m.body || '';
+          }
+          
+          // Format the message date
+          const msgDate = new Date(m.date);
+          const datePart = msgDate.toLocaleDateString();
+          
+          // Add date separator if this is a new day
+          if (datePart !== lastDate) {
+            lastDate = datePart;
+            const today = new Date().toLocaleDateString();
+            const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
+            
+            let dateDisplay = datePart;
+            if (datePart === today) dateDisplay = 'Today';
+            else if (datePart === yesterday) dateDisplay = 'Yesterday';
+            
+            const dateSeparator = document.createElement('div');
+            dateSeparator.className = 'date-separator';
+            dateSeparator.innerHTML = `<span>${dateDisplay}</span>`;
+            box.appendChild(dateSeparator);
+          }
+          
+          // Check if the next message is from the same sender (for grouping)
+          const nextMsg = messages[index + 1];
+          const isLastInGroup = !nextMsg || nextMsg.sender !== m.sender;
+          
+          // Create message element
+          const msgDiv = document.createElement('div');
+          msgDiv.className = `msg ${isAdmin ? 'me' : ''} ${isLastInGroup ? 'last-in-group' : ''}`;
+          msgDiv.dataset.msgId = m.id || '';
+          
+          // Add avatar
+          const avatarImg = document.createElement('img');
+          avatarImg.className = 'avatar';
+          avatarImg.src = avatar;
+          avatarImg.alt = '';
+          msgDiv.appendChild(avatarImg);
+          
+          // Add message bubble
+          const bubble = document.createElement('div');
+          bubble.className = 'bubble';
+          
+          // Add message header
+          const header = document.createElement('div');
+          header.className = 'msg-header';
+          
+          const senderName = document.createElement('div');
+          senderName.className = 'sender-name';
+          senderName.textContent = m.name || (isAdmin ? 'Admin' : 'User');
+          header.appendChild(senderName);
+          
+          const msgTime = document.createElement('div');
+          msgTime.className = 'msg-time';
+          msgTime.textContent = msgDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          header.appendChild(msgTime);
+          
+          bubble.appendChild(header);
+          
+          // Add message content
+          if (messageText) {
+            const body = document.createElement('div');
+            body.className = 'msg-body';
+            body.textContent = messageText;
+            bubble.appendChild(body);
+          } else if (!imageUrl) {
+            const body = document.createElement('div');
+            body.className = 'msg-body';
+            body.innerHTML = '<em style="color:#6b7280">(No message content)</em>';
+            bubble.appendChild(body);
+          }
+          
+          // Add image if available
+          if (imageUrl) {
+            const img = document.createElement('img');
+            img.className = 'message-image';
+            img.src = imageUrl;
+            img.alt = 'Attached image';
+            img.loading = 'lazy';
+            img.onclick = () => window.open(imageUrl, '_blank');
+            bubble.appendChild(img);
+          }
+          
+          msgDiv.appendChild(bubble);
+          box.appendChild(msgDiv);
+        });
+        
+        // Scroll to bottom if we were already at bottom
+        if (wasAtBottom) {
+          box.scrollTop = box.scrollHeight;
+        }
+        
+        // Mark thread as read
+        if (window.MessagesStore?.markThreadAsReadAsync) {
+          window.MessagesStore.markThreadAsReadAsync(email).catch(console.error);
         }
       });
     } else {
@@ -354,19 +512,6 @@
         if (e?.detail?.email === email) {
           console.log('Thread updated event received');
           renderThread(email);
-        }
-      });
-      
-      // Listen for thread loaded events (from cache)
-      window.addEventListener('threadLoaded', (e)=>{
-        if (e?.detail?.email === email && e?.detail?.messages) {
-          console.log('Thread loaded event received with', e.detail.messages.length, 'messages');
-          const box = document.getElementById('chatThread');
-          if (box) {
-            const wasAtBottom = box.scrollHeight - box.clientHeight <= box.scrollTop + 50;
-            renderThread(email);
-            if (wasAtBottom) box.scrollTop = box.scrollHeight;
-          }
         }
       });
     }
