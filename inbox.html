@@ -225,6 +225,293 @@
             100% { transform: rotate(360deg); }
         }
         
+        /* Real-time chat layout */
+        .chat-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 100px);
+            margin-top: 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-sidebar {
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .chat-main {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .chat-header {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+        }
+        
+        .chat-header-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-right: 1rem;
+        }
+        
+        .chat-header-info {
+            flex: 1;
+        }
+        
+        .chat-header-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+        
+        .status-indicator::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-indicator.online::before {
+            background-color: #10b981;
+        }
+        
+        .status-indicator.offline::before {
+            background-color: #94a3b8;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .message {
+            display: flex;
+            gap: 0.75rem;
+            max-width: 80%;
+        }
+        
+        .message.outgoing {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .message-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .message-content {
+            background-color: #f1f5f9;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            position: relative;
+        }
+        
+        .message.outgoing .message-content {
+            background-color: #dbeafe;
+        }
+        
+        .message-time {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+            text-align: right;
+        }
+        
+        .message-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 0.375rem;
+            cursor: pointer;
+        }
+        
+        .chat-composer {
+            display: flex;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-top: 1px solid #e2e8f0;
+            background-color: white;
+        }
+        
+        .composer-input-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.5rem;
+            padding: 0 0.75rem;
+        }
+        
+        .composer-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 0.75rem;
+            min-height: 20px;
+            max-height: 100px;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            font-size: 0.95rem;
+        }
+        
+        .composer-actions {
+            display: flex;
+            align-items: center;
+        }
+        
+        .composer-btn {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .composer-btn:hover {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+        
+        .send-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .send-btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .send-btn:disabled {
+            background-color: #cbd5e1;
+            cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            float: left;
+            margin: 0 1px;
+            background-color: #94a3b8;
+            display: block;
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: typing 1s infinite;
+        }
+        
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.25s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.5s; }
+        
+        @keyframes typing {
+            0% { transform: translateY(0px); }
+            28% { transform: translateY(-5px); }
+            44% { transform: translateY(0px); }
+        }
+        
+        .date-separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin: 1rem 0;
+        }
+        
+        .date-separator::before,
+        .date-separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .date-separator span {
+            padding: 0 0.75rem;
+        }
+        
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8fafc;
+        }
+        
+        .welcome-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 2rem;
+        }
+        
+        .welcome-logo {
+            color: #94a3b8;
+            margin-bottom: 1.5rem;
+        }
+        
+        .welcome-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-subtitle {
+            color: #64748b;
+        }
+        
         .back-link {
             display: inline-flex;
             align-items: center;
@@ -301,7 +588,7 @@
                 <i data-lucide="arrow-left"></i>
                 Back to Admin
             </a>
-            <div class="inbox-title">Inbox</div>
+            <div class="inbox-title">Messages</div>
             <div class="inbox-controls">
                 <div class="inbox-search">
                     <input type="text" id="searchInput" placeholder="Search messages...">
@@ -316,33 +603,89 @@
             </div>
         </div>
         
-        <div class="inbox-list" id="inboxList">
-            <!-- Loading state will show initially -->
-            <div class="loading-state" id="loadingState">
-                <div class="spinner"></div>
-            </div>
-            
-            <!-- Empty state will show when no messages -->
-            <div class="empty-state" id="emptyState" style="display: none;">
-                <div class="empty-icon">
-                    <i data-lucide="inbox" width="32" height="32"></i>
+        <!-- Real-time Chat Container -->
+        <div class="chat-container">
+            <!-- Chat Sidebar with Conversations List -->
+            <div class="chat-sidebar">
+                <div id="inboxList" class="inbox-list" style="height: 100%; overflow-y: auto;">
+                    <!-- Loading state will show initially -->
+                    <div class="loading-state" id="loadingState">
+                        <div class="spinner"></div>
+                    </div>
+                    
+                    <!-- Empty state will show when no messages -->
+                    <div class="empty-state" id="emptyState" style="display: none;">
+                        <div class="empty-icon">
+                            <i data-lucide="inbox" width="32" height="32"></i>
+                        </div>
+                        <div class="empty-text">No messages</div>
+                        <div class="empty-subtext">Your inbox is empty</div>
+                    </div>
+                    
+                    <!-- Conversations will be listed here -->
+                    <div id="chatsList"></div>
                 </div>
-                <div class="empty-text">No messages</div>
-                <div class="empty-subtext">Your inbox is empty</div>
             </div>
             
-            <!-- Messages will be added here dynamically -->
+            <!-- Main Chat Area -->
+            <div class="chat-main">
+                <!-- Welcome screen (shown when no chat is selected) -->
+                <div id="welcomeScreen" class="welcome-screen">
+                    <div class="welcome-content">
+                        <div class="welcome-logo">
+                            <i data-lucide="message-square" width="64" height="64"></i>
+                        </div>
+                        <h2 class="welcome-title">Live Chat Dashboard</h2>
+                        <p class="welcome-subtitle">Select a conversation from the list to start messaging</p>
+                    </div>
+                </div>
+                
+                <!-- Chat header (hidden initially) -->
+                <div id="chatHeader" class="chat-header" style="display: none;">
+                    <div class="chat-header-avatar">
+                        <img id="chatAvatar" src="https://api.dicebear.com/9.x/initials/svg?seed=User" alt="User">
+                    </div>
+                    <div class="chat-header-info">
+                        <div class="chat-header-name" id="chatName">User</div>
+                        <div id="chatEmail" style="font-size: 0.75rem; color: #6b7280;"></div>
+                        <div id="chatStatus" class="status-indicator offline">Offline</div>
+                    </div>
+                </div>
+                
+                <!-- Chat messages area (hidden initially) -->
+                <div id="chatThread" class="chat-messages" style="display: none;"></div>
+                
+                <!-- Chat composer area (hidden initially) -->
+                <div class="chat-composer" id="chatComposer" style="display: none;">
+                    <div class="composer-input-area">
+                        <textarea id="chatInput" class="composer-input" placeholder="Type your message..." disabled></textarea>
+                        <div class="composer-actions">
+                            <button class="composer-btn" id="imageUploadBtn" title="Send image" disabled>
+                                <i data-lucide="image"></i>
+                            </button>
+                            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                    <button id="sendBtn" class="send-btn" disabled>
+                        <i data-lucide="send" width="18" height="18"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     
     <!-- Firebase Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     
     <!-- Other Scripts -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/messages.js"></script>
     <script src="js/firebase-messages.js"></script>
+    <script src="js/firebase-chat.js"></script>
+    <script src="js/adminChat.js"></script>
     
     <script>
         // Initialize Lucide icons
@@ -351,11 +694,72 @@
             
             // Get elements
             const inboxList = document.getElementById('inboxList');
+            const chatsList = document.getElementById('chatsList');
             const loadingState = document.getElementById('loadingState');
             const emptyState = document.getElementById('emptyState');
             const searchInput = document.getElementById('searchInput');
             const searchBtn = document.getElementById('searchBtn');
             const refreshBtn = document.getElementById('refreshBtn');
+            
+            // Chat UI elements
+            const chatHeader = document.getElementById('chatHeader');
+            const chatThread = document.getElementById('chatThread');
+            const chatComposer = document.getElementById('chatComposer');
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            const chatAvatar = document.getElementById('chatAvatar');
+            const chatName = document.getElementById('chatName');
+            const chatEmail = document.getElementById('chatEmail');
+            const chatStatus = document.getElementById('chatStatus');
+            const imageUploadBtn = document.getElementById('imageUploadBtn');
+            const imageUploadInput = document.getElementById('imageUploadInput');
+            
+            // Chat state variables
+            let currentUser = null;
+            let currentChatId = null;
+            let currentUserId = null;
+            let allChats = [];
+            
+            // Initialize Firebase Auth
+            if (firebase.auth) {
+                firebase.auth().onAuthStateChanged(async function(user) {
+                    if (user) {
+                        // We have an authenticated user
+                        currentUser = user;
+                        console.log('Authenticated as:', user.email || user.uid);
+                        
+                        // Check if the user is an admin
+                        if (user.email && (user.email.includes('admin') || user.email === 'admin@lafsys.gov')) {
+                            console.log('Admin user detected');
+                            // Enable chat UI elements
+                            enableChatInterface();
+                            
+                            // Set up Firebase listeners for real-time chat
+                            setupChatsListener();
+                        } else {
+                            // Try to sign in as admin
+                            try {
+                                await firebase.auth().signInWithEmailAndPassword('admin@lafsys.gov', 'admin123');
+                            } catch (error) {
+                                console.error('Error signing in as admin:', error);
+                                // Create anonymous admin user if needed
+                                await firebase.auth().signInAnonymously();
+                            }
+                        }
+                    } else {
+                        // No user is signed in, sign in anonymously
+                        try {
+                            await firebase.auth().signInAnonymously();
+                            console.log('Signed in anonymously');
+                        } catch (error) {
+                            console.error('Error signing in anonymously:', error);
+                        }
+                    }
+                });
+            } else {
+                console.error('Firebase Auth not available');
+            }
             
             // Format date helper
             function formatDate(dateString) {
@@ -529,6 +933,597 @@
             
             // Initial load
             loadMessages();
+            
+            // Enable the chat interface elements
+            function enableChatInterface() {
+                if (chatInput) chatInput.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                if (imageUploadBtn) imageUploadBtn.disabled = false;
+            }
+            
+            // Set up real-time listener for all chats
+            function setupChatsListener() {
+                if (!firebase.firestore || !currentUser) return;
+                
+                const db = firebase.firestore();
+                
+                // Query all chats where the admin is a participant
+                db.collection('chats')
+                    .where('participants', 'array-contains', currentUser.uid)
+                    .orderBy('lastTimestamp', 'desc')
+                    .onSnapshot(async snapshot => {
+                        const chats = [];
+                        
+                        // Process each chat
+                        for (const doc of snapshot.docs) {
+                            const chatData = doc.data();
+                            
+                            // Get the other participant (not the admin)
+                            const otherUserId = chatData.participants.find(id => id !== currentUser.uid);
+                            
+                            // Get user info from the chat or from users collection
+                            let userInfo = chatData.userInfo && chatData.userInfo[otherUserId];
+                            
+                            if (!userInfo) {
+                                try {
+                                    const userDoc = await db.collection('users').doc(otherUserId).get();
+                                    if (userDoc.exists) {
+                                        userInfo = userDoc.data();
+                                    }
+                                } catch (error) {
+                                    console.error('Error getting user info:', error);
+                                }
+                            }
+                            
+                            // Get presence info
+                            let presenceInfo = { online: false };
+                            try {
+                                const presenceDoc = await db.collection('presence').doc(otherUserId).get();
+                                if (presenceDoc.exists) {
+                                    presenceInfo = presenceDoc.data();
+                                }
+                            } catch (error) {
+                                console.error('Error getting presence info:', error);
+                            }
+                            
+                            // Format the chat data for the UI
+                            chats.push({
+                                id: doc.id,
+                                userId: otherUserId,
+                                name: userInfo?.name || userInfo?.displayName || 'User',
+                                email: userInfo?.email || otherUserId,
+                                photoURL: userInfo?.photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${userInfo?.name || 'User'}`,
+                                lastMessage: chatData.lastMessage || '',
+                                lastTimestamp: chatData.lastTimestamp ? chatData.lastTimestamp.toDate() : new Date(),
+                                unread: isUnread(chatData, currentUser.uid),
+                                online: presenceInfo.online || false
+                            });
+                        }
+                        
+                        // Update state
+                        allChats = chats;
+                        
+                        // Render the chats list
+                        renderChatsList(chats);
+                    }, error => {
+                        console.error('Error in chats listener:', error);
+                    });
+            }
+            
+            // Check if a chat has unread messages
+            function isUnread(chatData, userId) {
+                if (!chatData.lastRead || !chatData.lastTimestamp) {
+                    return true;
+                }
+                
+                const lastRead = chatData.lastRead[userId];
+                if (!lastRead) {
+                    return true;
+                }
+                
+                return chatData.lastTimestamp.toDate() > lastRead.toDate();
+            }
+            
+            // Render the list of chats
+            function renderChatsList(chats) {
+                if (!chatsList) return;
+                
+                // Show/hide empty state
+                if (emptyState) {
+                    emptyState.style.display = chats.length === 0 ? 'flex' : 'none';
+                }
+                
+                // Hide loading state
+                if (loadingState) {
+                    loadingState.style.display = 'none';
+                }
+                
+                // Clear existing items
+                chatsList.innerHTML = '';
+                
+                // Add each chat to the list
+                chats.forEach(chat => {
+                    const chatEl = document.createElement('div');
+                    chatEl.className = `inbox-item${chat.unread ? ' unread' : ''}${currentChatId === chat.id ? ' active' : ''}`;
+                    chatEl.dataset.chatId = chat.id;
+                    chatEl.dataset.userId = chat.userId;
+                    
+                    const timeString = formatDate(chat.lastTimestamp);
+                    
+                    chatEl.innerHTML = `
+                        <div class="inbox-avatar">
+                            <img src="${chat.photoURL}" alt="${chat.name}">
+                        </div>
+                        <div class="inbox-content">
+                            <div class="inbox-sender">${chat.name}</div>
+                            <div class="inbox-preview">${chat.lastMessage || 'No messages yet'}</div>
+                        </div>
+                        <div class="inbox-meta">
+                            <div class="inbox-date">${timeString}</div>
+                            <div class="inbox-actions">
+                                ${chat.unread ? '<span class="inbox-badge">New</span>' : ''}
+                                ${chat.online ? '<span class="status-indicator online" title="Online"></span>' : ''}
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add click event to open the chat
+                    chatEl.addEventListener('click', () => {
+                        openChat(chat.userId, chat.id);
+                    });
+                    
+                    chatsList.appendChild(chatEl);
+                });
+                
+                // Re-initialize icons
+                lucide.createIcons();
+            }
+            
+            // Open a specific chat
+            function openChat(userId, chatId) {
+                if (!userId || !currentUser) return;
+                
+                currentChatId = chatId;
+                currentUserId = userId;
+                
+                // Update UI state
+                if (welcomeScreen) welcomeScreen.style.display = 'none';
+                if (chatThread) chatThread.style.display = 'flex';
+                if (chatHeader) chatHeader.style.display = 'flex';
+                if (chatComposer) chatComposer.style.display = 'flex';
+                if (chatInput) chatInput.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                
+                // Clear existing chat content
+                if (chatThread) chatThread.innerHTML = '';
+                
+                // Update active chat in the list
+                const chatItems = document.querySelectorAll('.inbox-item');
+                chatItems.forEach(item => {
+                    if (item.dataset.chatId === currentChatId) {
+                        item.classList.add('active');
+                        item.classList.remove('unread');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+                
+                // Set up chat listeners
+                setupMessagesListener();
+                setupTypingListener();
+                setupPresenceListener();
+                
+                // Update chat header with user info
+                updateChatHeader(userId);
+                
+                // Focus the input field
+                if (chatInput) chatInput.focus();
+            }
+            
+            // Update chat header with user info
+            async function updateChatHeader(userId) {
+                if (!chatName || !chatStatus || !chatAvatar || !chatEmail || !firebase.firestore) return;
+                
+                const db = firebase.firestore();
+                
+                try {
+                    // Try to get user info from Firestore
+                    const userDoc = await db.collection('users').doc(userId).get();
+                    
+                    let name = 'User';
+                    let email = userId;
+                    let photoURL = `https://api.dicebear.com/9.x/initials/svg?seed=User`;
+                    
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        name = userData.displayName || userData.name || 'User';
+                        email = userData.email || userId;
+                        photoURL = userData.photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${name}`;
+                    } else {
+                        // Try to get from chat data
+                        const chatDoc = await db.collection('chats').doc(currentChatId).get();
+                        if (chatDoc.exists) {
+                            const chatData = chatDoc.data();
+                            if (chatData.userInfo && chatData.userInfo[userId]) {
+                                const userInfo = chatData.userInfo[userId];
+                                name = userInfo.name || userInfo.displayName || 'User';
+                                email = userInfo.email || userId;
+                                photoURL = userInfo.photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${name}`;
+                            }
+                        }
+                    }
+                    
+                    // Update UI
+                    chatName.textContent = name;
+                    chatEmail.textContent = email;
+                    chatAvatar.src = photoURL;
+                } catch (error) {
+                    console.error('Error updating chat header:', error);
+                }
+            }
+            
+            // Set up real-time listener for messages
+            function setupMessagesListener() {
+                if (!currentChatId || !firebase.firestore) return;
+                
+                const db = firebase.firestore();
+                
+                db.collection('chats').doc(currentChatId)
+                    .collection('messages')
+                    .orderBy('timestamp', 'asc')
+                    .onSnapshot(snapshot => {
+                        // Process new messages
+                        const changes = snapshot.docChanges();
+                        let hasNewMessages = false;
+                        
+                        changes.forEach(change => {
+                            if (change.type === 'added') {
+                                // Add new message to the UI
+                                const message = change.doc.data();
+                                appendMessage(message, change.doc.id);
+                                hasNewMessages = true;
+                            } else if (change.type === 'modified') {
+                                // Update message (e.g., seen status)
+                                const message = change.doc.data();
+                                updateMessage(change.doc.id, message);
+                            }
+                        });
+                        
+                        if (hasNewMessages) {
+                            // Scroll to bottom
+                            scrollToBottom();
+                            
+                            // Mark messages as seen if they are from the user
+                            markMessagesAsSeen();
+                        }
+                    }, error => {
+                        console.error('Error in messages listener:', error);
+                    });
+            }
+            
+            // Set up real-time listener for typing indicator
+            function setupTypingListener() {
+                if (!currentChatId || !currentUserId || !firebase.firestore) return;
+                
+                const db = firebase.firestore();
+                const typingRef = db.collection('chats').doc(currentChatId).collection('typing');
+                
+                typingRef.doc(currentUserId).onSnapshot(doc => {
+                    // Find or create typing indicator
+                    let typingIndicator = document.getElementById('typingIndicator');
+                    
+                    if (!typingIndicator && chatThread) {
+                        typingIndicator = document.createElement('div');
+                        typingIndicator.id = 'typingIndicator';
+                        typingIndicator.className = 'typing-indicator';
+                        typingIndicator.innerHTML = `<span></span><span></span><span></span>`;
+                        typingIndicator.style.display = 'none';
+                        chatThread.appendChild(typingIndicator);
+                    }
+                    
+                    if (!typingIndicator) return;
+                    
+                    if (doc.exists && doc.data().isTyping) {
+                        // Show typing indicator
+                        typingIndicator.style.display = 'flex';
+                        scrollToBottom();
+                    } else {
+                        // Hide typing indicator
+                        typingIndicator.style.display = 'none';
+                    }
+                }, error => {
+                    console.error('Error in typing listener:', error);
+                });
+            }
+            
+            // Set up real-time listener for presence
+            function setupPresenceListener() {
+                if (!currentChatId || !currentUserId || !chatStatus || !firebase.firestore) return;
+                
+                const db = firebase.firestore();
+                
+                db.collection('presence').doc(currentUserId).onSnapshot(doc => {
+                    if (doc.exists && doc.data().online) {
+                        chatStatus.textContent = 'Online';
+                        chatStatus.className = 'status-indicator online';
+                    } else {
+                        const lastSeen = doc.exists && doc.data().lastSeen ? doc.data().lastSeen.toDate() : null;
+                        chatStatus.textContent = lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline';
+                        chatStatus.className = 'status-indicator offline';
+                    }
+                }, error => {
+                    console.error('Error in presence listener:', error);
+                });
+            }
+            
+            // Format last seen time
+            function formatLastSeen(date) {
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.round(diffMs / 60000);
+                
+                if (diffMins < 1) return 'just now';
+                if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+                
+                const diffHours = Math.round(diffMs / 3600000);
+                if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+                
+                const diffDays = Math.round(diffMs / 86400000);
+                if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+                
+                return date.toLocaleDateString();
+            }
+            
+            // Mark messages as seen
+            async function markMessagesAsSeen() {
+                if (!currentChatId || !currentUser || !currentUserId || !firebase.firestore) return;
+                
+                const db = firebase.firestore();
+                
+                try {
+                    // Get unseen messages from the user
+                    const unseen = await db.collection('chats').doc(currentChatId)
+                        .collection('messages')
+                        .where('senderId', '==', currentUserId)
+                        .where('seen', '==', false)
+                        .get();
+                    
+                    if (unseen.empty) return;
+                    
+                    // Mark each message as seen
+                    const batch = db.batch();
+                    unseen.docs.forEach(doc => {
+                        batch.update(doc.ref, { seen: true });
+                    });
+                    
+                    await batch.commit();
+                    
+                    // Update the chat's last read timestamp
+                    await db.collection('chats').doc(currentChatId).update({
+                        [`lastRead.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Error marking messages as seen:', error);
+                }
+            }
+            
+            // Append a message to the UI
+            function appendMessage(message, messageId) {
+                if (!chatThread) return;
+                
+                // Check if message already exists
+                if (document.querySelector(`[data-message-id="${messageId}"]`)) {
+                    return;
+                }
+                
+                // Get message details
+                const { senderId, text, timestamp, imageUrl, seen } = message;
+                const isOutgoing = senderId === currentUser.uid;
+                const date = timestamp ? timestamp.toDate() : new Date();
+                
+                // Format date for display
+                const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const dateString = date.toLocaleDateString();
+                
+                // Check if we need to add a date separator
+                const lastDateSeparator = chatThread.querySelector('.date-separator:last-of-type');
+                const lastDateString = lastDateSeparator ? lastDateSeparator.getAttribute('data-date') : '';
+                
+                if (dateString !== lastDateString) {
+                    const dateSeparator = document.createElement('div');
+                    dateSeparator.className = 'date-separator';
+                    dateSeparator.setAttribute('data-date', dateString);
+                    
+                    // Format the date label
+                    const today = new Date().toLocaleDateString();
+                    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
+                    
+                    let dateLabel = dateString;
+                    if (dateString === today) {
+                        dateLabel = 'Today';
+                    } else if (dateString === yesterday) {
+                        dateLabel = 'Yesterday';
+                    }
+                    
+                    dateSeparator.innerHTML = `<span>${dateLabel}</span>`;
+                    chatThread.appendChild(dateSeparator);
+                }
+                
+                // Create message element
+                const messageEl = document.createElement('div');
+                messageEl.className = `message ${isOutgoing ? 'outgoing' : ''}`;
+                messageEl.setAttribute('data-message-id', messageId);
+                messageEl.setAttribute('data-sender-id', senderId);
+                
+                // Get avatar URL
+                const avatarSrc = isOutgoing 
+                  ? (currentUser.photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${currentUser.displayName || 'Admin'}`) 
+                  : `https://api.dicebear.com/9.x/initials/svg?seed=User`;
+                
+                // Check if this is an image message (JSON string)
+                let imageUrl2 = imageUrl;
+                let messageText = text || '';
+                
+                try {
+                    // Try to parse as JSON to see if it's an image message
+                    if (messageText && (messageText.startsWith('{') || messageText.includes('"imageUrl"'))) {
+                        const parsedMsg = JSON.parse(messageText);
+                        if (parsedMsg.type === 'image' && parsedMsg.imageUrl) {
+                            imageUrl2 = parsedMsg.imageUrl;
+                            messageText = parsedMsg.body || '';
+                        }
+                    }
+                } catch (e) {
+                    // If parsing fails, use the message text directly
+                }
+                
+                // Create avatar element
+                const avatarEl = document.createElement('div');
+                avatarEl.className = 'message-avatar';
+                avatarEl.innerHTML = `<img src="${avatarSrc}" alt="">`;
+                
+                // Create content element
+                const contentEl = document.createElement('div');
+                contentEl.className = 'message-content';
+                
+                // Add text content if available
+                if (messageText) {
+                    contentEl.appendChild(document.createTextNode(messageText));
+                }
+                
+                // Add image if available
+                if (imageUrl2) {
+                    const imgEl = document.createElement('img');
+                    imgEl.src = imageUrl2;
+                    imgEl.className = 'message-image';
+                    imgEl.alt = 'Attached image';
+                    imgEl.onclick = function() { window.open(imageUrl2, '_blank'); };
+                    contentEl.appendChild(imgEl);
+                }
+                
+                // Add time
+                const timeEl = document.createElement('div');
+                timeEl.className = 'message-time';
+                timeEl.textContent = timeString;
+                contentEl.appendChild(timeEl);
+                
+                // Assemble message
+                if (isOutgoing) {
+                    messageEl.appendChild(contentEl);
+                    messageEl.appendChild(avatarEl);
+                } else {
+                    messageEl.appendChild(avatarEl);
+                    messageEl.appendChild(contentEl);
+                }
+                
+                // Add to chat thread
+                chatThread.appendChild(messageEl);
+            }
+            
+            // Update a message in the UI
+            function updateMessage(messageId, message) {
+                // Implement if needed
+            }
+            
+            // Send a message
+            async function sendMessage() {
+                if (!currentChatId || !currentUser || !currentUserId || !chatInput || !firebase.firestore) return;
+                
+                const text = chatInput.value.trim();
+                if (!text) return;
+                
+                const db = firebase.firestore();
+                
+                // Clear input
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+                
+                try {
+                    // Add message to Firestore
+                    const messageRef = db.collection('chats').doc(currentChatId).collection('messages').doc();
+                    
+                    const message = {
+                        senderId: currentUser.uid,
+                        text,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        seen: false
+                    };
+                    
+                    await messageRef.set(message);
+                    
+                    // Update the chat's last message
+                    await db.collection('chats').doc(currentChatId).update({
+                        lastMessage: text,
+                        lastTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        [`lastActivity.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    // Restore message in input if sending failed
+                    chatInput.value = text;
+                }
+            }
+            
+            // Send message when button is clicked
+            if (sendBtn) {
+                sendBtn.addEventListener('click', sendMessage);
+            }
+            
+            // Send message when Enter is pressed
+            if (chatInput) {
+                chatInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+                
+                // Auto-grow input field
+                chatInput.addEventListener('input', () => {
+                    chatInput.style.height = 'auto';
+                    chatInput.style.height = (chatInput.scrollHeight) + 'px';
+                });
+            }
+            
+            // Scroll to bottom of chat
+            function scrollToBottom() {
+                if (chatThread) {
+                    chatThread.scrollTop = chatThread.scrollHeight;
+                }
+            }
+            
+            // Refactor the old message rendering to use the new chat system
+            function renderInboxItems(messages) {
+                // Just use the existing allChats from Firebase if available
+                if (allChats && allChats.length > 0) {
+                    renderChatsList(allChats);
+                    return;
+                }
+                
+                // Fall back to old system if needed
+                if (!messages || messages.length === 0) {
+                    loadingState.style.display = 'none';
+                    emptyState.style.display = 'flex';
+                    return;
+                }
+                
+                loadingState.style.display = 'none';
+                emptyState.style.display = 'none';
+                
+                // Convert old format messages to new chat format for rendering
+                const chats = messages.map(message => ({
+                    id: message.id,
+                    userId: message.email || 'user',
+                    name: message.from || 'User',
+                    email: message.email || '',
+                    photoURL: `https://api.dicebear.com/9.x/initials/svg?seed=${message.from || 'User'}`,
+                    lastMessage: message.body || '',
+                    lastTimestamp: new Date(message.date),
+                    unread: message.unread
+                }));
+                
+                renderChatsList(chats);
+            }
         });
     </script>
 </body>

@@ -460,6 +460,18 @@
     safe('statClaimed', claimed);
     safe('statSoon', soon);
     safe('statPending', pending);
+    
+    // Also update the trend indicators with more accurate text
+    updateTrendIndicator('statTotalTrend', '');
+    updateTrendIndicator('statClaimedTrend', '');
+    updateTrendIndicator('statSoonTrend', '');
+    updateTrendIndicator('statPendingTrend', 'Needs attention');
+  }
+  
+  // Helper to update trend indicator text
+  function updateTrendIndicator(id, text) {
+    const trendElement = document.getElementById(id);
+    if (trendElement) trendElement.textContent = text;
   }
 
   function switchSection(section){

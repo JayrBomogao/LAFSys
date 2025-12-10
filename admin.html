@@ -491,9 +491,8 @@
                             Total Items
                         </div>
                         <div class="stat-value" id="statTotalItems">0</div>
-                        <div class="stat-change stat-up">
+                        <div class="stat-change stat-up" id="statTotalTrend">
                             <i data-lucide="trending-up" width="16" height="16"></i>
-                            12% from last month
                         </div>
                     </div>
                     <div class="stat-card">
@@ -502,9 +501,8 @@
                             Items Claimed
                         </div>
                         <div class="stat-value" id="statClaimed">0</div>
-                        <div class="stat-change stat-up">
+                        <div class="stat-change stat-up" id="statClaimedTrend">
                             <i data-lucide="trending-up" width="16" height="16"></i>
-                            5% from last month
                         </div>
                     </div>
                     <div class="stat-card">
@@ -513,9 +511,8 @@
                             Pending Claims
                         </div>
                         <div class="stat-value" id="statPending">0</div>
-                        <div class="stat-change stat-down">
+                        <div class="stat-change stat-down" id="statPendingTrend">
                             <i data-lucide="trending-down" width="16" height="16"></i>
-                            3 from yesterday
                         </div>
                     </div>
                     <div class="stat-card">
@@ -524,7 +521,7 @@
                             Disposal Soon
                         </div>
                         <div class="stat-value" id="statSoon">0</div>
-                        <div class="stat-change">
+                        <div class="stat-change" id="statSoonTrend">
                             <i data-lucide="alert-circle" width="16" height="16"></i>
                             Needs attention
                         </div>
@@ -599,6 +596,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="js/ensure-firebase.js"></script>
     
     <!-- App Scripts -->
     <script src="js/data.js"></script>
@@ -608,6 +606,11 @@
     <script src="js/firebase-data.js"></script>
     <script src="js/item-init.js"></script>
     <script src="js/admin.js"></script>
+    <!-- Script that fixes items display -->
+    <script src="js/remove-button.js"></script>
+    <script src="js/firebase-debug-fix.js"></script>
+    <script src="js/fix-database.js"></script>
+    <script src="js/cleanup-ui.js"></script>
     
     <!-- Debug script to help diagnose Firebase issues -->
     <script>

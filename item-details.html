@@ -888,6 +888,70 @@
             const contactBtn = document.getElementById('contact-btn');
             const contactClose = contactModal.querySelector('.close');
             
+            // Function to check for existing chats in Firestore
+            async function checkForExistingChat(userEmail) {
+                if (!firebase || !firebase.firestore || !userEmail) return null;
+                
+                try {
+                    const db = firebase.firestore();
+                    console.log(`Checking for existing chats for user: ${userEmail}`);
+                    
+                    // Query for chats where this user is a participant or has messages
+                    const chatsQuery = await db.collection('chats')
+                        .where('userInfo.' + userEmail, '!=', null)
+                        .get();
+                    
+                    // Also check by email in case the chat was created differently
+                    if (chatsQuery.empty) {
+                        const threadsQuery = await db.collection('threads')
+                            .doc(userEmail)
+                            .get();
+                            
+                        if (threadsQuery.exists) {
+                            console.log('Found thread in threads collection:', threadsQuery.id);
+                            return {
+                                id: threadsQuery.id,
+                                adminId: 'admin@lafsys.gov',
+                                ...threadsQuery.data()
+                            };
+                        }
+                    }
+                    
+                    if (chatsQuery.empty) {
+                        console.log('No existing chats found');
+                        return null;
+                    }
+                    
+                    // Get the most recent chat
+                    let mostRecentChat = null;
+                    let mostRecentTimestamp = 0;
+                    
+                    chatsQuery.forEach(doc => {
+                        const chatData = doc.data();
+                        const timestamp = chatData.lastTimestamp ? chatData.lastTimestamp.toDate().getTime() : 0;
+                        
+                        // Find the other participant (admin)
+                        const adminId = chatData.participants && chatData.participants.find(id => 
+                            id !== userEmail && (id.includes('admin') || id === 'admin@lafsys.gov'));
+                        
+                        if (timestamp > mostRecentTimestamp && adminId) {
+                            mostRecentChat = {
+                                id: doc.id,
+                                adminId: adminId,
+                                ...chatData
+                            };
+                            mostRecentTimestamp = timestamp;
+                        }
+                    });
+                    
+                    console.log('Most recent chat found:', mostRecentChat ? mostRecentChat.id : 'none');
+                    return mostRecentChat;
+                } catch (error) {
+                    console.error('Error checking for existing chats:', error);
+                    return null;
+                }
+            }
+            
             console.log('Contact button:', contactBtn);
             
             // Direct onclick handler for contact button
@@ -1114,13 +1178,37 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (userIdentity && userIdentity.name && userIdentity.email) {
                 console.log('User already authenticated:', userIdentity);
-                document.getElementById('contact-modal').style.display = 'block';
-                window.ChatAuth.restoreChatHistory(userIdentity);
                 
-                setTimeout(function() {
-                    var chatInput = document.getElementById('chat-input');
-                    if (chatInput) chatInput.focus();
-                }, 300);
+                // Check Firestore for existing chats
+                checkForExistingChat(userIdentity.email)
+                    .then(existingChatData => {
+                        if (existingChatData) {
+                            console.log('Found existing chat:', existingChatData);
+                            // Store current chat data for the chat modal
+                            sessionStorage.setItem('currentChatId', existingChatData.id);
+                            sessionStorage.setItem('adminId', existingChatData.adminId || 'admin@lafsys.gov');
+                        }
+                        
+                        // Show the chat modal and restore history
+                        document.getElementById('contact-modal').style.display = 'block';
+                        window.ChatAuth.restoreChatHistory(userIdentity);
+                        
+                        // Refresh the thread to ensure we show all messages
+                        if (window.setupThreadListener && document.getElementById('chat-messages')) {
+                            window.setupThreadListener(userIdentity.email, document.getElementById('chat-messages'));
+                        }
+                        
+                        setTimeout(function() {
+                            const chatInput = document.getElementById('chat-input');
+                            if (chatInput) chatInput.focus();
+                        }, 300);
+                    })
+                    .catch(error => {
+                        console.error('Error checking for existing chats:', error);
+                        // Fall back to default behavior
+                        document.getElementById('contact-modal').style.display = 'block';
+                        window.ChatAuth.restoreChatHistory(userIdentity);
+                    });
             } else {
                 console.log('User needs to authenticate first');
                 window.ChatAuth.showAuthModal();
@@ -1131,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('contact-modal').style.display = 'block';
             
             setTimeout(function() {
-                var chatInput = document.getElementById('chat-input');
+                const chatInput = document.getElementById('chat-input');
                 if (chatInput) chatInput.focus();
             }, 300);
         }
@@ -1153,13 +1241,37 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (userIdentity && userIdentity.name && userIdentity.email) {
                 console.log('User already authenticated:', userIdentity);
-                document.getElementById('contact-modal').style.display = 'block';
-                window.ChatAuth.restoreChatHistory(userIdentity);
                 
-                setTimeout(function() {
-                    var chatInput = document.getElementById('chat-input');
-                    if (chatInput) chatInput.focus();
-                }, 300);
+                // Check Firestore for existing chats
+                checkForExistingChat(userIdentity.email)
+                    .then(existingChatData => {
+                        if (existingChatData) {
+                            console.log('Found existing chat:', existingChatData);
+                            // Store current chat data for the chat modal
+                            sessionStorage.setItem('currentChatId', existingChatData.id);
+                            sessionStorage.setItem('adminId', existingChatData.adminId || 'admin@lafsys.gov');
+                        }
+                        
+                        // Show the chat modal and restore history
+                        document.getElementById('contact-modal').style.display = 'block';
+                        window.ChatAuth.restoreChatHistory(userIdentity);
+                        
+                        // Refresh the thread to ensure we show all messages
+                        if (window.setupThreadListener && document.getElementById('chat-messages')) {
+                            window.setupThreadListener(userIdentity.email, document.getElementById('chat-messages'));
+                        }
+                        
+                        setTimeout(function() {
+                            const chatInput = document.getElementById('chat-input');
+                            if (chatInput) chatInput.focus();
+                        }, 300);
+                    })
+                    .catch(error => {
+                        console.error('Error checking for existing chats:', error);
+                        // Fall back to default behavior
+                        document.getElementById('contact-modal').style.display = 'block';
+                        window.ChatAuth.restoreChatHistory(userIdentity);
+                    });
             } else {
                 console.log('User needs to authenticate first');
                 window.ChatAuth.showAuthModal();

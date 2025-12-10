@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Chat Dashboard - Lost & Found</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/chat-styles.css">
+</head>
+<body>
+  <div class="chat-container">
+    <!-- Chat sidebar with conversations list -->
+    <div class="chat-sidebar">
+      <div class="chat-sidebar-header">
+        <div class="chat-sidebar-title">Admin Inbox</div>
+        <a href="admin.html" class="chat-header-btn">
+          <i data-lucide="home"></i>
+        </a>
+      </div>
+      <div class="chat-sidebar-search">
+        <input type="text" id="searchInput" placeholder="Search conversations...">
+      </div>
+      <div class="chat-conversations" id="chatsList">
+        <!-- Conversations will be listed here -->
+      </div>
+      <div id="noChatsMessage" class="empty-state" style="display: none;">
+        <div class="empty-icon">
+          <i data-lucide="inbox"></i>
+        </div>
+        <div class="empty-title">No conversations yet</div>
+        <div class="empty-desc">When users send messages, they'll appear here</div>
+      </div>
+    </div>
+    
+    <!-- Main chat area -->
+    <div class="chat-main">
+      <!-- Welcome screen (shown when no chat is selected) -->
+      <div id="welcomeScreen" class="welcome-screen">
+        <div class="welcome-content">
+          <div class="welcome-logo">
+            <i data-lucide="message-square" width="64" height="64"></i>
+          </div>
+          <h2 class="welcome-title">Staff Chat Dashboard</h2>
+          <p class="welcome-subtitle">Select a conversation from the sidebar to start messaging</p>
+        </div>
+      </div>
+      
+      <!-- Chat header (hidden initially) -->
+      <div id="chatHeader" class="chat-header" style="display: none;">
+        <button class="mobile-nav-btn" id="mobileNavBtn">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="chat-header-avatar">
+          <img id="chatAvatar" src="https://api.dicebear.com/9.x/initials/svg?seed=User" alt="User">
+        </div>
+        <div class="chat-header-info">
+          <div class="chat-header-name" id="chatName">User</div>
+          <div id="chatEmail" style="font-size: 0.75rem; color: #6b7280;"></div>
+          <div id="chatStatus" class="status-indicator offline">Offline</div>
+        </div>
+        <div class="chat-header-actions">
+          <button class="chat-header-btn" id="refreshBtn" title="Refresh conversation">
+            <i data-lucide="refresh-cw" width="18" height="18"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Chat messages area (hidden initially) -->
+      <div id="chatThread" class="chat-messages" style="display: none;">
+        <!-- Messages will appear here -->
+      </div>
+      
+      <!-- Chat composer area (hidden initially) -->
+      <div class="chat-composer" id="chatComposer" style="display: none;">
+        <div class="composer-input-area">
+          <textarea id="chatInput" class="composer-input" placeholder="Type your message..." disabled></textarea>
+          <div class="composer-actions">
+            <button class="composer-btn" id="imageUploadBtn" title="Send image" disabled>
+              <i data-lucide="image"></i>
+            </button>
+            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
+          </div>
+        </div>
+        <button id="sendBtn" class="send-btn" disabled>
+          <i data-lucide="send" width="18" height="18"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
+  <!-- App Scripts -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="js/firebase-chat.js"></script>
+  <script src="js/adminChat.js"></script>
+  
+  <script>
+    // Initialize Lucide icons
+    document.addEventListener('DOMContentLoaded', function() {
+      lucide.createIcons();
+      
+      // Mobile navigation toggle
+      const mobileNavBtn = document.getElementById('mobileNavBtn');
+      const sidebar = document.querySelector('.chat-sidebar');
+      
+      if (mobileNavBtn && sidebar) {
+        mobileNavBtn.addEventListener('click', function() {
+          sidebar.classList.toggle('open');
+        });
+      }
+    });
+  </script>
+</body>
+</html>

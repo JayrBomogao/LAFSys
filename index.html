@@ -4,208 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lost & Found – Baguio City</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/font/lucide.css">
     <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/chat-auth.css">
-    <link rel="stylesheet" href="css/chat-system.css">
-    <!-- Emergency fix for chat auth modal -->
-    <link rel="stylesheet" href="css/chat-auth-fix.css">
+    <meta http-equiv="refresh" content="0;url=dashboard.html">
     <style>
-        /* Item cards styling */
-        .items-section {
-            margin-top: 2rem;
-        }
-        
-        .items-header {
+        .landing-container {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
-            margin-bottom: 1.5rem;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            background-color: #f8fafc;
         }
         
-        .items-title {
-            font-size: 1.25rem;
-            font-weight: 600;
+        .landing-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .logo h1 {
+            margin-bottom: 0.5rem;
             color: #1e293b;
-            margin-right: 10px;
         }
         
-        .title-with-refresh {
-            display: flex;
-            align-items: center;
-        }
-        
-        .items-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-        
-        .item-card {
-            background: white;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .item-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        
-        .item-image {
-            height: 180px;
-            overflow: hidden;
-            position: relative;
-            background-color: #f1f5f9;
-        }
-        
-        .item-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        /* Status badges */
-        .status-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: white;
-            text-transform: uppercase;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        
-        .status-active {
-            background-color: #10b981; /* Green */
-        }
-        
-        .status-claimed {
-            background-color: #f59e0b; /* Amber */
-        }
-        
-        .status-returned {
-            background-color: #3b82f6; /* Blue */
-        }
-        
-        .status-disposed {
-            background-color: #6b7280; /* Gray */
-        }
-        
-        /* Enhanced Search Styles */
-        .search-container {
-            display: flex;
-            align-items: center;
-            max-width: 600px;
-            margin-right: 1rem;
-        }
-        
-        #searchInput {
-            flex: 1;
-            padding: 10px 15px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px 0 0 8px;
-            font-size: 1rem;
-            min-width: 250px;
-            transition: border-color 0.3s;
-            background-color: white;
-        }
-        
-        #searchInput:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        }
-        
-        .search-btn {
-            background-color: #3b82f6;
-            color: white;
-            border: none;
-            padding: 11px 15px;
-            border-radius: 0 8px 8px 0;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .search-btn:hover {
-            background-color: #2563eb;
-        }
-        
-        .btn-outline {
-            display: flex;
-            align-items: center;
-            padding: 9px 15px;
-            background-color: white;
-            border: 2px solid #3b82f6;
-            border-radius: 8px;
-            color: #3b82f6;
-            margin-left: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-outline:hover {
-            background-color: #f0f7ff;
-        }
-        
-        .item-content {
-            padding: 1.25rem;
-        }
-        
-        .item-title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin: 0 0 0.5rem;
-            color: #0f172a;
-        }
-        
-        .item-category {
-            display: inline-block;
-            font-size: 0.75rem;
-            font-weight: 500;
-            background-color: #e0f2fe;
-            color: #075985;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            margin-bottom: 0.75rem;
-        }
-        
-        .item-details {
-            margin-top: 0.75rem;
-            font-size: 0.875rem;
+        .logo p {
             color: #64748b;
+            margin-bottom: 2rem;
         }
         
-        .item-details div {
+        .button-container {
             display: flex;
-            align-items: center;
-            margin-bottom: 0.25rem;
-        }
-        
-        .item-details i {
-            margin-right: 0.5rem;
-        }
-        
-        .item-actions {
-            margin-top: 1rem;
-            display: flex;
-            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: center;
         }
         
         .btn {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
             transition: all 0.2s;
         }
         
@@ -218,496 +61,36 @@
             background-color: #1d4ed8;
         }
         
-        .btn i {
-            margin-right: 0.375rem;
+        .btn-outline {
+            border: 2px solid #2563eb;
+            color: #2563eb;
         }
         
-        .loading, .error, .no-items {
-            padding: 2rem;
-            text-align: center;
-            color: #64748b;
-            background-color: #f8fafc;
-            border-radius: 0.5rem;
-        }
-        
-        .error {
-            color: #b91c1c;
-            background-color: #fee2e2;
-        }
-        
-        .error-card {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #fee2e2;
-            color: #b91c1c;
-            border: 1px solid #f87171;
-            min-height: 100px;
-        }
-        
-        /* Responsive fixes */
-        @media (max-width: 768px) {
-            .items-grid {
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .items-grid {
-                grid-template-columns: 1fr;
-            }
+        .btn-outline:hover {
+            background-color: #f0f7ff;
         }
     </style>
 </head>
 <body>
-    <script type="module" src="js/firebase.js"></script>
-    <header class="header">
-        <div class="logo">
-            <h1>Lost & Found – Baguio City</h1>
-            <p>Find your missing items</p>
-        </div>
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search items...">
-            <button id="searchButton" class="search-btn"><i data-lucide="search"></i></button>
-            <button id="imageSearchBtn" class="btn-outline" title="Search by image">
-                <i data-lucide="image"></i>
-                <span>Search by Image</span>
-            </button>
-        </div>
-        <a href="admin.html" class="admin-btn">Admin Panel</a>
-    </header>
-
-    <main class="container">
-        <div class="filters">
-            <select id="statusFilter" class="filter-select">
-                <option value="all">All Items</option>
-                <option value="active">Active</option>
-                <option value="claimed">Claimed</option>
-                <option value="soon">Disposal Soon</option>
-            </select>
-        </div>
-
-        <section class="items-section">
-            <div class="items-header">
-                <div class="title-with-refresh">
-                    <h2 class="items-title">Recently Found Items</h2>
-                    <button id="refresh-items" class="btn btn-icon" title="Refresh Items">
-                        <i data-lucide="refresh-cw"></i>
-                    </button>
-                </div>
+    <div class="landing-container">
+        <div class="landing-content">
+            <div class="logo">
+                <h1>Lost & Found – Baguio City</h1>
+                <p>Find your missing items</p>
             </div>
-            <div class="items-grid" id="items-container">
-                <!-- Items will be loaded here by JavaScript -->
-            </div>
-        </section>
-    </main>
-
-    <!-- Item Details Modal -->
-    <div id="itemDetailsModal" class="modal">
-        <div class="modal-content large">
-            <span class="close">&times;</span>
-            <div class="modal-body">
-                <div class="modal-image">
-                    <img id="modalItemImage" src="" alt="Item">
-                </div>
-                <div class="modal-content-right">
-                    <div class="modal-header">
-                        <h2 id="modalItemTitle"></h2>
-                        <span id="modalItemStatus" class="status-badge"></span>
-                    </div>
-                    
-                    <div class="tabs">
-                        <button class="tab-button active" data-tab="details">Item Details</button>
-                        <button class="tab-button" data-tab="chat">Chat with Staff</button>
-                    </div>
-                    
-                    <div class="tab-content">
-                        <!-- Item Details Tab -->
-                        <div id="details-tab" class="tab-pane active">
-                            <div class="form-group">
-                                <h3>Description</h3>
-                                <p id="modalItemDescription"></p>
-                            </div>
-                            <div class="item-details">
-                                <h3>Item Details</h3>
-                                <div class="detail-row">
-                                    <span class="detail-label">Category:</span>
-                                    <span id="modalItemCategory"></span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Location Found:</span>
-                                    <span id="modalItemLocation"></span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Date Found:</span>
-                                    <span id="modalItemDate"></span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Disposal Date:</span>
-                                    <span id="modalItemDisposalDate"></span>
-                                </div>
-                            </div>
-                            <button id="claimItemBtn" class="btn">Claim This Item</button>
-                        </div>
-                        
-                        <!-- Chat Tab -->
-                        <div id="chat-tab" class="tab-pane">
-                            <div id="chatMessages" class="chat-messages">
-                                <!-- Messages will be added here by JavaScript -->
-                            </div>
-                            <div class="chat-input">
-                                <input type="text" id="chatMessageInput" placeholder="Type your message...">
-                                <button id="sendMessageBtn" class="btn">Send</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <p>Redirecting to the main dashboard...</p>
+            <div class="button-container">
+                <a href="dashboard.html" class="btn btn-primary">Go to Dashboard</a>
+                <a href="admin.html" class="btn btn-outline">Admin Panel</a>
             </div>
         </div>
     </div>
 
-    <!-- Claim Modal -->
-    <div id="claimModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Submit Claim</h2>
-            <form id="claimForm">
-                <div class="form-group">
-                    <label for="claimantName">Your Name</label>
-                    <input type="text" id="claimantName" required>
-                </div>
-                <div class="form-group">
-                    <label for="claimantEmail">Email</label>
-                    <input type="email" id="claimantEmail" required>
-                </div>
-                <div class="form-group">
-                    <label for="claimDescription">Description of Ownership</label>
-                    <textarea id="claimDescription" rows="4" required></textarea>
-                </div>
-                <button type="submit" class="btn">Submit Claim</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Image Search Modal -->
-    <div id="imageSearchModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Search by Image</h2>
-            <div class="image-upload-container">
-                <div id="imagePreview" class="image-preview">
-                    <p>No image selected</p>
-                </div>
-                <div class="upload-actions">
-                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-                    <button id="uploadBtn" class="btn">Choose Image</button>
-                    <button id="findMatchesBtn" class="btn" disabled>Find Matches</button>
-                </div>
-            </div>
-            <div id="searchResults" class="search-results">
-                <!-- Search results will be displayed here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Floating Inquiry Button & Form -->
-    <div class="floating-inquiry-container">
-        <button id="inquiryButton" class="inquiry-button">
-            <i data-lucide="message-circle" width="24" height="24"></i>
-            <span>Need Help?</span>
-        </button>
-        
-        <div id="inquiryPanel" class="inquiry-panel">
-            <div class="inquiry-header">
-                <h3>Can't Find Your Item?</h3>
-                <button class="close-inquiry">&times;</button>
-            </div>
-            <div class="inquiry-body">
-                <p>Send us a message and we'll help you find it.</p>
-                <form id="inquiryForm">
-                    <div class="form-group">
-                        <input type="text" id="inquiryName" placeholder="Your Name" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" id="inquiryEmail" placeholder="Email" required>
-                    </div>
-                    <div class="form-group">
-                        <textarea id="inquiryMessage" placeholder="Describe your missing item..." required rows="3"></textarea>
-                    </div>
-                    <button type="submit" class="btn inquiry-submit">Send Message</button>
-                </form>
-                <div id="inquirySuccess" class="inquiry-success" style="display: none;">
-                    <i data-lucide="check-circle" width="20" height="20"></i>
-                    <span>Message sent! We'll respond soon.</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="js/icon-fix.js"></script>
-    
-    <!-- Firebase CDN Scripts - using version 9.22.2 which supports modular web v9 API -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    
-    <!-- Search functionality script -->
-    <script src="js/search.js"></script>
-    
-    <!-- Firebase Config (Non-module version for testing) -->
     <script>
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
-            authDomain: "lafsys.firebaseapp.com",
-            projectId: "lafsys",
-            storageBucket: "lafsys.appspot.com", // Fixed storage bucket URL
-            messagingSenderId: "103945210522",
-            appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
-            measurementId: "G-EJ2X0PTDNH"
+        // Simple redirect script
+        window.onload = function() {
+            window.location.href = 'dashboard.html';
         };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        
-        // Make Firebase services available
-        const db = firebase.firestore();
-        const storage = firebase.storage();
-        const auth = firebase.auth();
-        
-        // Fetch and display items from Firestore using a simpler approach
-        async function fetchAndDisplayItems() {
-            try {
-                console.log('Starting to fetch items');
-                // Get the items container
-                const itemsContainer = document.getElementById('items-container');
-                if (!itemsContainer) {
-                    console.error('Items container not found');
-                    return;
-                }
-                
-                // Clear the container with loading message
-                itemsContainer.innerHTML = '<div class="loading">Loading items...</div>';
-                
-                // Get items from Firestore
-                console.log('Querying Firestore');
-                const querySnapshot = await db.collection('items').get();
-                console.log('Query completed, document count:', querySnapshot.size);
-                
-                if (querySnapshot.empty) {
-                    console.log('No items found in Firestore');
-                    itemsContainer.innerHTML = '<div class="no-items">No items found in database</div>';
-                    return;
-                }
-                
-                // Start building HTML for all items at once (safer approach)
-                let allItemsHTML = '';
-                
-                // Process each document and build HTML string
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const id = doc.id;
-                    
-                    console.log('Processing item:', id);
-                    
-                    // Format date
-                    const dateFound = data.date ? new Date(data.date) : null;
-                    const formattedDate = dateFound ? dateFound.toLocaleDateString() : 'Unknown date';
-                    
-                    // Use the actual image URL from Firebase Storage or fallback to placeholder
-                    let imageUrl = data.image || 'https://via.placeholder.com/300x200?text=No+Image';
-                    
-                    // Ensure we're not using a placeholder when we actually have an uploaded image
-                    if (imageUrl.startsWith('https://via.placeholder.com') && data.image && data.image.trim() !== '') {
-                        imageUrl = data.image;
-                    }
-                    
-                    // Check if the image is a data URL (starts with data:image)
-                    const isDataUrl = typeof imageUrl === 'string' && imageUrl.startsWith('data:image');
-                    
-                    // If it's a very long data URL, add special handling
-                    if (isDataUrl) {
-                        console.log(`Item ${id} uses a data URL for image`);
-                    } else {
-                        console.log(`Item ${id} uses an external URL for image:`, imageUrl);
-                    }
-                    
-                    // Determine the item status and the corresponding badge style
-                    const itemStatus = data.status || 'active';
-                    let statusBadge = '';
-                    
-                    if (itemStatus === 'claimed') {
-                        statusBadge = `<div class="status-badge status-claimed">Claimed</div>`;
-                    } else if (itemStatus === 'returned') {
-                        statusBadge = `<div class="status-badge status-returned">Returned</div>`;
-                    } else if (itemStatus === 'disposed') {
-                        statusBadge = `<div class="status-badge status-disposed">Disposed</div>`;
-                    } else {
-                        statusBadge = `<div class="status-badge status-active">Active</div>`;
-                    }
-                    
-                    // Build HTML for this item
-                    allItemsHTML += `
-                        <div class="item-card" data-item-id="${id}">
-                            <div class="item-image">
-                                <img src="${imageUrl}" alt="${data.title || 'Unknown item'}" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Error'">
-                                ${statusBadge}
-                            </div>
-                            <div class="item-content">
-                                <h3 class="item-title">${data.title || 'Unnamed Item'}</h3>
-                                <div class="item-category">${data.category || 'Uncategorized'}</div>
-                                <div class="item-details">
-                                    <div>📍 ${data.location || 'Unknown location'}</div>
-                                    <div>📅 ${formattedDate}</div>
-                                </div>
-                                <div class="item-actions">
-                                    <button class="btn btn-primary view-item" onclick="window.location.href='item-details.html?id=${id}'">
-                                        👁️ View Details
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                // Update the container with all items at once
-                itemsContainer.innerHTML = allItemsHTML;
-                
-                console.log(`Successfully loaded ${querySnapshot.size} items`);
-                
-            } catch (error) {
-                console.error('Error fetching items:', error);
-                const itemsContainer = document.getElementById('items-container');
-                if (itemsContainer) {
-                    itemsContainer.innerHTML = `<div class="error">Error loading items: ${error.message}</div>`;
-                }
-            }
-        }
-        
-        // View item details function (now used via onclick in HTML)        
-        function viewItemDetails(itemId) {
-            console.log('Viewing item:', itemId);
-            window.location.href = `item-details.html?id=${itemId}`;
-        }
-        
-        // Test connection with visible indicator
-        document.addEventListener('DOMContentLoaded', () => {
-            // Fetch and display items after checking connection
-            fetchAndDisplayItems();
-            
-            // Add refresh button functionality if it exists
-            const refreshBtn = document.getElementById('refresh-items');
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', fetchAndDisplayItems);
-            }
-            
-            // Create status indicator
-            const statusDiv = document.createElement('div');
-            statusDiv.style.position = 'fixed';
-            statusDiv.style.bottom = '10px';
-            statusDiv.style.right = '10px';
-            statusDiv.style.padding = '10px';
-            statusDiv.style.background = 'yellow';
-            statusDiv.style.borderRadius = '5px';
-            statusDiv.textContent = 'Testing Firebase connection...';
-            document.body.appendChild(statusDiv);
-            
-            // Test Firestore write operation
-            try {
-                // Try to add a test document
-                db.collection('test_collection').add({
-                    message: 'Test document',
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                })
-                .then((docRef) => {
-                    statusDiv.style.background = 'green';
-                    statusDiv.style.color = 'white';
-                    statusDiv.textContent = '✓ Firebase Connected: Write successful';
-                    console.log('Firebase write successful! Document ID:', docRef.id);
-                    
-                    // Create a test UI to show Firestore status
-                    const testContainer = document.createElement('div');
-                    testContainer.style.position = 'fixed';
-                    testContainer.style.top = '50%';
-                    testContainer.style.left = '50%';
-                    testContainer.style.transform = 'translate(-50%, -50%)';
-                    testContainer.style.padding = '20px';
-                    testContainer.style.background = 'white';
-                    testContainer.style.border = '1px solid #ddd';
-                    testContainer.style.borderRadius = '8px';
-                    testContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-                    testContainer.style.zIndex = '1000';
-                    testContainer.style.maxWidth = '500px';
-                    testContainer.style.width = '80%';
-                    
-                    testContainer.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h3 style="margin: 0;">Firebase Connection Test</h3>
-                            <button id="closeTestBtn" style="border: none; background: none; cursor: pointer; font-size: 18px;">&times;</button>
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <p><span style="color: green; font-weight: bold;">✓</span> Firebase App initialized</p>
-                            <p><span style="color: green; font-weight: bold;">✓</span> Firestore write successful</p>
-                            <p>Document ID: <code>${docRef.id}</code></p>
-                        </div>
-                        <button id="readTestBtn" style="background: #4285F4; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Test Firestore Read</button>
-                    `;
-                    
-                    document.body.appendChild(testContainer);
-                    
-                    // Close button handler
-                    document.getElementById('closeTestBtn').addEventListener('click', () => {
-                        testContainer.remove();
-                    });
-                    
-                    // Read test button handler
-                    document.getElementById('readTestBtn').addEventListener('click', () => {
-                        db.collection('test_collection').doc(docRef.id).get()
-                            .then((doc) => {
-                                if (doc.exists) {
-                                    alert('Read successful! Data: ' + JSON.stringify(doc.data()));
-                                } else {
-                                    alert('No document found!');
-                                }
-                            })
-                            .catch((error) => {
-                                alert('Error reading document: ' + error.message);
-                            });
-                    });
-                    
-                })
-                .catch((error) => {
-                    statusDiv.style.background = 'red';
-                    statusDiv.style.color = 'white';
-                    statusDiv.textContent = '✗ Firebase Error: ' + error.message;
-                    console.error('Firebase write error:', error);
-                });
-            } catch (error) {
-                statusDiv.style.background = 'red';
-                statusDiv.style.color = 'white';
-                statusDiv.textContent = '✗ Firebase Error: ' + error.message;
-                console.error('Firebase error:', error);
-            }
-        });
     </script>
-    
-    <!-- Keep original scripts for now, we'll migrate them one by one -->
-    <!-- Data and UI scripts -->
-    <script src="js/data.js"></script>
-    <script src="js/messages.js"></script>
-    <script src="js/modal.js"></script>
-    
-    <!-- Improved image analysis and search -->
-    <script src="js/improvedImageAnalyzer.js"></script>
-    <script src="js/accurateImageSearch.js"></script>
-    
-    <!-- User Authentication for Chat -->
-    <script src="js/user-chat-auth.js"></script>
-    <script src="js/chat-auth-fix.js"></script><!-- Emergency fix for chat auth modal -->
-    
-    <!-- Core app script -->
-    <script src="js/main.js"></script>
 </body>
 </html>
