@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get references to the search elements
     const searchInput = document.getElementById('searchInput');
     const searchButton = document.getElementById('searchButton');
+    const refreshButton = document.getElementById('refresh-items');
     
     if (!searchInput || !searchButton) {
         console.error('Search elements not found');
@@ -24,6 +25,22 @@ document.addEventListener('DOMContentLoaded', function() {
             performSearch();
         }
     });
+
+    // Ensure refresh button resets the title and clears search state
+    if (refreshButton) {
+        refreshButton.addEventListener('click', function() {
+            // Clear any search term
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
+            // Reset the section title
+            const sectionTitle = document.querySelector('.items-title');
+            if (sectionTitle) {
+                sectionTitle.textContent = 'Recently Found Items';
+            }
+        });
+    }
     
     // Function to perform the search
     async function performSearch() {
@@ -59,6 +76,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const description = (data.description || '').toLowerCase();
                 const location = (data.location || '').toLowerCase();
                 const category = (data.category || '').toLowerCase();
+                const status = (data.status || 'active').toLowerCase();
+                if (status === 'claimed' || status === 'returned' || status === 'disposed') {
+                    return;
+                }
                 
                 // Check if the search term is in any of the fields
                 if (

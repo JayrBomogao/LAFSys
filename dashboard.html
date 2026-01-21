@@ -16,6 +16,10 @@
             margin-top: 2rem;
         }
         
+        .header {
+            justify-content: center;
+        }
+        
         .items-header {
             display: flex;
             justify-content: space-between;
@@ -101,8 +105,10 @@
         .search-container {
             display: flex;
             align-items: center;
-            max-width: 600px;
-            margin-right: 1rem;
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            gap: 0.5rem;
         }
         
         #searchInput {
@@ -111,7 +117,7 @@
             border: 2px solid #e5e7eb;
             border-radius: 8px 0 0 8px;
             font-size: 1rem;
-            min-width: 250px;
+            min-width: 350px;
             transition: border-color 0.3s;
             background-color: white;
         }
@@ -320,8 +326,6 @@
         <div class="filters">
             <select id="statusFilter" class="filter-select">
                 <option value="all">All Items</option>
-                <option value="active">Active</option>
-                <option value="claimed">Claimed</option>
                 <option value="soon">Disposal Soon</option>
             </select>
         </div>
@@ -448,41 +452,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Floating Inquiry Button & Form -->
-    <div class="floating-inquiry-container">
-        <button id="inquiryButton" class="inquiry-button">
-            <i data-lucide="message-circle" width="24" height="24"></i>
-            <span>Need Help?</span>
-        </button>
-        
-        <div id="inquiryPanel" class="inquiry-panel">
-            <div class="inquiry-header">
-                <h3>Can't Find Your Item?</h3>
-                <button class="close-inquiry">&times;</button>
-            </div>
-            <div class="inquiry-body">
-                <p>Send us a message and we'll help you find it.</p>
-                <form id="inquiryForm">
-                    <div class="form-group">
-                        <input type="text" id="inquiryName" placeholder="Your Name" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" id="inquiryEmail" placeholder="Email" required>
-                    </div>
-                    <div class="form-group">
-                        <textarea id="inquiryMessage" placeholder="Describe your missing item..." required rows="3"></textarea>
-                    </div>
-                    <button type="submit" class="btn inquiry-submit">Send Message</button>
-                </form>
-                <div id="inquirySuccess" class="inquiry-success" style="display: none;">
-                    <i data-lucide="check-circle" width="20" height="20"></i>
-                    <span>Message sent! We'll respond soon.</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="js/icon-fix.js"></script>
     
@@ -526,6 +495,12 @@
                     console.error('Items container not found');
                     return;
                 }
+                const itemsTitleEl = document.querySelector('.items-title');
+                if (itemsTitleEl) {
+                    itemsTitleEl.textContent = 'Recently Found Items';
+                }
+                const statusFilterSelect = document.getElementById('statusFilter');
+                const selectedFilter = statusFilterSelect ? statusFilterSelect.value : 'all';
                 
                 // Clear the container with loading message
                 itemsContainer.innerHTML = '<div class="loading">Loading items...</div>';
@@ -551,6 +526,14 @@
                     
                     console.log('Processing item:', id);
                     
+                    const itemStatus = data.status || 'active';
+                    if (itemStatus === 'claimed' || itemStatus === 'returned' || itemStatus === 'disposed') {
+                        return;
+                    }
+                    if (selectedFilter === 'soon' && itemStatus !== 'soon') {
+                        return;
+                    }
+                    
                     // Format date
                     const dateFound = data.date ? new Date(data.date) : null;
                     const formattedDate = dateFound ? dateFound.toLocaleDateString() : 'Unknown date';
@@ -574,15 +557,10 @@
                     }
                     
                     // Determine the item status and the corresponding badge style
-                    const itemStatus = data.status || 'active';
                     let statusBadge = '';
                     
-                    if (itemStatus === 'claimed') {
-                        statusBadge = `<div class="status-badge status-claimed">Claimed</div>`;
-                    } else if (itemStatus === 'returned') {
-                        statusBadge = `<div class="status-badge status-returned">Returned</div>`;
-                    } else if (itemStatus === 'disposed') {
-                        statusBadge = `<div class="status-badge status-disposed">Disposed</div>`;
+                    if (itemStatus === 'soon') {
+                        statusBadge = `<div class="status-badge status-soon">Disposal Soon</div>`;
                     } else {
                         statusBadge = `<div class="status-badge status-active">Active</div>`;
                     }
