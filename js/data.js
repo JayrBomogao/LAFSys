@@ -185,13 +185,16 @@ async function searchItems(query) {
 (function(){
   const w = window;
   
-  // Make sure Firebase is available
-  if (!firebase || !firebase.firestore) {
-    console.error('Firebase is not initialized properly');
-    return;
-  }
+  console.log('Initializing DataStore...');
   
-  const db = firebase.firestore();
+  // Create a function to get Firestore instance safely
+  function getFirestoreDb() {
+    if (!firebase || !firebase.firestore) {
+      console.error('Firebase/Firestore not available');
+      return null;
+    }
+    return firebase.firestore();
+  }
   
   const DataStore = {
     // For compatibility with admin.js
@@ -202,6 +205,9 @@ async function searchItems(query) {
     
     // Add a new item to Firestore
     async addItem(payload) {
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not available');
+      
       try {
         const newItem = {
           title: payload.title,
@@ -236,6 +242,9 @@ async function searchItems(query) {
     
     // Update an existing item in Firestore
     async updateItem(id, payload) {
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not available');
+      
       try {
         const updateData = {
           ...payload,
@@ -273,6 +282,9 @@ async function searchItems(query) {
     
     // Delete an item from Firestore
     async deleteItem(id) {
+      const db = getFirestoreDb();
+      if (!db) throw new Error('Firestore not available');
+      
       try {
         await db.collection('items').doc(id).delete();
         
@@ -293,6 +305,12 @@ async function searchItems(query) {
     // Get all items from Firestore (for admin panel use)
     async getItems() {
       console.log('DataStore.getItems called directly');
+      const db = getFirestoreDb();
+      if (!db) {
+        console.error('Firestore not available in getItems');
+        return [];
+      }
+      
       try {
         // Log the attempt to access Firestore
         console.log('Attempting to access Firestore collection: items');
@@ -356,6 +374,7 @@ async function searchItems(query) {
     }
   };
 
-  // Set the DataStore on the window object
+  // Set the DataStore on the window object immediately
   w.DataStore = DataStore;
+  console.log('DataStore initialized successfully');
 })();

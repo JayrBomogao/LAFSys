@@ -6,19 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
         console.log('Firebase not initialized. Attempting to initialize with default config...');
         try {
-            // Default Firebase configuration - replace with your actual config if needed
+            // Use the same Firebase configuration as item-init.js
             const firebaseConfig = {
-                apiKey: "AIzaSyDwxfmXJv6ESAAYvha0rzJCn8LTqRI9JR0",
-                authDomain: "lafsys-baguio.firebaseapp.com",
-                projectId: "lafsys-baguio",
-                storageBucket: "lafsys-baguio.appspot.com",
-                messagingSenderId: "826364740008",
-                appId: "1:826364740008:web:f80a3c12f42c1297ba4b0e"
+                apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+                authDomain: "lafsys.firebaseapp.com",
+                projectId: "lafsys",
+                storageBucket: "lafsys.appspot.com",
+                messagingSenderId: "103945210522",
+                appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+                measurementId: "G-EJ2X0PTDNH"
             };
             
             // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
-            console.log('Firebase initialized successfully');
+            console.log('Firebase initialized successfully with project: lafsys');
         } catch (error) {
             console.error('Error initializing Firebase:', error);
         }

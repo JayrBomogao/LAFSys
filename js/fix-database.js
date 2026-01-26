@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Database fix tool error:', error);
     }
     
-    // Helper function to display items (copied from admin.js)
+    // Helper function to display items (updated to match new admin.js)
     function displayItems(items, container) {
         if (!items || !items.length) { 
             container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No items found.</div></div>'; 
@@ -145,14 +145,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        function statusBadge(status) {
-            if (status === 'claimed') return '<span class="status-badge status-completed">Claimed</span>';
-            if (status === 'soon') return '<span class="status-badge status-pending">Disposal Soon</span>';
-            return '<span class="status-badge status-active">Active</span>';
+        function statusDropdown(currentStatus){
+            const statuses = [
+              { value: 'active', label: 'Active', class: 'status-active' },
+              { value: 'claimed', label: 'Claimed', class: 'status-completed' },
+              { value: 'soon', label: 'For Disposal', class: 'status-pending' }
+            ];
+            
+            return `
+              <select class="status-select" data-current-status="${currentStatus}">
+                ${statuses.map(s => `
+                  <option value="${s.value}" ${s.value === currentStatus ? 'selected' : ''}>
+                    ${s.label}
+                  </option>
+                `).join('')}
+              </select>
+            `;
         }
         
         container.innerHTML = items.map(item => `
-          <div class="table-row" data-id="${item.id}">
+          <div class="table-row" data-id="${item.id}" data-status="${item.status || 'active'}">
             <div class="item-info">
               <img src="${item.image || ''}" alt="${item.title || 'Unnamed Item'}" class="item-image" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
               <div>
@@ -162,16 +174,98 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
             <div>${item.location || 'Unknown location'}</div>
             <div>${formatDate(item.date)}</div>
-            <div>${statusBadge(item.status || 'active')}</div>
+            <div class="status-dropdown-container">
+              ${statusDropdown(item.status || 'active')}
+            </div>
             <div class="action-buttons">
-              <button class="btn-icon" title="Edit"><i data-lucide="edit-2" width="16" height="16"></i></button>
-              <button class="btn-icon delete" title="Delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
-              <button class="btn-icon" title="View"><i data-lucide="eye" width="16" height="16"></i></button>
+              <button class="btn-icon delete" title="Delete" data-action="delete"><i data-lucide="trash-2" width="16" height="16"></i></button>
             </div>
           </div>
         `).join('');
         
         // Initialize icons if lucide is available
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        
+        // Add status change listeners
+        container.querySelectorAll('.status-select').forEach(select => {
+          select.addEventListener('click', (e) => {
+            e.stopPropagation();
+          });
+          
+          select.addEventListener('change', async (e) => {
+            e.stopPropagation();
+            const newStatus = e.target.value;
+            const row = e.target.closest('.table-row');
+            const id = row?.dataset?.id;
+            const oldStatus = row?.dataset?.status;
+            
+            console.log('Status change requested (Dashboard):', { id, oldStatus, newStatus });
+            
+            if (newStatus === oldStatus) {
+              console.log('Status unchanged, skipping update');
+              return;
+            }
+            
+            // Confirm status change
+            const statusLabels = { active: 'Active', claimed: 'Claimed', soon: 'For Disposal' };
+            if (!confirm(`Change status to ${statusLabels[newStatus]}?`)) {
+              e.target.value = oldStatus;
+              return;
+            }
+            
+            // Disable the dropdown during update
+            e.target.disabled = true;
+            
+            // Update status in Firebase
+            try {
+              console.log('Attempting to update status in Firestore...');
+              
+              if (window.firebase?.firestore) {
+                const db = firebase.firestore();
+                await db.collection('items').doc(id).update({ 
+                  status: newStatus,
+                  updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                console.log('✓ Status successfully updated in Firestore:', id, newStatus);
+                
+                // Verify the update
+                const doc = await db.collection('items').doc(id).get();
+                const verifyStatus = doc.data()?.status;
+                console.log('✓ Verified status in Firestore:', verifyStatus);
+                
+                row.dataset.status = newStatus;
+                
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:8px;z-index:9999;box-shadow:0 4px 6px rgba(0,0,0,0.1);';
+                successMsg.textContent = `✓ Status changed to ${statusLabels[newStatus]}`;
+                document.body.appendChild(successMsg);
+                setTimeout(() => successMsg.remove(), 3000);
+                
+                console.log('Status update complete');
+              } else {
+                throw new Error('Firebase not available');
+              }
+            } catch (error) {
+              console.error('✗ Error updating status:', error);
+              alert('Failed to update status: ' + error.message);
+              e.target.value = oldStatus;
+            } finally {
+              // Re-enable the dropdown
+              e.target.disabled = false;
+            }
+          });
+        });
+        
+        // Make rows clickable to edit items
+        container.querySelectorAll('.table-row').forEach(row => {
+          row.addEventListener('click', (e) => {
+            if (!e.target.closest('.btn-icon') && !e.target.closest('.status-select')) {
+              window.location.href = 'add-item.html?edit=true&id=' + row.dataset.id;
+            }
+          });
+          row.style.cursor = 'pointer';
+        });
     }
 });

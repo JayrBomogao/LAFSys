@@ -440,12 +440,99 @@
             alert('Error initializing Firebase: ' + error.message);
         }
         
+        // Check if we're in edit mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isEditMode = urlParams.get('edit') === 'true';
+        const itemId = urlParams.get('id');
+        let originalImageUrl = ''; // Store original image URL for edit mode
+        
+        // Function to load item data for editing
+        async function loadItemForEdit(id) {
+            try {
+                console.log('Loading item for edit:', id);
+                const db = firebase.firestore();
+                const doc = await db.collection('items').doc(id).get();
+                
+                if (!doc.exists) {
+                    alert('Item not found!');
+                    window.location.href = 'admin.html';
+                    return;
+                }
+                
+                const item = doc.data();
+                console.log('Loaded item:', item);
+                
+                // Update page title
+                document.querySelector('h1').textContent = 'Edit Item';
+                document.querySelector('.status-badge').textContent = '✏️ Editing';
+                
+                // Populate form fields
+                document.getElementById('itemName').value = item.title || '';
+                document.getElementById('itemCategory').value = item.category || '';
+                document.getElementById('itemDescription').value = item.description || '';
+                document.getElementById('foundLocation').value = item.location || '';
+                
+                // Handle date field
+                if (item.date) {
+                    let dateValue;
+                    if (item.date.toDate) {
+                        // Firestore Timestamp
+                        dateValue = item.date.toDate().toISOString().split('T')[0];
+                    } else if (item.date instanceof Date) {
+                        dateValue = item.date.toISOString().split('T')[0];
+                    } else {
+                        dateValue = item.date.split('T')[0];
+                    }
+                    document.getElementById('foundDate').value = dateValue;
+                }
+                
+                document.getElementById('foundBy').value = item.foundBy || '';
+                document.getElementById('storageLocation').value = item.storageLocation || '';
+                
+                // Handle disposal date
+                if (item.disposalDate) {
+                    let disposalValue;
+                    if (item.disposalDate.toDate) {
+                        disposalValue = item.disposalDate.toDate().toISOString().split('T')[0];
+                    } else if (item.disposalDate instanceof Date) {
+                        disposalValue = item.disposalDate.toISOString().split('T')[0];
+                    } else {
+                        disposalValue = item.disposalDate.split('T')[0];
+                    }
+                    document.getElementById('disposalDate').value = disposalValue;
+                }
+                
+                // Load image if exists and store the original URL
+                if (item.image && item.image !== 'https://via.placeholder.com/400x300?text=No+Image') {
+                    originalImageUrl = item.image; // Store original image URL
+                    const imagePreview = document.getElementById('imagePreview');
+                    imagePreview.innerHTML = `<img src="${item.image}" style="max-width: 100%; max-height: 100%;">`;
+                    imagePreview.classList.add('has-image');
+                    document.getElementById('removeImageBtn').style.display = 'inline-flex';
+                } else {
+                    originalImageUrl = 'https://via.placeholder.com/400x300?text=No+Image';
+                }
+                
+                // Update submit button text
+                document.querySelector('button[type="submit"]').textContent = 'Update Item';
+                
+            } catch (error) {
+                console.error('Error loading item:', error);
+                alert('Error loading item: ' + error.message);
+            }
+        }
+        
         // Image upload functionality
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             const imageUpload = document.getElementById('imageUpload');
             const imagePreview = document.getElementById('imagePreview');
             const uploadBtn = document.getElementById('uploadBtn');
             const removeImageBtn = document.getElementById('removeImageBtn');
+            
+            // If in edit mode, load the item data
+            if (isEditMode && itemId) {
+                await loadItemForEdit(itemId);
+            }
             
             // Trigger file input when clicking on preview area
             imagePreview.addEventListener('click', function() {
@@ -621,27 +708,54 @@
                     }
                     
                     // Add image URL to item data
-                    itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=No+Image';
+                    // If editing and no new image uploaded, keep the original image
+                    if (isEditMode && !imageFile && originalImageUrl) {
+                        itemData.image = originalImageUrl;
+                        console.log('Keeping original image URL:', originalImageUrl);
+                    } else {
+                        itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=No+Image';
+                    }
                     
                     // Skip database test to improve performance
                     console.log('Proceeding directly to database upload...');
                     statusDiv.textContent = 'Saving to database...';
                     
-                    // Add to Firestore
-                    console.log('Adding item to Firestore...');
-                    statusDiv.textContent = 'Adding item to database...';
-                    
-                    const docRef = await db.collection('items').add(itemData);
-                    console.log('Document added with ID:', docRef.id);
-                    
-                    statusDiv.style.background = '#22c55e';
-                    statusDiv.textContent = 'Item added successfully!';
-                    
-                    setTimeout(() => {
-                        // Use a less intrusive notification instead of an alert
-                        console.log('Item added successfully with ID:', docRef.id);
-                        window.location.href = 'admin.html'; // Redirect to admin page immediately
-                    }, 300);
+                    // Check if we're in edit mode or creating new
+                    if (isEditMode && itemId) {
+                        // Update existing item
+                        console.log('Updating item in Firestore...');
+                        statusDiv.textContent = 'Updating item in database...';
+                        
+                        // Remove createdAt for updates, add updatedAt instead
+                        delete itemData.createdAt;
+                        itemData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                        
+                        await db.collection('items').doc(itemId).update(itemData);
+                        console.log('Document updated with ID:', itemId);
+                        
+                        statusDiv.style.background = '#22c55e';
+                        statusDiv.textContent = 'Item updated successfully!';
+                        
+                        setTimeout(() => {
+                            console.log('Item updated successfully with ID:', itemId);
+                            window.location.href = 'admin.html'; // Redirect to admin page immediately
+                        }, 300);
+                    } else {
+                        // Add new item to Firestore
+                        console.log('Adding item to Firestore...');
+                        statusDiv.textContent = 'Adding item to database...';
+                        
+                        const docRef = await db.collection('items').add(itemData);
+                        console.log('Document added with ID:', docRef.id);
+                        
+                        statusDiv.style.background = '#22c55e';
+                        statusDiv.textContent = 'Item added successfully!';
+                        
+                        setTimeout(() => {
+                            console.log('Item added successfully with ID:', docRef.id);
+                            window.location.href = 'admin.html'; // Redirect to admin page immediately
+                        }, 300);
+                    }
                     
                 } catch (error) {
                     console.error('Error adding item:', error);

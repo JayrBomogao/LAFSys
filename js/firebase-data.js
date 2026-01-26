@@ -8,19 +8,36 @@
 (function() {
     console.log('Firebase Data integration initializing...');
     
-    // Wait for Firebase to be available
+    let attempts = 0;
+    const maxAttempts = 100; // 10 seconds total
+    
+    // Wait for both Firebase AND DataStore to be available
     const checkFirebase = setInterval(() => {
-        if (typeof firebase !== 'undefined' && firebase.apps.length) {
+        attempts++;
+        
+        if (typeof firebase !== 'undefined' && firebase.apps.length && firebase.firestore && window.DataStore) {
             clearInterval(checkFirebase);
+            console.log('Firebase and DataStore detected, initializing data integration...');
             initializeFirebaseIntegration();
+        } else if (attempts >= maxAttempts) {
+            clearInterval(checkFirebase);
+            console.error('Initialization timeout after', attempts * 100, 'ms');
+            console.error('Status:', {
+                firebaseExists: typeof firebase !== 'undefined',
+                appsLength: firebase && firebase.apps ? firebase.apps.length : 0,
+                firestoreExists: firebase && firebase.firestore ? true : false,
+                dataStoreExists: !!window.DataStore
+            });
+        } else if (attempts % 10 === 0) {
+            // Log progress every second
+            console.log('Waiting for initialization... (attempt', attempts + ')', {
+                firebase: typeof firebase !== 'undefined',
+                apps: firebase && firebase.apps ? firebase.apps.length : 0,
+                firestore: firebase && firebase.firestore ? true : false,
+                dataStore: !!window.DataStore
+            });
         }
     }, 100);
-    
-    // Safety timeout after 5 seconds
-    setTimeout(() => {
-        clearInterval(checkFirebase);
-        console.warn('Firebase timeout - could not initialize data integration');
-    }, 5000);
     
     function initializeFirebaseIntegration() {
         console.log('Initializing Firebase data integration');

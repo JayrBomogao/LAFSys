@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firestore Data Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Firestore Data Test</h1>
+    <p>This page tests if items can be retrieved from Firestore.</p>
+    
+    <div id="status"></div>
+    
+    <button onclick="testConnection()">Test Connection</button>
+    <button onclick="getItems()">Get Items</button>
+    <button onclick="addTestItem()">Add Test Item</button>
+    
+    <div id="output"></div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+            authDomain: "lafsys.firebaseapp.com",
+            projectId: "lafsys",
+            storageBucket: "lafsys.appspot.com",
+            messagingSenderId: "103945210522",
+            appId: "1:103945210522:web:f5a51c84653a0cab10ed23",
+            measurementId: "G-EJ2X0PTDNH"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function showOutput(data) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `<h3>Results:</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        async function testConnection() {
+            showStatus('Testing Firestore connection...', 'info');
+            try {
+                await db.collection('system_info').doc('test').set({
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    message: 'Connection test successful'
+                });
+                showStatus('✓ Firestore connection successful!', 'success');
+            } catch (error) {
+                showStatus(`✗ Connection failed: ${error.message}`, 'error');
+                console.error('Connection test error:', error);
+            }
+        }
+        
+        async function getItems() {
+            showStatus('Retrieving items from Firestore...', 'info');
+            try {
+                const snapshot = await db.collection('items').get();
+                
+                if (snapshot.empty) {
+                    showStatus('No items found in database', 'info');
+                    showOutput({ message: 'No items in database', count: 0 });
+                    return;
+                }
+                
+                const items = [];
+                snapshot.forEach(doc => {
+                    items.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                showStatus(`✓ Retrieved ${items.length} items successfully!`, 'success');
+                showOutput(items);
+                console.log('Items:', items);
+            } catch (error) {
+                showStatus(`✗ Error retrieving items: ${error.message}`, 'error');
+                console.error('Get items error:', error);
+            }
+        }
+        
+        async function addTestItem() {
+            showStatus('Adding test item...', 'info');
+            try {
+                const testItem = {
+                    title: 'Test Item - ' + new Date().toLocaleString(),
+                    description: 'This is a test item created to verify the system is working',
+                    category: 'Electronics',
+                    location: 'Session Road',
+                    status: 'active',
+                    date: firebase.firestore.Timestamp.now(),
+                    createdAt: firebase.firestore.Timestamp.now(),
+                    image: 'https://via.placeholder.com/400x300?text=Test+Item'
+                };
+                
+                const docRef = await db.collection('items').add(testItem);
+                showStatus(`✓ Test item added successfully! ID: ${docRef.id}`, 'success');
+                
+                // Automatically refresh the items list
+                setTimeout(() => getItems(), 500);
+            } catch (error) {
+                showStatus(`✗ Error adding test item: ${error.message}`, 'error');
+                console.error('Add item error:', error);
+            }
+        }
+        
+        // Auto-test on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, Firebase initialized');
+            console.log('Project ID:', firebase.app().options.projectId);
+            testConnection();
+        });
+    </script>
+</body>
+</html>

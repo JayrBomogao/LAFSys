@@ -485,10 +485,12 @@
         const storage = firebase.storage();
         const auth = firebase.auth();
         
-        // Fetch and display items from Firestore using a simpler approach
+        // Fetch and display items from Firestore with real-time updates
+        let unsubscribeSnapshot = null;
+        
         async function fetchAndDisplayItems() {
             try {
-                console.log('Starting to fetch items');
+                console.log('Starting to fetch items with real-time updates');
                 // Get the items container
                 const itemsContainer = document.getElementById('items-container');
                 if (!itemsContainer) {
@@ -505,10 +507,15 @@
                 // Clear the container with loading message
                 itemsContainer.innerHTML = '<div class="loading">Loading items...</div>';
                 
-                // Get items from Firestore
-                console.log('Querying Firestore');
-                const querySnapshot = await db.collection('items').get();
-                console.log('Query completed, document count:', querySnapshot.size);
+                // Unsubscribe from previous listener if exists
+                if (unsubscribeSnapshot) {
+                    unsubscribeSnapshot();
+                }
+                
+                // Listen for real-time updates from Firestore
+                console.log('Setting up real-time listener for Firestore');
+                unsubscribeSnapshot = db.collection('items').onSnapshot((querySnapshot) => {
+                    console.log('Real-time update received, document count:', querySnapshot.size);
                 
                 if (querySnapshot.empty) {
                     console.log('No items found in Firestore');
@@ -594,8 +601,17 @@
                 
                 console.log(`Successfully loaded ${querySnapshot.size} items`);
                 
+                }, (error) => {
+                    // Error callback for onSnapshot
+                    console.error('Error in real-time listener:', error);
+                    const itemsContainer = document.getElementById('items-container');
+                    if (itemsContainer) {
+                        itemsContainer.innerHTML = `<div class="error">Error loading items: ${error.message}</div>`;
+                    }
+                });
+                
             } catch (error) {
-                console.error('Error fetching items:', error);
+                console.error('Error setting up real-time listener:', error);
                 const itemsContainer = document.getElementById('items-container');
                 if (itemsContainer) {
                     itemsContainer.innerHTML = `<div class="error">Error loading items: ${error.message}</div>`;

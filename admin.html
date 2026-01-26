@@ -268,6 +268,38 @@
             color: #ef4444;
         }
         
+        .status-dropdown-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .status-select {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid #e2e8f0;
+            background-color: white;
+            color: #1e293b;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+        }
+        
+        .status-select:hover {
+            border-color: #cbd5e1;
+            background-color: #f8fafc;
+        }
+        
+        .status-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .status-select option {
+            padding: 0.5rem;
+        }
+        
         .pagination {
             display: flex;
             justify-content: space-between;
@@ -621,24 +653,43 @@
             // Check if Firebase is available
             if (typeof firebase !== 'undefined') {
                 console.log('Firebase is available');
+                console.log('Firebase app name:', firebase.app().name);
+                console.log('Firebase project ID:', firebase.app().options.projectId);
                 
                 // Check if Firestore is initialized
                 if (firebase.firestore) {
                     console.log('Firestore is available');
+                    
+                    // Check DataStore
+                    if (window.DataStore) {
+                        console.log('DataStore is available');
+                        console.log('DataStore methods:', Object.keys(window.DataStore));
+                        
+                        // Test getting items
+                        if (typeof window.DataStore.getItemsAsync === 'function') {
+                            console.log('DataStore.getItemsAsync is available, testing...');
+                            window.DataStore.getItemsAsync()
+                                .then(items => {
+                                    console.log('Successfully retrieved', items.length, 'items from DataStore');
+                                    if (items.length > 0) {
+                                        console.log('Sample item:', items[0]);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error retrieving items:', error);
+                                });
+                        } else {
+                            console.error('DataStore.getItemsAsync is not a function');
+                        }
+                    } else {
+                        console.error('DataStore is not available');
+                    }
                     
                     // Check MessagesStore
                     if (window.MessagesStore) {
                         console.log('MessagesStore is available');
                         if (typeof window.MessagesStore.getAllAsync === 'function') {
                             console.log('MessagesStore.getAllAsync is available');
-                            // Test getting messages
-                            window.MessagesStore.getAllAsync()
-                                .then(messages => {
-                                    console.log('Successfully retrieved', messages.length, 'messages');
-                                })
-                                .catch(error => {
-                                    console.error('Error retrieving messages:', error);
-                                });
                         } else {
                             console.error('MessagesStore.getAllAsync is not a function');
                         }
@@ -650,13 +701,6 @@
                 }
             } else {
                 console.error('Firebase is not available');
-            }
-            
-            // Check if there's a renderInbox function
-            if (typeof renderInbox === 'function') {
-                console.log('renderInbox function is available');
-            } else {
-                console.error('renderInbox function is not available');
             }
         });
     </script>
