@@ -16,8 +16,40 @@
             margin-top: 2rem;
         }
         
-        .header {
-            justify-content: center;
+        .filters {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .filter-select {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #1e293b;
+            background-color: white;
+            cursor: pointer;
+            min-width: 200px;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.5rem;
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        .filter-select:hover {
+            border-color: #3b82f6;
         }
         
         .items-header {
@@ -99,6 +131,11 @@
         
         .status-disposed {
             background-color: #6b7280; /* Gray */
+        }
+        
+        .status-soon {
+            background-color: #ef4444; /* Red */
+            font-weight: 700;
         }
         
         /* Enhanced Search Styles */
@@ -258,12 +295,19 @@
             gap: 0.75rem;
         }
         
+        .refresh-label {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #3b82f6;
+            margin-left: -0.25rem;
+        }
+        
         .btn-icon {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 2rem;
-            height: 2rem;
+            width: 2.5rem;
+            height: 2.5rem;
             border-radius: 9999px;
             background-color: #f3f4f6;
             border: none;
@@ -273,6 +317,41 @@
         
         .btn-icon:hover {
             background-color: #e5e7eb;
+        }
+        
+        /* Special styling for the refresh button */
+        #refresh-items {
+            background-color: #3b82f6;
+            color: white;
+            width: 3rem;
+            height: 3rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 2px solid #60a5fa;
+            animation: pulse-subtle 2s infinite;
+            position: relative;
+        }
+        
+        /* Subtle pulse animation for the refresh button */
+        @keyframes pulse-subtle {
+            0% {
+                box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 6px rgba(96, 165, 250, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+            }
+        }
+        
+        #refresh-items:hover {
+            background-color: #2563eb;
+            transform: rotate(15deg);
+        }
+        
+        #refresh-items i {
+            width: 1.25rem;
+            height: 1.25rem;
         }
         
         @keyframes spin {
@@ -326,17 +405,19 @@
         <div class="filters">
             <select id="statusFilter" class="filter-select">
                 <option value="all">All Items</option>
+                <option value="active">Active Items</option>
                 <option value="soon">Disposal Soon</option>
             </select>
+            <button id="refresh-items" class="btn btn-icon" title="Refresh Items">
+                <i data-lucide="refresh-cw"></i>
+            </button>
+            <span class="refresh-label">Refresh</span>
         </div>
 
         <section class="items-section">
             <div class="items-header">
                 <div class="title-with-refresh">
                     <h2 class="items-title">Recently Found Items</h2>
-                    <button id="refresh-items" class="btn btn-icon" title="Refresh Items">
-                        <i data-lucide="refresh-cw"></i>
-                    </button>
                 </div>
             </div>
             <div class="items-grid" id="items-container">
@@ -497,12 +578,24 @@
                     console.error('Items container not found');
                     return;
                 }
-                const itemsTitleEl = document.querySelector('.items-title');
-                if (itemsTitleEl) {
-                    itemsTitleEl.textContent = 'Recently Found Items';
-                }
                 const statusFilterSelect = document.getElementById('statusFilter');
                 const selectedFilter = statusFilterSelect ? statusFilterSelect.value : 'all';
+                
+                const itemsTitleEl = document.querySelector('.items-title');
+                if (itemsTitleEl) {
+                    // Update title based on filter
+                    switch(selectedFilter) {
+                        case 'active':
+                            itemsTitleEl.textContent = 'Active Items';
+                            break;
+                        case 'soon':
+                            itemsTitleEl.textContent = 'Items For Disposal Soon';
+                            break;
+                        default:
+                            itemsTitleEl.textContent = 'All Recently Found Items';
+                            break;
+                    }
+                }
                 
                 // Clear the container with loading message
                 itemsContainer.innerHTML = '<div class="loading">Loading items...</div>';
@@ -534,10 +627,16 @@
                     console.log('Processing item:', id);
                     
                     const itemStatus = data.status || 'active';
+                    
+                    // Skip items that are no longer available
                     if (itemStatus === 'claimed' || itemStatus === 'returned' || itemStatus === 'disposed') {
                         return;
                     }
+                    
+                    // Handle filter selections
                     if (selectedFilter === 'soon' && itemStatus !== 'soon') {
+                        return;
+                    } else if (selectedFilter === 'active' && itemStatus !== 'active') {
                         return;
                     }
                     
@@ -636,7 +735,30 @@
             // Add refresh button functionality if it exists
             const refreshBtn = document.getElementById('refresh-items');
             if (refreshBtn) {
-                refreshBtn.addEventListener('click', fetchAndDisplayItems);
+                refreshBtn.addEventListener('click', function() {
+                    // Add rotating animation
+                    const icon = refreshBtn.querySelector('i');
+                    if (icon) {
+                        icon.classList.add('rotating');
+                        
+                        // Remove the class after animation completes
+                        setTimeout(() => {
+                            icon.classList.remove('rotating');
+                        }, 1000);
+                    }
+                    
+                    // Fetch the items
+                    fetchAndDisplayItems();
+                });
+            }
+            
+            // Add filter functionality
+            const statusFilter = document.getElementById('statusFilter');
+            if (statusFilter) {
+                statusFilter.addEventListener('change', () => {
+                    console.log('Filter changed to:', statusFilter.value);
+                    fetchAndDisplayItems();
+                });
             }
         });
     </script>

@@ -577,7 +577,6 @@
     safe('statTotalItems', '...');
     safe('statClaimed', '...');
     safe('statSoon', '...');
-    safe('statPending', '...');
     
     // Check if we have Firebase-enabled DataStore
     if (window.DataStore?.getItemsAsync) {
@@ -608,15 +607,15 @@
     const safe = (id, v) => { const el = byId(id); if (el) el.textContent = String(v); };
 
     safe('statTotalItems', total);
+    safe('statActive', pending);
     safe('statClaimed', claimed);
     safe('statSoon', soon);
-    safe('statPending', pending);
     
     // Also update the trend indicators with more accurate text
     updateTrendIndicator('statTotalTrend', '');
+    updateTrendIndicator('statActiveTrend', '');
     updateTrendIndicator('statClaimedTrend', '');
     updateTrendIndicator('statSoonTrend', '');
-    updateTrendIndicator('statPendingTrend', 'Needs attention');
   }
   
   // Helper to update trend indicator text

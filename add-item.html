@@ -334,9 +334,6 @@
             </div>
             
             <div class="form-actions">
-                <button type="button" class="btn btn-secondary" id="saveDraftBtn">
-                    Save as Draft
-                </button>
                 <button type="submit" class="btn btn-primary" id="publishBtn">
                     Publish Item
                 </button>
@@ -360,6 +357,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="js/firebase-debug.js"></script>
+    <script src="js/image-compressor.js"></script>
     
     <!-- Firebase Config -->
     <script>
@@ -524,6 +522,21 @@
         
         // Image upload functionality
         document.addEventListener('DOMContentLoaded', async function() {
+            // Set max date to today for the date input
+            const foundDateInput = document.getElementById('foundDate');
+            const today = new Date().toISOString().split('T')[0];
+            foundDateInput.setAttribute('max', today);
+            
+            // Add validation message for future dates
+            foundDateInput.addEventListener('input', function() {
+                const selectedDate = this.value;
+                if (selectedDate > today) {
+                    this.setCustomValidity('Date cannot be in the future');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+            
             const imageUpload = document.getElementById('imageUpload');
             const imagePreview = document.getElementById('imagePreview');
             const uploadBtn = document.getElementById('uploadBtn');
@@ -594,11 +607,70 @@
                 this.style.display = 'none';
             });
             
-            // Form submission handler
+            // Function to save item to database
+            async function saveItemToDatabase(itemData, isEditMode, itemId, statusDiv) {
+                try {
+                    statusDiv.textContent = 'Saving to database...';
+                    
+                    if (isEditMode && itemId) {
+                        // Update existing item
+                        console.log('Updating item in Firestore...');
+                        
+                        // Remove createdAt for updates, add updatedAt instead
+                        delete itemData.createdAt;
+                        itemData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                        
+                        await db.collection('items').doc(itemId).update(itemData);
+                        console.log('Document updated with ID:', itemId);
+                        
+                        statusDiv.style.background = '#22c55e';
+                        statusDiv.textContent = 'Item updated successfully!';
+                        
+                        setTimeout(() => {
+                            window.location.href = 'admin.html';
+                        }, 500);
+                        
+                        return itemId; // Return the ID for background processing
+                    } else {
+                        // Add new item to Firestore
+                        console.log('Adding item to Firestore...');
+                        
+                        const docRef = await db.collection('items').add(itemData);
+                        console.log('Document added with ID:', docRef.id);
+                        
+                        statusDiv.style.background = '#22c55e';
+                        statusDiv.textContent = 'Item added successfully!';
+                        
+                        setTimeout(() => {
+                            window.location.href = 'admin.html';
+                        }, 500);
+                        
+                        return docRef.id; // Return the new ID for background processing
+                    }
+                } catch (error) {
+                    console.error('Error saving to database:', error);
+                    statusDiv.style.background = '#ef4444';
+                    statusDiv.textContent = 'Error: ' + error.message;
+                    return null; // Return null if there's an error
+                }
+            }
+            
+            // Form submission handler - completely redone for reliability
             const itemForm = document.getElementById('itemForm');
             
             itemForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
+                
+                // Validate date isn't in the future
+                const foundDateInput = document.getElementById('foundDate');
+                const selectedDate = foundDateInput.value;
+                const today = new Date().toISOString().split('T')[0];
+                
+                if (selectedDate > today) {
+                    alert('Error: Date found cannot be in the future.');
+                    foundDateInput.focus();
+                    return;
+                }
                 
                 // Show submission status
                 const statusDiv = document.createElement('div');
@@ -616,7 +688,6 @@
                 
                 try {
                     // Get form data
-                    console.log('Getting form data...');
                     const itemData = {
                         title: document.getElementById('itemName').value,
                         category: document.getElementById('itemCategory').value,
@@ -629,288 +700,96 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     
-                    console.log('Form data collected:', itemData);
-                    statusDiv.textContent = 'Form data collected';
+                    console.log('Form data collected');
                     
                     // Get image file if any
                     const imageFile = imageUpload.files[0] || null;
-                    console.log('Image file:', imageFile ? 'Found' : 'None');
                     
-                    // Upload image first if available
-                    let imageUrl = '';
-                    if (imageFile) {
-                        console.log('Uploading image...');
-                        statusDiv.textContent = 'Uploading image...';
+                    // No image case
+                    if (!imageFile) {
+                        console.log('No image to upload');
                         
-                        try {
-                            console.log('Starting image upload process');
-                            
-                            // For development: first try using a data URL approach as fallback
-                            const reader = new FileReader();
-                            
-                            // Create a promise for the FileReader
-                            const readImageAsDataURL = new Promise((resolve, reject) => {
-                                reader.onload = (e) => resolve(e.target.result);
-                                reader.onerror = (e) => reject(e);
-                                reader.readAsDataURL(imageFile);
-                            });
-                            
-                            // Get data URL as fallback
-                            const dataURL = await readImageAsDataURL;
-                            console.log('Image converted to data URL successfully');
-                            
-                            try {
-                                // Now try Firebase Storage upload
-                                console.log('Attempting Firebase Storage upload');
-                                statusDiv.textContent = 'Uploading to Firebase Storage...';
-                                
-                                const fileName = `items/${Date.now()}_${imageFile.name}`;
-                                const storageRef = storage.ref(fileName);
-                                console.log('Storage reference created:', fileName);
-                                
-                                // Set metadata to avoid CORS issues
-                                const metadata = {
-                                    contentType: imageFile.type,
-                                    customMetadata: {
-                                        'origin': window.location.origin
-                                    }
-                                };
-                                
-                                // Attempt the upload with a timeout
-                                const uploadPromise = storageRef.put(imageFile, metadata);
-                                
-                                // Create a timeout promise
-                                const timeoutPromise = new Promise((_, reject) => {
-                                    setTimeout(() => reject(new Error('Upload timeout after 15 seconds')), 15000);
-                                });
-                                
-                                // Race the upload against the timeout
-                                const uploadTask = await Promise.race([uploadPromise, timeoutPromise]);
-                                console.log('Image uploaded to Firebase:', uploadTask);
-                                
-                                imageUrl = await storageRef.getDownloadURL();
-                                console.log('Firebase download URL obtained:', imageUrl);
-                                statusDiv.textContent = 'Image uploaded successfully!';
-                            } catch (firebaseError) {
-                                // Firebase upload failed, use data URL instead
-                                console.warn('Firebase upload failed, using data URL fallback:', firebaseError);
-                                statusDiv.textContent = 'Using local image (Firebase upload failed)';
-                                imageUrl = dataURL;
-                            }
-                            
-                            // At this point we either have a Firebase URL or a data URL
-                        } catch (imageError) {
-                            console.error('Error uploading image:', imageError);
-                            statusDiv.style.background = '#ef4444';
-                            statusDiv.textContent = 'Error uploading image: ' + imageError.message;
-                            throw imageError;
+                        // If editing and no new image uploaded, keep the original image
+                        if (isEditMode && originalImageUrl) {
+                            itemData.image = originalImageUrl;
+                        } else {
+                            itemData.image = 'https://via.placeholder.com/400x300?text=No+Image';
                         }
+                        
+                        // Save to database directly
+                        await saveItemToDatabase(itemData, isEditMode, itemId, statusDiv);
+                        return;
                     }
                     
-                    // Add image URL to item data
-                    // If editing and no new image uploaded, keep the original image
-                    if (isEditMode && !imageFile && originalImageUrl) {
-                        itemData.image = originalImageUrl;
-                        console.log('Keeping original image URL:', originalImageUrl);
-                    } else {
-                        itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=No+Image';
+                    // Fast upload with optimized approach
+                    statusDiv.textContent = 'Processing image...';
+                    
+                    try {
+                        // First create a data URL for immediate display
+                        const reader = new FileReader();
+                        reader.readAsDataURL(imageFile);
+                        
+                        reader.onload = function(event) {
+                            const dataUrl = event.target.result;
+                            
+                            // Immediately save with the data URL for speed
+                            console.log('Using data URL for immediate display');
+                            itemData.image = dataUrl;
+                            
+                            // Start saving to database with data URL
+                            statusDiv.textContent = 'Saving item...';
+                            saveItemToDatabase(itemData, isEditMode, itemId, statusDiv).then(function(savedDocId) {
+                                // After saving, upload to Firebase Storage in background
+                                try {
+                                    console.log('Starting Firebase upload in background');
+                                    const fileName = `items/${Date.now()}_${imageFile.name}`;
+                                    const storageRef = firebase.storage().ref();
+                                    const imageRef = storageRef.child(fileName);
+                                    
+                                    imageRef.put(imageFile).then(function() {
+                                        return imageRef.getDownloadURL();
+                                    }).then(function(downloadURL) {
+                                        console.log('Firebase upload completed, URL:', downloadURL);
+                                        
+                                        // Get the correct document ID that was just saved
+                                        const docId = isEditMode ? itemId : savedDocId;
+                                        console.log('Updating image URL in document:', docId);
+                                        
+                                        if (!docId) {
+                                            console.error('No document ID available for update');
+                                            return;
+                                        }
+                                        
+                                        // Update the item in database with the permanent URL
+                                        return db.collection('items').doc(docId).update({
+                                            image: downloadURL
+                                        });
+                                    }).catch(function(error) {
+                                        console.error('Background upload failed:', error);
+                                    });
+                                } catch (uploadError) {
+                                    console.error('Error starting background upload:', uploadError);
+                                    // This won't affect the user experience since the item is already saved
+                                }
+                            }).catch(function(error) {
+                                console.error('Error in save item callback:', error);
+                            });
+                        };
+                        
+                        reader.onerror = function() {
+                            console.error('Error reading file as data URL');
+                            statusDiv.style.background = '#ef4444';
+                            statusDiv.textContent = 'Error processing image';
+                        };
+                    } catch (imageProcessError) {
+                        console.error('Error in image processing:', imageProcessError);
+                        statusDiv.style.background = '#ef4444';
+                        statusDiv.textContent = 'Error: ' + imageProcessError.message;
                     }
-                    
-                    // Skip database test to improve performance
-                    console.log('Proceeding directly to database upload...');
-                    statusDiv.textContent = 'Saving to database...';
-                    
-                    // Check if we're in edit mode or creating new
-                    if (isEditMode && itemId) {
-                        // Update existing item
-                        console.log('Updating item in Firestore...');
-                        statusDiv.textContent = 'Updating item in database...';
-                        
-                        // Remove createdAt for updates, add updatedAt instead
-                        delete itemData.createdAt;
-                        itemData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                        
-                        await db.collection('items').doc(itemId).update(itemData);
-                        console.log('Document updated with ID:', itemId);
-                        
-                        statusDiv.style.background = '#22c55e';
-                        statusDiv.textContent = 'Item updated successfully!';
-                        
-                        setTimeout(() => {
-                            console.log('Item updated successfully with ID:', itemId);
-                            window.location.href = 'admin.html'; // Redirect to admin page immediately
-                        }, 300);
-                    } else {
-                        // Add new item to Firestore
-                        console.log('Adding item to Firestore...');
-                        statusDiv.textContent = 'Adding item to database...';
-                        
-                        const docRef = await db.collection('items').add(itemData);
-                        console.log('Document added with ID:', docRef.id);
-                        
-                        statusDiv.style.background = '#22c55e';
-                        statusDiv.textContent = 'Item added successfully!';
-                        
-                        setTimeout(() => {
-                            console.log('Item added successfully with ID:', docRef.id);
-                            window.location.href = 'admin.html'; // Redirect to admin page immediately
-                        }, 300);
-                    }
-                    
                 } catch (error) {
-                    console.error('Error adding item:', error);
+                    console.error('Error in form processing:', error);
                     statusDiv.style.background = '#ef4444';
                     statusDiv.textContent = 'Error: ' + error.message;
-                    alert('Error adding item: ' + error.message);
-                }
-            });
-            
-            // Save Draft button handler
-            const saveDraftBtn = document.getElementById('saveDraftBtn');
-            
-            saveDraftBtn.addEventListener('click', async function() {
-                // Show submission status
-                const statusDiv = document.createElement('div');
-                statusDiv.style.position = 'fixed';
-                statusDiv.style.top = '10px';
-                statusDiv.style.left = '50%';
-                statusDiv.style.transform = 'translateX(-50%)';
-                statusDiv.style.padding = '10px';
-                statusDiv.style.background = '#3b82f6';
-                statusDiv.style.color = 'white';
-                statusDiv.style.borderRadius = '5px';
-                statusDiv.style.zIndex = '9999';
-                statusDiv.textContent = 'Saving draft...';
-                document.body.appendChild(statusDiv);
-                
-                try {
-                    console.log('Getting draft data...');
-                    // Get form data
-                    const itemData = {
-                        title: document.getElementById('itemName').value || 'Draft Item',
-                        category: document.getElementById('itemCategory').value || 'other',
-                        description: document.getElementById('itemDescription').value || '',
-                        location: document.getElementById('foundLocation').value || '',
-                        date: document.getElementById('foundDate').value || new Date().toISOString().split('T')[0],
-                        foundBy: document.getElementById('foundBy').value || '',
-                        storageLocation: document.getElementById('storageLocation').value || '',
-                        status: 'draft',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    console.log('Draft data:', itemData);
-                    
-                    // Get image file if any
-                    const imageFile = imageUpload.files[0] || null;
-                    console.log('Image file for draft:', imageFile ? 'Found' : 'None');
-                    
-                    // Upload image first if available
-                    let imageUrl = '';
-                    if (imageFile) {
-                        console.log('Uploading draft image...');
-                        statusDiv.textContent = 'Uploading image for draft...';
-                        
-                        try {
-                            console.log('Starting draft image upload process');
-                            
-                            // For development: first try using a data URL approach as fallback
-                            const reader = new FileReader();
-                            
-                            // Create a promise for the FileReader
-                            const readImageAsDataURL = new Promise((resolve, reject) => {
-                                reader.onload = (e) => resolve(e.target.result);
-                                reader.onerror = (e) => reject(e);
-                                reader.readAsDataURL(imageFile);
-                            });
-                            
-                            // Get data URL as fallback
-                            const dataURL = await readImageAsDataURL;
-                            console.log('Draft image converted to data URL successfully');
-                            
-                            try {
-                                // Now try Firebase Storage upload
-                                console.log('Attempting Firebase Storage upload for draft');
-                                statusDiv.textContent = 'Uploading draft image to storage...';
-                                
-                                const fileName = `drafts/${Date.now()}_${imageFile.name}`;
-                                const storageRef = storage.ref(fileName);
-                                console.log('Draft storage reference created:', fileName);
-                                
-                                // Set metadata to avoid CORS issues
-                                const metadata = {
-                                    contentType: imageFile.type,
-                                    customMetadata: {
-                                        'origin': window.location.origin
-                                    }
-                                };
-                                
-                                // Attempt the upload with a timeout
-                                const uploadPromise = storageRef.put(imageFile, metadata);
-                                
-                                // Create a timeout promise
-                                const timeoutPromise = new Promise((_, reject) => {
-                                    setTimeout(() => reject(new Error('Draft upload timeout after 15 seconds')), 15000);
-                                });
-                                
-                                // Race the upload against the timeout
-                                const uploadTask = await Promise.race([uploadPromise, timeoutPromise]);
-                                console.log('Draft image uploaded to Firebase:', uploadTask);
-                                
-                                imageUrl = await storageRef.getDownloadURL();
-                                console.log('Draft image Firebase URL obtained:', imageUrl);
-                                statusDiv.textContent = 'Draft image uploaded successfully!';
-                            } catch (firebaseError) {
-                                // Firebase upload failed, use data URL instead
-                                console.warn('Firebase upload failed for draft, using data URL fallback:', firebaseError);
-                                statusDiv.textContent = 'Using local image for draft (Firebase upload failed)';
-                                imageUrl = dataURL;
-                            }
-                        } catch (imageError) {
-                            console.error('Error uploading draft image:', imageError);
-                            statusDiv.style.background = '#ef4444';
-                            statusDiv.textContent = 'Error uploading image: ' + imageError.message;
-                            throw imageError;
-                        }
-                    }
-                    
-                    // Add image URL to item data
-                    itemData.image = imageUrl || 'https://via.placeholder.com/400x300?text=Draft';
-                    
-                    // Add to Firestore
-                    console.log('Adding draft to Firestore...');
-                    statusDiv.textContent = 'Saving draft to database...';
-                    
-                    const docRef = await db.collection('items').add(itemData);
-                    console.log('Draft saved with ID:', docRef.id);
-                    
-                    statusDiv.style.background = '#22c55e';
-                    statusDiv.textContent = 'Draft saved successfully!';
-                    
-                    setTimeout(() => {
-                        // Use a less intrusive notification
-                        const successNotification = document.createElement('div');
-                        successNotification.style.position = 'fixed';
-                        successNotification.style.bottom = '20px';
-                        successNotification.style.right = '20px';
-                        successNotification.style.padding = '10px 20px';
-                        successNotification.style.background = '#22c55e';
-                        successNotification.style.color = 'white';
-                        successNotification.style.borderRadius = '4px';
-                        successNotification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-                        successNotification.style.zIndex = '9999';
-                        successNotification.textContent = 'Draft saved successfully!';
-                        document.body.appendChild(successNotification);
-                        
-                        // Remove notification after a few seconds
-                        setTimeout(() => {
-                            successNotification.remove();
-                        }, 3000);
-                    }, 300);
-                    
-                } catch (error) {
-                    console.error('Error saving draft:', error);
-                    statusDiv.style.background = '#ef4444';
-                    statusDiv.textContent = 'Error saving draft: ' + error.message;
-                    alert('Error saving draft: ' + error.message);
                 }
             });
         });

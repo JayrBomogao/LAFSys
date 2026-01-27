@@ -70,8 +70,10 @@
         }
         
         .main-content {
-            padding: 2rem;
+            padding: 2rem 1rem;
             background-color: #f8fafc;
+            width: 100%;
+            max-width: 100%;
         }
         
         .admin-header {
@@ -110,35 +112,110 @@
             display: grid;
             grid-template-columns: repeat(1, 1fr);
             gap: 1rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
+            padding: 0.5rem;
+            width: 100%;
         }
         
+        /* Mobile screens (small) */
+        @media (min-width: 480px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+            }
+        }
+        
+        /* Tablets (medium) */
         @media (min-width: 768px) {
             .stats-grid {
                 grid-template-columns: repeat(4, 1fr);
+                gap: 1.5rem;
+            }
+        }
+        
+        /* Large screens */
+        @media (min-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+                width: 100%;
+                margin-left: 0;
+                margin-right: 0;
+                padding-left: 0;
+                padding-right: 0;
             }
         }
         
         .stat-card {
             background: white;
             border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            padding: 1.5rem 1.75rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-top: 4px solid #2563eb;
+            cursor: pointer;
+            flex: 1;
+            min-height: 150px;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.1), 0 3px 4px -1px rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(to right, #60a5fa, #2563eb);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover::after {
+            transform: scaleX(1);
+        }
+        
+        .stat-card.active {
+            border-color: #10b981;
+            background-color: #f0fdfa;
         }
         
         .stat-value {
-            font-size: 1.5rem;
+            font-size: 2.5rem;
             font-weight: 700;
             color: #1e293b;
-            margin: 0.5rem 0;
+            margin: 0.75rem 0;
+            transition: all 0.2s;
+        }
+        
+        .stat-card:hover .stat-value {
+            color: #2563eb;
+            transform: scale(1.05);
         }
         
         .stat-label {
-            font-size: 0.875rem;
+            font-size: 1.1rem;
+            font-weight: 600;
             color: #64748b;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+        
+        .stat-label i {
+            width: 18px;
+            height: 18px;
+            color: #2563eb;
         }
         
         .stat-up {
@@ -481,12 +558,6 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="claims.html" class="nav-link">
-                            <i data-lucide="clipboard-check"></i>
-                            Claims
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a href="#" class="nav-link" data-section="users">
                             <i data-lucide="users"></i>
                             Users
@@ -515,9 +586,9 @@
             </div>
 
             <!-- Dashboard Section -->
-            <section id="section-dashboard" class="section-view">
+            <section id="section-dashboard" class="section-view" style="padding-top: 0;">
                 <div class="stats-grid">
-                    <div class="stat-card">
+                    <div class="stat-card" data-filter="all" id="totalItemsCard">
                         <div class="stat-label">
                             <i data-lucide="package" width="16" height="16"></i>
                             Total Items
@@ -527,7 +598,17 @@
                             <i data-lucide="trending-up" width="16" height="16"></i>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" data-filter="active" id="activeItemsCard">
+                        <div class="stat-label">
+                            <i data-lucide="check" width="16" height="16"></i>
+                            Active Items
+                        </div>
+                        <div class="stat-value" id="statActive">0</div>
+                        <div class="stat-change stat-up" id="statActiveTrend">
+                            <i data-lucide="trending-up" width="16" height="16"></i>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-filter="claimed" id="claimedItemsCard">
                         <div class="stat-label">
                             <i data-lucide="check-circle" width="16" height="16"></i>
                             Items Claimed
@@ -537,17 +618,7 @@
                             <i data-lucide="trending-up" width="16" height="16"></i>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-label">
-                            <i data-lucide="clock" width="16" height="16"></i>
-                            Pending Claims
-                        </div>
-                        <div class="stat-value" id="statPending">0</div>
-                        <div class="stat-change stat-down" id="statPendingTrend">
-                            <i data-lucide="trending-down" width="16" height="16"></i>
-                        </div>
-                    </div>
-                    <div class="stat-card">
+                    <div class="stat-card" data-filter="soon" id="soonItemsCard">
                         <div class="stat-label">
                             <i data-lucide="alert-triangle" width="16" height="16"></i>
                             Disposal Soon
@@ -617,9 +688,6 @@
                     <div id="inboxContainer"></div>
                 </div>
             </section>
-            <section id="section-claims" class="section-view" style="display:none;">
-                <p>Claims management coming soon.</p>
-            </section>
         </main>
     </div>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -643,6 +711,99 @@
     <script src="js/firebase-debug-fix.js"></script>
     <script src="js/fix-database.js"></script>
     <script src="js/cleanup-ui.js"></script>
+    <script src="js/fix-delete-button.js"></script>
+    
+    <!-- Stat Card Filtering Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all stat cards
+            const statCards = document.querySelectorAll('.stat-card');
+            let activeFilter = 'all';
+            
+            // Add click event to each stat card
+            statCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const filterType = this.getAttribute('data-filter');
+                    
+                    // Update active class on cards
+                    statCards.forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update page title to reflect filter
+                    const pageTitle = document.getElementById('pageTitle');
+                    if (pageTitle) {
+                        if (filterType === 'all') {
+                            pageTitle.textContent = 'Dashboard';
+                        } else if (filterType === 'claimed') {
+                            pageTitle.textContent = 'Claimed Items';
+                        } else if (filterType === 'soon') {
+                            pageTitle.textContent = 'Items for Disposal';
+                        }
+                    }
+                    
+                    // Store active filter
+                    activeFilter = filterType;
+                    
+                    // Apply filtering to recent items and all items sections
+                    applyFilter(filterType);
+                });
+            });
+            
+            // Function to apply filter to items
+            function applyFilter(filterType) {
+                // Filter recent items
+                const recentItemsRows = document.querySelectorAll('#recentItemsContainer .table-row');
+                recentItemsRows.forEach(row => {
+                    const status = row.dataset.status;
+                    
+                    if (filterType === 'all' || status === filterType) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Filter all items section if visible
+                const allItemsRows = document.querySelectorAll('#allItemsContainer .table-row');
+                allItemsRows.forEach(row => {
+                    const status = row.dataset.status;
+                    
+                    if (filterType === 'all' || status === filterType) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Update heading for each section
+                const recentHeading = document.querySelector('h2');
+                const allItemsHeading = document.querySelector('#section-items h2');
+                
+                if (recentHeading) {
+                    if (filterType === 'all') {
+                        recentHeading.textContent = 'Recent Items';
+                    } else if (filterType === 'claimed') {
+                        recentHeading.textContent = 'Recent Claimed Items';
+                    } else if (filterType === 'soon') {
+                        recentHeading.textContent = 'Recent Items for Disposal';
+                    }
+                }
+                
+                if (allItemsHeading) {
+                    if (filterType === 'all') {
+                        allItemsHeading.textContent = 'All Items';
+                    } else if (filterType === 'claimed') {
+                        allItemsHeading.textContent = 'All Claimed Items';
+                    } else if (filterType === 'soon') {
+                        allItemsHeading.textContent = 'All Items for Disposal';
+                    }
+                }
+            }
+            
+            // Set totalItemsCard as active by default
+            document.getElementById('totalItemsCard').classList.add('active');
+        });
+    </script>
     
     <!-- Debug script to help diagnose Firebase issues -->
     <script>
