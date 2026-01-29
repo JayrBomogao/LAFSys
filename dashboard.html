@@ -83,11 +83,19 @@
             overflow: hidden;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
             transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer; /* Show pointer cursor to indicate clickable */
+            position: relative; /* For the overlay effect */
         }
         
         .item-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #3b82f6; /* Blue border on hover */
+        }
+        
+        .item-card:active {
+            transform: translateY(-2px); /* Less dramatic lift when clicked */
+            box-shadow: 0 5px 10px -3px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
         }
         
         .item-image {
@@ -673,7 +681,7 @@
                     
                     // Build HTML for this item
                     allItemsHTML += `
-                        <div class="item-card" data-item-id="${id}">
+                        <div class="item-card" data-item-id="${id}" onclick="window.location.href='item-details.html?id=${id}'">
                             <div class="item-image">
                                 <img src="${imageUrl}" alt="${data.title || 'Unknown item'}" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Error'">
                                 ${statusBadge}
@@ -684,11 +692,6 @@
                                 <div class="item-details">
                                     <div>📍 ${data.location || 'Unknown location'}</div>
                                     <div>📅 ${formattedDate}</div>
-                                </div>
-                                <div class="item-actions">
-                                    <button class="btn btn-primary view-item" onclick="window.location.href='item-details.html?id=${id}'">
-                                        👁️ View Details
-                                    </button>
                                 </div>
                             </div>
                         </div>

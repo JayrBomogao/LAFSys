@@ -256,6 +256,30 @@
             transition: background-color 0.2s;
         }
         
+        /* Dashboard section - non-interactive items */
+        #section-dashboard .table-row {
+            cursor: default;
+            background-color: #fafbfc;
+            border-left: 3px solid transparent;
+        }
+        
+        #section-dashboard .view-in-items {
+            color: #6b7280;
+            font-style: italic;
+            text-align: center;
+        }
+        
+        /* Items section - interactive elements */
+        #section-items .table-row {
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        #section-items .table-row:hover {
+            background-color: #f1f5f9;
+            border-left: 3px solid #3b82f6;
+        }
+        
         .table-row:last-child {
             border-bottom: none;
         }
@@ -712,6 +736,7 @@
     <script src="js/fix-database.js"></script>
     <script src="js/cleanup-ui.js"></script>
     <script src="js/fix-delete-button.js"></script>
+    <script src="js/admin-item-actions.js"></script>
     
     <!-- Stat Card Filtering Script -->
     <script>
