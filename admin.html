@@ -256,11 +256,40 @@
             transition: background-color 0.2s;
         }
         
-        /* Dashboard section - non-interactive items */
+        /* Complete removal of all action buttons in Dashboard section */
+        #section-dashboard .action-buttons,
+        #section-dashboard button,
+        #section-dashboard .btn-icon,
+        #section-dashboard [data-action="edit"],
+        #section-dashboard [data-action="delete"],
+        #section-dashboard .btn-icon.edit,
+        #section-dashboard .btn-icon.delete {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            pointer-events: none !important;
+            clip: rect(0,0,0,0) !important;
+        }
+        
+        /* Dashboard rows styling */
         #section-dashboard .table-row {
-            cursor: default;
+            cursor: pointer;
             background-color: #fafbfc;
             border-left: 3px solid transparent;
+        }
+        
+        /* Dashboard row hover effect */
+        #section-dashboard .table-row:hover,
+        #section-dashboard .table-row.table-row-hover {
+            background-color: #dbeafe !important;
+            border-left: 3px solid #3b82f6 !important;
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
         }
         
         #section-dashboard .view-in-items {
@@ -286,6 +315,14 @@
         
         .table-row:hover {
             background-color: #f8fafc;
+        }
+        
+        /* Global hover effect style */
+        .table-row-hover {
+            background-color: #dbeafe !important;
+            border-left: 3px solid #3b82f6 !important;
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5) !important;
+            transition: all 0.2s ease !important;
         }
         
         .item-info {
@@ -618,9 +655,6 @@
                             Total Items
                         </div>
                         <div class="stat-value" id="statTotalItems">0</div>
-                        <div class="stat-change stat-up" id="statTotalTrend">
-                            <i data-lucide="trending-up" width="16" height="16"></i>
-                        </div>
                     </div>
                     <div class="stat-card" data-filter="active" id="activeItemsCard">
                         <div class="stat-label">
@@ -628,9 +662,6 @@
                             Active Items
                         </div>
                         <div class="stat-value" id="statActive">0</div>
-                        <div class="stat-change stat-up" id="statActiveTrend">
-                            <i data-lucide="trending-up" width="16" height="16"></i>
-                        </div>
                     </div>
                     <div class="stat-card" data-filter="claimed" id="claimedItemsCard">
                         <div class="stat-label">
@@ -638,9 +669,6 @@
                             Items Claimed
                         </div>
                         <div class="stat-value" id="statClaimed">0</div>
-                        <div class="stat-change stat-up" id="statClaimedTrend">
-                            <i data-lucide="trending-up" width="16" height="16"></i>
-                        </div>
                     </div>
                     <div class="stat-card" data-filter="soon" id="soonItemsCard">
                         <div class="stat-label">
@@ -648,10 +676,6 @@
                             Disposal Soon
                         </div>
                         <div class="stat-value" id="statSoon">0</div>
-                        <div class="stat-change" id="statSoonTrend">
-                            <i data-lucide="alert-circle" width="16" height="16"></i>
-                            Needs attention
-                        </div>
                     </div>
                 </div>
 
@@ -729,14 +753,10 @@
     <script src="js/firebase-messages.js"></script>
     <script src="js/firebase-data.js"></script>
     <script src="js/item-init.js"></script>
+    <!-- Admin dashboard script (completely rewritten) -->
     <script src="js/admin.js"></script>
-    <!-- Script that fixes items display -->
-    <script src="js/remove-button.js"></script>
-    <script src="js/firebase-debug-fix.js"></script>
-    <script src="js/fix-database.js"></script>
-    <script src="js/cleanup-ui.js"></script>
-    <script src="js/fix-delete-button.js"></script>
-    <script src="js/admin-item-actions.js"></script>
+    <!-- Modal popup for item details -->
+    <script src="js/admin-modal.js"></script>
     
     <!-- Stat Card Filtering Script -->
     <script>

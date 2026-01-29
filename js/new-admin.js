@@ -220,7 +220,18 @@ function displayReadOnlyRecentItems(items, container) {
     return; 
   }
   
-  // Generate READ-ONLY items with NO action buttons - NO HEADER
+  // Create table header
+  const headerHTML = `
+    <div class="table-header">
+      <div>ITEM</div>
+      <div>FOUND LOCATION</div>
+      <div>DATE FOUND</div>
+      <div>STATUS</div>
+      <div>ACTIONS</div>
+    </div>
+  `;
+  
+  // Generate READ-ONLY items with NO action buttons
   const rowsHTML = items.map(item => `
     <div class="table-row read-only-row" data-id="${item.id}" data-status="${item.status}">
       <div class="item-info">
@@ -241,37 +252,12 @@ function displayReadOnlyRecentItems(items, container) {
     </div>
   `).join('');
   
-  // Set the content WITHOUT adding a header
-  container.innerHTML = rowsHTML;
+  // Set the content
+  container.innerHTML = headerHTML + rowsHTML;
   
-  // Apply styling and click handlers to read-only rows
+  // Apply styling to read-only rows
   container.querySelectorAll('.read-only-row').forEach(row => {
-    // Make cursor a pointer to indicate it's clickable
-    row.style.cursor = 'pointer';
-    
-    // Add hover effect handlers
-    row.addEventListener('mouseenter', function() {
-      this.classList.add('table-row-hover');
-    });
-    
-    row.addEventListener('mouseleave', function() {
-      this.classList.remove('table-row-hover');
-    });
-    
-    // Add click event to show item details in modal
-    row.addEventListener('click', function(e) {
-      // Prevent default behavior
-      e.preventDefault();
-      
-      // Get item ID from row data attribute
-      const itemId = this.dataset.id;
-      if (itemId && typeof showItemDetailsModal === 'function') {
-        // Call the modal function from admin-modal.js
-        showItemDetailsModal(itemId);
-      } else {
-        console.log('View item details:', itemId);
-      }
-    });
+    row.style.cursor = 'default';
   });
   
   // Style the manage-in-items text
@@ -313,7 +299,18 @@ function displayItemsWithActions(items, container) {
     return; 
   }
   
-  // Generate items WITH action buttons - NO HEADER
+  // Create table header
+  const headerHTML = `
+    <div class="table-header">
+      <div>ITEM</div>
+      <div>FOUND LOCATION</div>
+      <div>DATE FOUND</div>
+      <div>STATUS</div>
+      <div>ACTIONS</div>
+    </div>
+  `;
+  
+  // Generate items WITH action buttons
   const rowsHTML = items.map(item => `
     <div class="table-row interactive-row" data-id="${item.id}" data-status="${item.status}">
       <div class="item-info">
@@ -335,8 +332,8 @@ function displayItemsWithActions(items, container) {
     </div>
   `).join('');
   
-  // Set the content WITHOUT adding a header
-  container.innerHTML = rowsHTML;
+  // Set the content
+  container.innerHTML = headerHTML + rowsHTML;
   
   // Initialize Lucide icons
   if (window.lucide?.createIcons) lucide.createIcons();
@@ -469,27 +466,11 @@ function setupRowClickHandlers(container) {
     row.addEventListener('click', (e) => {
       if (!e.target.closest('.btn-icon') && !e.target.closest('.status-select')) {
         const id = row.dataset.id;
-        if (id && typeof showItemDetailsModal === 'function') {
-          // Show modal instead of navigating
-          e.preventDefault();
-          e.stopPropagation();
-          showItemDetailsModal(id);
-        } else if (id) {
-          console.log('Modal function not available, falling back to navigation');
+        if (id) {
           window.location.href = 'item-details.html?id=' + id;
         }
       }
     });
-
-    // Add hover effect handlers
-    row.addEventListener('mouseenter', function() {
-      this.classList.add('table-row-hover');
-    });
-    
-    row.addEventListener('mouseleave', function() {
-      this.classList.remove('table-row-hover');
-    });
-    
     row.style.cursor = 'pointer';
   });
 }

@@ -7,8 +7,18 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Admin item actions script loaded');
     
     function setupItemActions() {
-        // Update all table rows to redirect to view details instead of edit
-        document.querySelectorAll('.table-row').forEach(row => {
+        // First, clean up any delete buttons or edit buttons in the dashboard section
+        cleanupDashboardSection();
+        
+        // Now only target the Items section for interactive elements
+        const itemsSection = document.getElementById('section-items');
+        if (!itemsSection) {
+            console.log('Items section not found');
+            return;
+        }
+        
+        // Update table rows in ITEMS section to redirect to view details
+        itemsSection.querySelectorAll('.table-row').forEach(row => {
             // Remove existing click listeners
             const newRow = row.cloneNode(true);
             row.parentNode.replaceChild(newRow, row);
@@ -26,8 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
             newRow.style.cursor = 'pointer';
         });
         
-        // Add edit button click handler
-        document.querySelectorAll('.btn-icon.edit').forEach(btn => {
+        // Add edit button click handler only in Items section
+        itemsSection.querySelectorAll('.btn-icon.edit').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const row = btn.closest('.table-row');
@@ -40,8 +50,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Make sure existing delete buttons work with new setup
-        document.querySelectorAll('.btn-icon.delete').forEach(btn => {
+        // Make sure existing delete buttons work with new setup - only in Items section
+        itemsSection.querySelectorAll('.btn-icon.delete').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const row = btn.closest('.table-row');
@@ -64,6 +74,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(() => { row.style.display = 'none'; }, 200);
                 }
             });
+        });
+    }
+    
+    // Cleanup function to ensure Dashboard Recent Items section doesn't have action buttons
+    function cleanupDashboardSection() {
+        console.log('Cleaning up dashboard section');
+        const dashboardSection = document.getElementById('section-dashboard');
+        if (!dashboardSection) {
+            console.log('Dashboard section not found');
+            return;
+        }
+        
+        // Remove any edit or delete buttons that might appear in Dashboard
+        const dashboardActionButtons = dashboardSection.querySelectorAll('.btn-icon.edit, .btn-icon.delete');
+        dashboardActionButtons.forEach(button => {
+            console.log('Removing action button from dashboard');
+            button.parentNode.removeChild(button);
+        });
+        
+        // Make sure dashboard rows are non-interactive
+        dashboardSection.querySelectorAll('.table-row').forEach(row => {
+            row.style.cursor = 'default';
+            row.style.pointerEvents = 'auto'; // Allow status badge to be visible but no interaction
+            
+            // Clone to remove any click listeners
+            const newRow = row.cloneNode(true);
+            row.parentNode.replaceChild(newRow, row);
         });
     }
     
