@@ -35,6 +35,14 @@ document.addEventListener('DOMContentLoaded', function() {
       link.addEventListener('click', initializeChatInterface);
     }
   });
+  
+  // IMPORTANT: If page loads with inbox section active, initialize the chat interface immediately
+  const lastActiveSection = localStorage.getItem('adminActiveSection');
+  if (lastActiveSection === 'inbox') {
+    console.log('Inbox was last active section - initializing Live Chat on page load');
+    // Small delay to ensure DOM is ready
+    setTimeout(initializeChatInterface, 100);
+  }
 });
 
 // MutationObserver for monitoring messages list changes

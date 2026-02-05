@@ -710,7 +710,42 @@
 
             <!-- Items Section -->
             <section id="section-items" class="section-view" style="display:none;">
-                <h2 style="margin: 0 0 1rem;">All Items</h2>
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <div class="search-container" style="display: inline-flex; align-items: center; max-width: 600px; width: 90%; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); border-radius: 50px; overflow: hidden;">
+                        <div style="display: flex; align-items: center; justify-content: center; background-color: #f0f5ff; padding: 0 15px; border-radius: 50px 0 0 50px; min-width: 56px;">
+                            <i data-lucide="search" width="24" height="24" style="color: #2563eb;"></i>
+                        </div>
+                        <input type="text" id="itemSearchInput" placeholder="Search items..." class="search-input" style="padding: 0.75rem 1rem; border: 2px solid #f0f5ff; border-left: none; flex: 1; outline: none; font-size: 1rem; min-width: 0;">
+                        <button id="itemSearchButton" class="btn-primary" style="border-radius: 0 50px 50px 0; padding: 0.75rem 1.5rem; font-weight: 600; display: flex; align-items: center;">
+                            <span class="search-button-text">Search</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <style>
+                    @media (max-width: 600px) {
+                        .search-container {
+                            width: 95% !important;
+                        }
+                        
+                        #itemSearchButton {
+                            padding: 0.75rem 1rem !important;
+                        }
+                        
+                        .search-button-text {
+                            display: none;
+                        }
+                        
+                        #itemSearchButton::after {
+                            content: '🔍';
+                            font-size: 16px;
+                        }
+                        
+                        #itemSearchInput {
+                            padding: 0.75rem 0.5rem !important;
+                        }
+                    }
+                </style>
                 <div class="items-table">
                     <div class="table-header">
                         <div>Item</div>
@@ -723,18 +758,9 @@
                 </div>
             </section>
             
-            <!-- Inbox Section -->
+            <!-- Inbox Section - Live Chat Support Only -->
             <section id="section-inbox" class="section-view" style="display:none;">
-                <h2 style="margin: 0 0 1rem;">Inbox</h2>
-                <div class="items-table">
-                    <div class="table-header" style="grid-template-columns: 2fr 3fr 1fr 140px;">
-                        <div>From</div>
-                        <div>Subject</div>
-                        <div>Date</div>
-                        <div>Actions</div>
-                    </div>
-                    <div id="inboxContainer"></div>
-                </div>
+                <!-- Live Chat Support will be injected here by admin-live-chat.js -->
             </section>
         </main>
     </div>
@@ -761,6 +787,8 @@
     <!-- Live chat inbox functionality -->
     <script src="js/admin-live-chat.js"></script>
     <script src="js/admin-chat-scroll-fix.js"></script>
+    <script src="js/admin-search.js"></script>
+    <script src="js/inbox-reset.js"></script>
     
     <!-- Stat Card Filtering Script -->
     <script>

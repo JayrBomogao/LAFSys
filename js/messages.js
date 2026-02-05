@@ -1,20 +1,20 @@
 (function(){
   const w = window;
   const STORAGE_KEY = 'lafsys_messages_v1';
-  // Initialize empty messages array without seeding default messages
-  let messages = [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    messages = raw ? JSON.parse(raw) : [];
-  } catch(e) { messages = []; }
-
-  // Initialize empty threads object without seeding default threads
   const THREADS_KEY = 'lafsys_threads_v1';
-  let threads = {};
+  
+  // CLEAR ALL OLD INBOX DATA - This removes previous versions completely
   try {
-    const raw = localStorage.getItem(THREADS_KEY);
-    threads = raw ? JSON.parse(raw) : {};
-  } catch(e) { threads = {}; }
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(THREADS_KEY);
+    console.log('Cleared all previous inbox data from localStorage');
+  } catch(e) {
+    console.log('Could not clear localStorage:', e);
+  }
+  
+  // Always start with empty arrays - no loading from cache
+  let messages = [];
+  let threads = {};
 
   const MessagesStore = {
     getAll(){ return [...messages]; },

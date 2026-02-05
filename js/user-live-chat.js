@@ -14,7 +14,7 @@ let userInfo = null;
 let idleTimer = null;
 
 // DOM Elements - will be initialized when needed
-let chatButton;
+// chatButton has been removed
 let chatWidget;
 let chatContent;
 let messagesList;
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
   createChatWidget();
   
   // Initialize references to DOM elements
-  chatButton = document.getElementById('chatButton');
+  // chatButton reference removed
   chatWidget = document.getElementById('chatWidget');
   chatContent = document.getElementById('chatContent');
   chatForm = document.getElementById('chatForm');
@@ -46,12 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Create the chat widget HTML
 function createChatWidget() {
-  // Create chat button
-  const button = document.createElement('div');
-  button.id = 'chatButton';
-  button.className = 'chat-button';
-  button.innerHTML = '<i class="chat-icon">💬</i>';
-  document.body.appendChild(button);
+  // Chat button has been removed to clean up the UI
+  // The chat widget will only be accessible through dedicated buttons on item pages
   
   // Create chat widget
   const widget = document.createElement('div');
@@ -230,10 +226,10 @@ function createChatWidget() {
 
 // Setup event listeners
 function setupEventListeners() {
-  // Chat button click - open widget
-  chatButton.addEventListener('click', toggleChatWidget);
+  // Chat button has been removed
+  // Only the dedicated buttons on item pages will open the chat
   
-  // Close button - removed minimize button listener
+  // Close button for the chat widget
   document.getElementById('closeChat').addEventListener('click', closeChatWidget);
   
   // User details form submission
@@ -270,17 +266,10 @@ function setupEventListeners() {
 function toggleChatWidget() {
   if (chatWidget.style.display === 'none') {
     chatWidget.style.display = 'flex';
-    chatButton.classList.add('active');
-    
+
     // Force rebuild of input fields when showing the widget
     setTimeout(function() {
-      // Only rebuild the form if we're not in an active chat
-      if (!userChatId) {
-        console.log('Forcing input field rebuild on widget show');
-        resetChat();
-      }
-      
-      // Extra hack - manually insert inputs if they're still missing
+      createChatForm();
       const nameInput = document.getElementById('userName');
       const emailInput = document.getElementById('userEmail');
       
@@ -402,7 +391,7 @@ window.toggleChatWidget = toggleChatWidget;
 // Minimize chat widget
 function minimizeChatWidget() {
   chatWidget.style.display = 'none';
-  chatButton.classList.remove('active');
+  // chatButton reference removed
 }
 
 // Close chat widget and end chat if in progress
@@ -411,11 +400,11 @@ function closeChatWidget() {
     if (confirm('Are you sure you want to end this chat session?')) {
       endChat();
       chatWidget.style.display = 'none';
-      chatButton.classList.remove('active');
+      // chatButton reference removed
     }
   } else {
     chatWidget.style.display = 'none';
-    chatButton.classList.remove('active');
+    // chatButton reference removed
   }
 }
 

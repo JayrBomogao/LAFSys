@@ -13,10 +13,21 @@ document.addEventListener('DOMContentLoaded', function() {
   // Set up sidebar navigation
   wireSidebar();
   
-  // Initial loading of dashboard elements
+  // Load the last active section from localStorage or default to dashboard
+  const lastActiveSection = localStorage.getItem('adminActiveSection') || 'dashboard';
+  console.log('Restoring section:', lastActiveSection);
+  
+  // Activate the correct section
+  activateSection(lastActiveSection);
+  
+  // Initial loading of all required elements
   renderStats();
   renderRecentItemsWithoutActions();
   renderInbox();
+  
+  // If not on dashboard, load the appropriate section data
+  if (lastActiveSection === 'users') renderUsers();
+  if (lastActiveSection === 'items') renderAllItems();
   
   // Setup event listeners for updates
   setupEventListeners();
@@ -70,15 +81,44 @@ function wireSidebar() {
       const section = link.getAttribute('data-section');
       if (section === 'add-item' || section === 'claims') return; // follow href for real pages
       e.preventDefault();
-      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-      link.classList.add('active');
-      switchSection(section);
-      if (section === 'dashboard') { renderStats(); renderRecentItemsWithoutActions(); }
-      if (section === 'users') { renderUsers(); }
-      if (section === 'items') { renderAllItems(); }
-      if (section === 'inbox') { renderInbox(); }
+      
+      // Save the current section to localStorage
+      localStorage.setItem('adminActiveSection', section);
+      console.log('Saved section to localStorage:', section);
+      
+      // Update UI and load section content
+      activateSection(section);
     });
   });
+}
+
+// Activate a specific section
+function activateSection(section) {
+  console.log('Activating section:', section);
+  
+  // Update active state in sidebar
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  const activeLink = document.querySelector(`.nav-link[data-section="${section}"]`);
+  if (activeLink) activeLink.classList.add('active');
+  
+  // Switch the visible section
+  switchSection(section);
+  
+  // Load section-specific data
+  if (section === 'dashboard') { 
+    renderStats(); 
+    renderRecentItemsWithoutActions(); 
+  }
+  else if (section === 'users') { 
+    renderUsers(); 
+  }
+  else if (section === 'items') { 
+    renderAllItems(); 
+  }
+  else if (section === 'inbox') { 
+    // Force a fresh reload of inbox data with no caching
+    forceRefreshInbox(); 
+  }
 }
 
 // Switch section
@@ -494,26 +534,63 @@ function setupRowClickHandlers(container) {
   });
 }
 
-// Render inbox messages
+// Render inbox messages - just calls forceRefreshInbox
 function renderInbox() {
   console.log('Rendering inbox messages...');
-  loadInbox();
+  // forceRefreshInbox already handles showing a loading message
+  forceRefreshInbox();
 }
 
-// Force refresh inbox
+// Force refresh inbox with fresh data
 function forceRefreshInbox() {
-  console.log('Forcing inbox refresh...');
+  console.log('Forcing inbox refresh with fresh data...');
+  
+  // Clear any cache that might exist in MessagesStore
+  if (window.MessagesStore?.clearCache) {
+    window.MessagesStore.clearCache();
+  }
+  
+  // Show loading indicator
+  const container = document.getElementById('inboxContainer');
+  if (container) {
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center; padding: 1rem;">Loading messages...</div></div>';
+  }
+  
+  // Always force a fresh fetch from the server
   if (window.MessagesStore?.getAllAsync) {
-    window.MessagesStore.getAllAsync().then(msgs => {
-      console.log('Retrieved', msgs.length, 'messages during forced refresh');
-      const container = document.getElementById('inboxContainer');
-      if (container) {
-        updateInboxNotification(msgs);
-        displayInboxMessages(msgs, container);
-      }
-    }).catch(err => {
-      console.error('Error during forced inbox refresh:', err);
-    });
+    // Add a cache-busting parameter to ensure we get fresh data
+    const options = { forceFresh: true, timestamp: Date.now() };
+    
+    window.MessagesStore.getAllAsync(options)
+      .then(msgs => {
+        console.log('Retrieved', msgs.length, 'fresh messages');
+        
+        if (container) {
+          updateInboxNotification(msgs);
+          displayInboxMessages(msgs, container);
+        }
+      })
+      .catch(err => {
+        console.error('Error during forced inbox refresh:', err);
+        
+        if (container) {
+          container.innerHTML = `<div class="table-row"><div style="grid-column: 1/-1; text-align: center; padding: 1rem; color: #ef4444;">
+            Error loading messages: ${err.message || 'Unknown error'}
+            <br><button id="retryInboxBtn" class="btn-primary" style="margin-top: 1rem;">Retry</button>
+          </div></div>`;
+          
+          // Add retry button functionality
+          const retryBtn = document.getElementById('retryInboxBtn');
+          if (retryBtn) {
+            retryBtn.addEventListener('click', forceRefreshInbox);
+          }
+        }
+      });
+  } else {
+    console.error('MessagesStore.getAllAsync not available');
+    if (container) {
+      container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center; padding: 1rem; color: #ef4444;">Message loading not available</div></div>';
+    }
   }
 }
 
@@ -538,6 +615,151 @@ function showDesktopNotification(message) {
       if (permission === "granted") {
         showDesktopNotification(message);
       }
+    });
+  }
+}
+
+// Display inbox messages in the UI
+function displayInboxMessages(messages, container) {
+  if (!container) return;
+  
+  // Handle empty inbox
+  if (!messages || !messages.length) {
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center; padding: 2rem;">No messages in your inbox.</div></div>';
+    return;
+  }
+  
+  // Sort messages by date (newest first)
+  const sortedMessages = [...messages].sort((a, b) => {
+    const dateA = a.date ? new Date(a.date) : new Date(0);
+    const dateB = b.date ? new Date(b.date) : new Date(0);
+    return dateB - dateA; // Newest first
+  });
+  
+  // Generate HTML for each message
+  const messagesHtml = sortedMessages.map(msg => {
+    const isUnread = msg.unread === true;
+    const msgClass = isUnread ? 'unread-message' : '';
+    const fromName = msg.name || msg.from || 'Unknown';
+    const formattedDate = msg.date ? new Date(msg.date).toLocaleString() : 'Unknown date';
+    
+    return `
+      <div class="table-row ${msgClass}" data-id="${msg.id || ''}" data-email="${msg.from || msg.email || ''}">
+        <div class="message-sender">
+          ${isUnread ? '<span class="unread-dot"></span>' : ''}
+          ${fromName}
+        </div>
+        <div class="message-subject">${msg.subject || 'No subject'}</div>
+        <div class="message-date">${formattedDate}</div>
+        <div class="action-buttons">
+          <button class="btn-icon" title="View" data-action="view">
+            <i data-lucide="eye" width="16" height="16"></i>
+          </button>
+          <button class="btn-icon delete" title="Delete" data-action="delete">
+            <i data-lucide="trash-2" width="16" height="16"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // Update the container
+  container.innerHTML = messagesHtml;
+  
+  // Initialize icons
+  if (window.lucide?.createIcons) lucide.createIcons();
+  
+  // Add event listeners to messages
+  setupMessageActionHandlers(container);
+}
+
+// Update inbox notification badge
+function updateInboxNotification(messages) {
+  // Find unread messages
+  const unreadCount = messages.filter(msg => msg.unread === true).length;
+  
+  // Update badge
+  const badge = document.getElementById('inboxNotificationBadge');
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// Set up message action handlers
+function setupMessageActionHandlers(container) {
+  // Handle clicks on message rows and action buttons
+  container.querySelectorAll('.table-row').forEach(row => {
+    row.addEventListener('click', function(e) {
+      // Don't handle if clicking on action buttons
+      if (e.target.closest('.btn-icon')) return;
+      
+      const messageId = this.dataset.id;
+      viewMessage(messageId, this);
+    });
+    
+    // Action button handlers
+    row.querySelectorAll('.btn-icon').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const action = this.getAttribute('data-action');
+        const messageId = row.dataset.id;
+        
+        if (action === 'view') {
+          viewMessage(messageId, row);
+        } else if (action === 'delete') {
+          if (confirm('Delete this message?')) {
+            deleteMessage(messageId, row);
+          }
+        }
+      });
+    });
+  });
+}
+
+// View a message
+function viewMessage(messageId, row) {
+  if (!messageId) return;
+  
+  console.log('Viewing message:', messageId);
+  
+  // Mark as read in the UI
+  if (row) {
+    row.classList.remove('unread-message');
+    row.querySelector('.unread-dot')?.remove();
+  }
+  
+  // TODO: Implement actual message viewing
+  alert('Message viewing not implemented yet');
+  
+  // Mark as read in data store
+  if (window.MessagesStore?.markAsReadAsync) {
+    window.MessagesStore.markAsReadAsync(messageId).catch(err => {
+      console.error('Error marking message as read:', err);
+    });
+  }
+}
+
+// Delete a message
+function deleteMessage(messageId, row) {
+  if (!messageId) return;
+  
+  console.log('Deleting message:', messageId);
+  
+  // Remove from UI
+  if (row) {
+    row.style.opacity = '0.5';
+    setTimeout(() => row.style.display = 'none', 300);
+  }
+  
+  // Remove from data store
+  if (window.MessagesStore?.deleteAsync) {
+    window.MessagesStore.deleteAsync(messageId).catch(err => {
+      console.error('Error deleting message:', err);
     });
   }
 }

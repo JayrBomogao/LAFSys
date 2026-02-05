@@ -36,80 +36,43 @@
     // Get Firestore database
     const db = firebase.firestore();
     
-    // Check if we need to create demo data (first-time setup)
-    async function checkAndCreateDemoData() {
+    // DELETE ALL DEMO DATA - Remove old inbox messages completely
+    async function deleteAllDemoData() {
         try {
-            // Check if messages collection exists and has documents
-            const messagesSnapshot = await db.collection('messages').limit(1).get();
+            console.log('Deleting all demo/old inbox data...');
             
-            // Force creation of demo data if messages collection is empty
-            if (messagesSnapshot.empty) {
-                console.log('Creating demo messages data...');
-                
-                // Create demo messages
-                const demoMessages = [
-                    { 
-                        id: 'demo1', 
-                        from: 'John Doe', 
-                        email: 'john@example.com', 
-                        subject: 'Inquiry about black wallet', 
-                        body: 'Hi, I might have lost a black leather wallet near Burnham Park last Sunday. Does it match any item you found?', 
-                        date: new Date().toISOString(),
-                        unread: true
-                    },
-                    { 
-                        id: 'demo2', 
-                        from: 'Jane Smith', 
-                        email: 'jane@example.com', 
-                        subject: 'Lost phone claim', 
-                        body: 'I think the iPhone listed on your site is mine. It has a cracked back and a blue case.', 
-                        date: new Date(Date.now() - 86400000).toISOString(),
-                        unread: true
-                    }
-                ];
-                
-                // Add messages to Firestore
-                for (const message of demoMessages) {
-                    await db.collection('messages').doc(message.id).set(message);
+            // Delete demo messages
+            const demoIds = ['demo1', 'demo2'];
+            for (const id of demoIds) {
+                try {
+                    await db.collection('messages').doc(id).delete();
+                    console.log(`Deleted message: ${id}`);
+                } catch (e) {
+                    console.log(`Could not delete ${id}:`, e);
                 }
-                
-                // Create demo threads
-                await createDemoThread('john@example.com', 'John Doe', 'Inquiry about black wallet', 
-                    'Hi, I might have lost a black leather wallet near Burnham Park last Sunday. Does it match any item you found?');
-                
-                await createDemoThread('jane@example.com', 'Jane Smith', 'Lost phone claim', 
-                    'I think the iPhone listed on your site is mine. It has a cracked back and a blue case.');
-                
-                console.log('Demo data created successfully');
             }
+            
+            // Delete demo threads
+            const demoEmails = ['john@example.com', 'jane@example.com'];
+            for (const email of demoEmails) {
+                try {
+                    await db.collection('threads').doc(email).delete();
+                    console.log(`Deleted thread: ${email}`);
+                } catch (e) {
+                    console.log(`Could not delete thread ${email}:`, e);
+                }
+            }
+            
+            console.log('All demo data deleted successfully');
         } catch (error) {
-            console.error('Error checking/creating demo data:', error);
+            console.error('Error deleting demo data:', error);
         }
     }
     
-    // Helper to create a demo chat thread
-    async function createDemoThread(email, name, subject, body) {
-        const threadRef = db.collection('threads').doc(email);
-        const now = Date.now();
-        
-        const threadData = [
-            { 
-                id: `msg_${now - 7200000}`, 
-                sender: email, 
-                name, 
-                body, 
-                date: new Date(now - 7200000).toISOString() 
-            },
-            { 
-                id: `msg_${now - 3600000}`, 
-                sender: 'admin@lafsys.gov', 
-                name: 'Admin', 
-                body: `Hi ${name.split(' ')[0]}, thanks for reaching out. Could you share more identifying details?`, 
-                date: new Date(now - 3600000).toISOString() 
-            }
-        ];
-        
-        await threadRef.set({ messages: threadData });
+    // No longer creating demo data - function kept for compatibility but does nothing
+    async function checkAndCreateDemoData() {
+        // DELETE demo data instead of creating it
+        await deleteAllDemoData();
     }
     
     // MessagesStore API - maintains compatibility with original code
