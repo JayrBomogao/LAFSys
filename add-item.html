@@ -249,9 +249,6 @@
         
         <div class="header">
             <h1>Add New Lost Item</h1>
-            <div class="status-badge">
-                <span style="margin-right: 6px;">●</span> Draft
-            </div>
         </div>
         
         <form id="itemForm" class="card">
@@ -341,15 +338,6 @@
         </form>
     </div>
     
-    <div class="firebase-status" id="connectionStatus">
-        Checking Firebase Connection...
-    </div>
-    
-    <div style="position: fixed; bottom: 1rem; left: 1rem; z-index: 100;">
-        <button id="testConnectionBtn" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
-            Test Firebase Connection
-        </button>
-    </div>
 
     <!-- Firebase CDN Scripts - using version 9.22.2 which supports modular web v9 API -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -400,41 +388,9 @@
             auth = firebase.auth();
             console.log('Auth initialized');
             
-            // Update connection status
-            const connectionStatus = document.getElementById('connectionStatus');
-            connectionStatus.style.backgroundColor = '#22c55e';
-            connectionStatus.textContent = '✓ Firebase Connected';
-            
-            // Add test connection button functionality
-            document.getElementById('testConnectionBtn').addEventListener('click', async function() {
-                const statusDiv = document.getElementById('connectionStatus');
-                statusDiv.style.backgroundColor = '#3b82f6';
-                statusDiv.textContent = 'Testing connection...';
-                
-                try {
-                    const result = await window.firebaseDebug.testConnection();
-                    if (result.success) {
-                        statusDiv.style.backgroundColor = '#22c55e';
-                        statusDiv.textContent = '✓ Firebase Connection OK';
-                        alert('Connection test successful! Your Firebase is properly configured.');
-                    } else {
-                        statusDiv.style.backgroundColor = '#ef4444';
-                        statusDiv.textContent = '✗ Firebase Connection Error';
-                        alert('Connection test failed: ' + result.message);
-                    }
-                } catch (error) {
-                    statusDiv.style.backgroundColor = '#ef4444';
-                    statusDiv.textContent = '✗ Firebase Connection Error';
-                    alert('Connection test error: ' + error.message);
-                    console.error('Connection test error:', error);
-                }
-            });
             
         } catch (error) {
             console.error('Error initializing Firebase:', error);
-            const connectionStatus = document.getElementById('connectionStatus');
-            connectionStatus.style.backgroundColor = '#ef4444';
-            connectionStatus.textContent = '✗ Firebase Initialization Error';
             alert('Error initializing Firebase: ' + error.message);
         }
         

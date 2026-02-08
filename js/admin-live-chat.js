@@ -14,6 +14,13 @@ let activeChatId = null;
 let idleTimers = {};
 let currentChatUser = null;
 
+// Notification state
+let knownChatIds = new Set();
+let isFirstLoad = true;
+let newChatCount = 0;
+const originalPageTitle = document.title || 'Admin Dashboard - Lost & Found Baguio';
+let titleFlashInterval = null;
+
 // DOM elements - will be initialized on load
 let chatContainer;
 let activeChatsList;
@@ -29,10 +36,19 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add chat styles
   addChatStyles();
   
+  // Add notification styles
+  addNotificationStyles();
+  
+  // Start background listener for new chat notifications (runs on ALL sections)
+  startNotificationListener();
+  
   // Initialize UI components when switching to inbox section
   document.querySelectorAll('.nav-link[data-section]').forEach(link => {
     if (link.getAttribute('data-section') === 'inbox') {
-      link.addEventListener('click', initializeChatInterface);
+      link.addEventListener('click', function() {
+        clearInboxNotification();
+        initializeChatInterface();
+      });
     }
   });
   
@@ -40,13 +56,344 @@ document.addEventListener('DOMContentLoaded', function() {
   const lastActiveSection = localStorage.getItem('adminActiveSection');
   if (lastActiveSection === 'inbox') {
     console.log('Inbox was last active section - initializing Live Chat on page load');
-    // Small delay to ensure DOM is ready
-    setTimeout(initializeChatInterface, 100);
+    setTimeout(() => {
+      clearInboxNotification();
+      initializeChatInterface();
+    }, 100);
   }
 });
 
+// ==================== NOTIFICATION SYSTEM ====================
+
+// Start a background Firestore listener for new chats
+function startNotificationListener() {
+  if (!window.firebase?.firestore) {
+    console.log('Firebase not ready for notifications, retrying in 2s...');
+    setTimeout(startNotificationListener, 2000);
+    return;
+  }
+  
+  console.log('Starting inbox notification listener');
+  const db = firebase.firestore();
+  
+  db.collection(CHAT_COLLECTION)
+    .where('active', '==', true)
+    .where('isNewSession', '==', true)
+    .onSnapshot((snapshot) => {
+      if (isFirstLoad) {
+        // On first load, just record existing chat IDs without notifying
+        snapshot.forEach(doc => knownChatIds.add(doc.id));
+        isFirstLoad = false;
+        console.log('Notification listener initialized with', knownChatIds.size, 'existing chats');
+        return;
+      }
+      
+      // Check for new chats
+      let newChatsDetected = 0;
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'added' && !knownChatIds.has(change.doc.id)) {
+          knownChatIds.add(change.doc.id);
+          newChatsDetected++;
+          
+          const chatData = change.doc.data();
+          console.log('New chat detected from:', chatData.userName);
+          
+          // Show toast notification
+          showNewChatToast(chatData.userName || 'Unknown User');
+          
+          // Play notification sound
+          playNotificationSound();
+        } else if (change.type === 'removed') {
+          knownChatIds.delete(change.doc.id);
+        }
+      });
+      
+      if (newChatsDetected > 0) {
+        // Only show badge if admin is NOT currently on the inbox section
+        const activeSection = localStorage.getItem('adminActiveSection');
+        if (activeSection !== 'inbox') {
+          newChatCount += newChatsDetected;
+          updateInboxBadge(newChatCount);
+        }
+        // Always update the browser tab title with count
+        updateTabTitle(newChatCount > 0 ? newChatCount : newChatsDetected);
+      }
+    }, (error) => {
+      console.error('Notification listener error:', error);
+    });
+}
+
+// Update the inbox notification badge
+function updateInboxBadge(count) {
+  const badge = document.getElementById('inboxNotificationBadge');
+  if (!badge) return;
+  
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = 'inline-flex';
+    
+    // Add pulse animation
+    badge.classList.remove('pulse');
+    void badge.offsetWidth; // Force reflow to restart animation
+    badge.classList.add('pulse');
+  } else {
+    badge.style.display = 'none';
+    badge.classList.remove('pulse');
+  }
+}
+
+// Clear the inbox notification
+function clearInboxNotification() {
+  newChatCount = 0;
+  updateInboxBadge(0);
+  updateTabTitle(0);
+}
+
+// Update the browser tab title with notification count
+function updateTabTitle(count) {
+  // Clear any existing flash interval
+  if (titleFlashInterval) {
+    clearInterval(titleFlashInterval);
+    titleFlashInterval = null;
+  }
+  
+  if (count > 0) {
+    var newTitle = '(' + count + ') ' + originalPageTitle;
+    document.title = newTitle;
+    console.log('Tab title updated to:', document.title);
+    
+    // Flash the title to grab attention
+    var showNotification = true;
+    titleFlashInterval = setInterval(function() {
+      if (newChatCount <= 0) {
+        clearInterval(titleFlashInterval);
+        titleFlashInterval = null;
+        document.title = originalPageTitle;
+        return;
+      }
+      if (showNotification) {
+        document.title = '(' + newChatCount + ') New Chat!';
+      } else {
+        document.title = '(' + newChatCount + ') ' + originalPageTitle;
+      }
+      showNotification = !showNotification;
+    }, 1500);
+  } else {
+    document.title = originalPageTitle;
+  }
+}
+
+// Show a toast notification for new chat
+function showNewChatToast(userName) {
+  // Remove any existing toast
+  const existingToast = document.querySelector('.chat-notification-toast');
+  if (existingToast) existingToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = 'chat-notification-toast';
+  toast.innerHTML = `
+    <div class="toast-icon">💬</div>
+    <div class="toast-content">
+      <div class="toast-title">New Chat Message</div>
+      <div class="toast-body">${userName} started a new chat</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  
+  // Click toast to go to inbox
+  toast.addEventListener('click', function(e) {
+    if (e.target.className !== 'toast-close') {
+      // Navigate to inbox section
+      const inboxLink = document.querySelector('.nav-link[data-section="inbox"]');
+      if (inboxLink) inboxLink.click();
+      toast.remove();
+    }
+  });
+  
+  document.body.appendChild(toast);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.add('toast-fade-out');
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 5000);
+}
+
+// Shared AudioContext - initialized on first user interaction to comply with browser autoplay policy
+let sharedAudioContext = null;
+
+// Initialize AudioContext on first user click (required by browsers)
+document.addEventListener('click', function initAudio() {
+  if (!sharedAudioContext) {
+    sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    console.log('AudioContext initialized on user interaction');
+  }
+  if (sharedAudioContext.state === 'suspended') {
+    sharedAudioContext.resume();
+  }
+}, { once: false });
+
+// Play a notification sound
+function playNotificationSound() {
+  try {
+    // Create or resume AudioContext
+    if (!sharedAudioContext) {
+      sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (sharedAudioContext.state === 'suspended') {
+      sharedAudioContext.resume();
+    }
+    
+    var ctx = sharedAudioContext;
+    
+    // First tone - D5
+    var osc1 = ctx.createOscillator();
+    var gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.frequency.value = 587.33;
+    osc1.type = 'sine';
+    gain1.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.3);
+    
+    // Second tone - A5 (higher, delayed)
+    var osc2 = ctx.createOscillator();
+    var gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.frequency.value = 880;
+    osc2.type = 'sine';
+    gain2.gain.setValueAtTime(0.4, ctx.currentTime + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+    osc2.start(ctx.currentTime + 0.15);
+    osc2.stop(ctx.currentTime + 0.45);
+    
+    console.log('Notification sound played');
+  } catch (e) {
+    console.log('Could not play notification sound:', e);
+  }
+}
+
+// Add notification-specific styles
+function addNotificationStyles() {
+  if (document.getElementById('admin-notification-styles')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'admin-notification-styles';
+  style.textContent = `
+    /* Notification Badge */
+    .notification-badge {
+      position: absolute;
+      top: -8px;
+      right: -12px;
+      background-color: #ef4444;
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+      z-index: 100;
+    }
+    
+    .notification-badge.pulse {
+      animation: badgePulse 1s ease-in-out 3;
+    }
+    
+    @keyframes badgePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+    
+    /* Toast Notification */
+    .chat-notification-toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 99999;
+      cursor: pointer;
+      min-width: 280px;
+      max-width: 400px;
+      animation: toastSlideIn 0.3s ease-out;
+      transition: opacity 0.3s ease;
+    }
+    
+    .chat-notification-toast:hover {
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .toast-fade-out {
+      opacity: 0 !important;
+    }
+    
+    @keyframes toastSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .toast-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    
+    .toast-content {
+      flex: 1;
+    }
+    
+    .toast-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #1e293b;
+      margin-bottom: 2px;
+    }
+    
+    .toast-body {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    
+    .toast-close {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+    
+    .toast-close:hover {
+      color: #475569;
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// ==================== END NOTIFICATION SYSTEM ====================
+
 // MutationObserver for monitoring messages list changes
 let messagesObserver = null;
+
+// Track if the admin has manually scrolled up
+let userScrolledUp = false;
 
 // Initialize chat interface
 function initializeChatInterface() {
@@ -87,66 +434,11 @@ function initializeChatInterface() {
     </div>
   `;
   
-  // Add a very simple, focused scroll helper directly to the page
-  const scrollScript = document.createElement('script');
-  scrollScript.textContent = `
-    // Utility function to force scroll to bottom
-    function forceAdminChatScroll() {
-      const messagesList = document.getElementById('messagesList');
-      if (!messagesList) return;
-      
-      // Set timeout for DOM to stabilize
-      setTimeout(() => {
-        // Simple but effective approach
-        messagesList.scrollTop = 999999;
-        
-        // Try direct scrollIntoView on last message if available
-        const messages = messagesList.querySelectorAll('.chat-message');
-        if (messages && messages.length > 0) {
-          try {
-            const lastMessage = messages[messages.length - 1];
-            lastMessage.scrollIntoView();
-          } catch (e) {
-            console.log('ScrollIntoView failed, using fallback');
-            messagesList.scrollTop = messagesList.scrollHeight;
-          }
-        }
-      }, 50);
-    }
-    
-    // Watch for new messages and scroll when they appear
-    const adminChatObserver = new MutationObserver(() => {
-      forceAdminChatScroll();
-    });
-    
-    // Setup automatic scrolling when active chat exists
-    function setupAdminChatAutoScroll() {
-      const messagesList = document.getElementById('messagesList');
-      if (!messagesList) return;
-      
-      // Disconnect any existing observer
-      adminChatObserver.disconnect();
-      
-      // Observe the messages list for changes
-      adminChatObserver.observe(messagesList, {
-        childList: true,
-        subtree: true,
-        characterData: true
-      });
-      
-      // Initial scroll
-      forceAdminChatScroll();
-    }
-    
-    // Check for messages list periodically
-    const adminChatScrollInterval = setInterval(() => {
-      const messagesList = document.getElementById('messagesList');
-      if (messagesList) {
-        setupAdminChatAutoScroll();
-      }
-    }, 500);
-  `;
-  document.head.appendChild(scrollScript);
+  // Smart scroll helper - only scrolls when appropriate
+  window.forceAdminChatScroll = function() {
+    const ml = document.getElementById('messagesList');
+    if (ml) ml.scrollTop = ml.scrollHeight;
+  };
   
   // Get references to key elements
   chatContainer = document.querySelector('.live-chat-container');
@@ -221,24 +513,9 @@ function sendMessageIfValid() {
     sendMessage(activeChatId, messageText, 'admin');
     messageInput.value = '';
     
-    // Force immediate scroll using all available methods
-    if (typeof window.forceAdminChatScroll === 'function') {
-      console.log('Using direct DOM scrolling');
-      window.forceAdminChatScroll();
-    }
-    
-    // Force scroll to bottom after sending message
-    scrollToBottom();
-    
-    // Schedule multiple aggressive scrolls after sending
-    for (let delay of [50, 100, 200, 500, 1000]) {
-      setTimeout(() => {
-        if (typeof window.forceAdminChatScroll === 'function') {
-          window.forceAdminChatScroll();
-        }
-        scrollToBottom();
-      }, delay);
-    }
+    // Always scroll to bottom after sending own message
+    userScrolledUp = false;
+    setTimeout(() => scrollToBottom(), 100);
     
     // Reset flag after a short delay
     setTimeout(() => {
@@ -312,10 +589,22 @@ function updateActiveChatsUI(hasChats) {
     
     li.innerHTML = `
       <div class="chat-item-user">${chat.userName || 'Unknown User'}</div>
+      ${chat.itemTitle ? `<div class="chat-item-inquiry chat-item-clickable" data-item-id="${chat.itemId || ''}">📦 ${chat.itemTitle}</div>` : ''}
       <div class="chat-item-preview">${lastMessage}</div>
       <div class="chat-item-time">${timestamp}</div>
       ${chat.unreadCount ? `<span class="unread-badge">${chat.unreadCount}</span>` : ''}
     `;
+    
+    // Add click handler for item inquiry link in sidebar
+    const inquiryLink = li.querySelector('.chat-item-inquiry[data-item-id]');
+    if (inquiryLink && inquiryLink.dataset.itemId) {
+      inquiryLink.addEventListener('click', (e) => {
+        e.stopPropagation(); // Don't trigger chat selection
+        if (typeof showItemDetailsModal === 'function') {
+          showItemDetailsModal(inquiryLink.dataset.itemId);
+        }
+      });
+    }
     
     // Add click handler to select this chat
     li.addEventListener('click', () => selectChat(chat.id));
@@ -352,10 +641,6 @@ function selectChat(chatId) {
     if (messageInput) {
       setTimeout(() => {
         messageInput.focus();
-        // Force scrolling after focusing
-        if (typeof window.forceAdminChatScroll === 'function') {
-          window.forceAdminChatScroll();
-        }
       }, 200);
     }
   };
@@ -398,17 +683,63 @@ function loadChatMessages(chatId) {
       if (doc.exists) {
         const chatData = doc.data();
         
-        // Display user info
+        // Build initial chat header
         chatWindow.innerHTML = `
           <div class="chat-user-info">
             <div class="chat-user-name">${chatData.userName || 'Unknown User'}</div>
             <div class="chat-user-email">${chatData.userEmail || 'No email provided'}</div>
             <div class="chat-start-time">Started: ${formatTimestamp(chatData.startTime)}</div>
+            <div id="chatItemContext"></div>
           </div>
           <div id="messagesList" class="messages-list"></div>
         `;
         
+        // If chat has item context, fetch item details from Firestore
+        if (chatData.itemId) {
+          const itemContextEl = document.getElementById('chatItemContext');
+          firebase.firestore().collection('items').doc(chatData.itemId).get()
+            .then(itemDoc => {
+              if (itemDoc.exists) {
+                const itemData = itemDoc.data();
+                const itemTitle = chatData.itemTitle || itemData.title || 'Unknown Item';
+                const itemImage = itemData.image || '';
+                itemContextEl.innerHTML = `
+                  <div class="chat-item-context chat-item-clickable" data-item-id="${chatData.itemId}">
+                    ${itemImage ? `<img src="${itemImage}" alt="${itemTitle}" class="chat-item-thumb">` : ''}
+                    <div class="chat-item-details">
+                      <div class="chat-item-label">Inquiring about:</div>
+                      <div class="chat-item-name">${itemTitle}</div>
+                      <div class="chat-item-view-hint">Click to view details</div>
+                    </div>
+                  </div>`;
+                
+                // Make it clickable to open item details modal
+                itemContextEl.querySelector('.chat-item-clickable').addEventListener('click', function() {
+                  if (typeof showItemDetailsModal === 'function') {
+                    showItemDetailsModal(chatData.itemId);
+                  }
+                });
+              }
+            })
+            .catch(err => console.log('Could not fetch item details:', err));
+        }
+        
         messagesList = document.getElementById('messagesList');
+        
+        // Reset scroll tracking for new chat
+        userScrolledUp = false;
+        
+        // Track manual scrolling - if user scrolls up, stop auto-scrolling
+        if (messagesList) {
+          messagesList.addEventListener('scroll', function() {
+            const distFromBottom = this.scrollHeight - this.scrollTop - this.clientHeight;
+            if (distFromBottom > 200) {
+              userScrolledUp = true;
+            } else {
+              userScrolledUp = false;
+            }
+          });
+        }
         
         // Set up MutationObserver to detect when messages are added and force scroll
         if (messagesList) {
@@ -417,11 +748,10 @@ function loadChatMessages(chatId) {
             messagesObserver.disconnect();
           }
           
-          // Create a new observer
+          // Create a new observer - no longer auto-scrolls on every mutation
+          // Scrolling is handled explicitly when new messages arrive
           messagesObserver = new MutationObserver((mutations) => {
-            console.log('Messages list mutation detected - scrolling down');
-            // Force multiple scrolls to ensure it reaches the bottom
-            scrollToBottom();
+            // Do nothing - scroll is handled by handleMessagesUpdate
           });
           
           // Start observing
@@ -465,27 +795,11 @@ function handleMessagesUpdate(snapshot) {
     }
   });
   
-  // Always scroll to bottom when messages are added - use multiple approaches
-  if (addedMessages) {
-    // Direct immediate scroll
-    if (messagesList) {
-      messagesList.scrollTop = messagesList.scrollHeight + 5000;
+  // Only scroll if the admin hasn't manually scrolled up
+  if (addedMessages && messagesList) {
+    if (!userScrolledUp) {
+      setTimeout(() => scrollToBottom(), 50);
     }
-    
-    // Use multiple delayed scrolls to ensure it works
-    setTimeout(() => {
-      if (messagesList) {
-        messagesList.scrollTop = messagesList.scrollHeight + 5000;
-        console.log('First delayed scroll triggered');
-      }
-    }, 10);
-    
-    setTimeout(() => {
-      if (messagesList) {
-        messagesList.scrollTop = messagesList.scrollHeight + 5000;
-        console.log('Second delayed scroll triggered');
-      }
-    }, 100);
     
     // Reset idle timer
     resetIdleTimer(activeChatId);
@@ -503,29 +817,11 @@ function addMessageToUI(message) {
   
   messageDiv.innerHTML = `
     <div class="message-content">${message.text}</div>
-    <div class="message-time">${timestamp}</div>
+    ${timestamp ? `<span class="message-time">${timestamp}</span>` : ''}
   `;
   
   messagesList.appendChild(messageDiv);
-  
-  // Force scroll using multiple methods
-  // 1. Direct scroll
-  messagesList.scrollTop = messagesList.scrollHeight + 5000;
-  
-  // 2. Use the global helper if available
-  if (typeof window.forceAdminChatScroll === 'function') {
-    window.forceAdminChatScroll();
-  }
-  
-  // 3. Use our internal scroll function
-  scrollToBottom();
-  
-  // 4. Schedule another scroll after a short delay
-  setTimeout(() => {
-    if (typeof window.forceAdminChatScroll === 'function') {
-      window.forceAdminChatScroll();
-    }
-  }, 100);
+  // Scrolling is handled by handleMessagesUpdate (respects user's scroll position)
 }
 
 // Send a message
@@ -730,19 +1026,10 @@ function showError(message) {
   }, 5000);
 }
 
-// Scroll chat window to bottom using the global helper function
+// Scroll chat window to bottom
 function scrollToBottom() {
   if (!messagesList) return;
-  
-  console.log('Scrolling to bottom using global helper');
-  
-  // Use the global helper if available
-  if (typeof window.forceAdminChatScroll === 'function') {
-    window.forceAdminChatScroll();
-  } else {
-    // Fallback if helper not available yet
-    messagesList.scrollTop = messagesList.scrollHeight + 5000;
-  }
+  messagesList.scrollTop = messagesList.scrollHeight;
 }
 
 // Add chat styles to the document
@@ -964,6 +1251,84 @@ function addChatStyles() {
       margin-right: 0.5rem;
     }
     
+    .chat-item-context {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(37, 99, 235, 0.2);
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 6px;
+      padding: 0.6rem;
+    }
+    
+    .chat-item-thumb {
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 2px solid #bfdbfe;
+      flex-shrink: 0;
+    }
+    
+    .chat-item-details {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .chat-item-label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    
+    .chat-item-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #1e3a5f;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .chat-item-inquiry {
+      font-size: 0.75rem;
+      color: #4b5563;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .chat-item-clickable {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .chat-item-clickable:hover {
+      background: rgba(37, 99, 235, 0.1);
+      border-radius: 6px;
+    }
+    
+    .chat-item-inquiry.chat-item-clickable:hover {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+    
+    .chat-item-view-hint {
+      font-size: 0.65rem;
+      color: #93a3b8;
+      margin-top: 2px;
+      font-style: italic;
+    }
+    
+    .chat-item-clickable:hover .chat-item-view-hint {
+      color: #2563eb;
+    }
+    
     .messages-list {
       display: flex;
       flex-direction: column;
@@ -971,49 +1336,29 @@ function addChatStyles() {
     }
     
     .chat-message {
-      max-width: 80%;
-      padding: 0.75rem 1rem;
-      border-radius: 12px;
-      position: relative;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      margin-bottom: 0.25rem;
+      max-width: 75% !important;
+      min-width: 120px !important;
+      padding: 12px 18px !important;
+      border-radius: 8px !important;
+      position: relative !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+      margin-bottom: 10px !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
     }
     
     .user-message {
-      align-self: flex-start;
-      background-color: #f3f4f6;
-      border-bottom-left-radius: 2px;
-      border-left: 3px solid #9ca3af;
-    }
-    
-    .user-message::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: -8px;
-      width: 16px;
-      height: 16px;
-      background-color: #f3f4f6;
-      border-bottom-right-radius: 16px;
+      align-self: flex-start !important;
+      background-color: #f3f4f6 !important;
+      border-radius: 8px !important;
+      color: #1f2937 !important;
     }
     
     .admin-message {
-      align-self: flex-end;
-      background-color: #dbeafe;
-      border-bottom-right-radius: 2px;
-      border-right: 3px solid #3b82f6;
-      color: #1e3a8a;
-    }
-    
-    .admin-message::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      right: -8px;
-      width: 16px;
-      height: 16px;
-      background-color: #dbeafe;
-      border-bottom-left-radius: 16px;
+      align-self: flex-end !important;
+      background-color: #2563eb !important;
+      border-radius: 8px !important;
+      color: #ffffff !important;
     }
     
     .system-message {
@@ -1033,19 +1378,25 @@ function addChatStyles() {
     }
     
     .message-content {
-      word-wrap: break-word;
+      word-wrap: break-word !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
+    }
+    
+    .admin-message .message-time {
+      color: rgba(255, 255, 255, 0.6) !important;
     }
     
     .message-time {
-      font-size: 0.8rem;
-      color: #4b5563;
-      text-align: right;
-      margin-top: 0.5rem;
-      font-weight: 500;
+      font-size: 11px !important;
+      color: #9ca3af !important;
+      text-align: right !important;
+      margin-top: 4px !important;
+      font-weight: 400 !important;
       display: block !important;
-      background-color: rgba(241, 245, 249, 0.6);
-      padding: 2px 6px;
-      border-radius: 10px;
+      background-color: transparent !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
       width: fit-content;
       margin-left: auto;
     }

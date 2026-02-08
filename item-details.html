@@ -469,7 +469,8 @@ function openChat() {
                     }
                     
                     // Store the item ID for the chat button
-                    document.getElementById('contact-btn').dataset.itemId = itemId;
+                    const chatBtn = document.getElementById('chat-with-staff-btn');
+                    if (chatBtn) chatBtn.dataset.itemId = itemId;
                     
                 } else {
                     console.log("No such document!");

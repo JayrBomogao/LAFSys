@@ -55,7 +55,11 @@ class ImprovedImageAnalyzer {
       this.canvas.height = size;
       this.ctx.drawImage(img, 0, 0, img.width, img.height);
       
-      // Extract features
+      // CRITICAL: Create the comparison fingerprint using the SAME path as item images
+      // This ensures identical images produce identical fingerprints
+      const uploadedFeatures = await this._getItemImageFeatures_fromImg(img);
+      
+      // Extract features for label/color/shape analysis
       const features = await this._extractFeatures(img);
       
       // Return analysis results
@@ -80,7 +84,9 @@ class ImprovedImageAnalyzer {
         objectFeatures: features.objectFeatures,
         textAnnotations: features.textAnnotations,
         shapeFeatures: features.shapeFeatures,
-        imageFingerprint: features.imageFingerprint
+        imageFingerprint: uploadedFeatures.fingerprint,
+        _colorHistogram: uploadedFeatures.colorHistogram,
+        _pixelData: uploadedFeatures.pixelData
       };
     } catch (error) {
       console.error('Error in improved image analysis:', error);
@@ -115,48 +121,77 @@ class ImprovedImageAnalyzer {
       const labels = (analysisResults.labelAnnotations || []).map(l => l.description.toLowerCase());
       const colors = (analysisResults.imagePropertiesAnnotation?.dominantColors?.colors || []).map(c => c.color);
       const objectFeatures = analysisResults.objectFeatures || {};
-      const textAnnotations = analysisResults.textAnnotations || [];
       const shapeFeatures = analysisResults.shapeFeatures || {};
-      const imageFingerprint = analysisResults.imageFingerprint || [];
+      const uploadedFingerprint = analysisResults.imageFingerprint || [];
+      const uploadedColorHist = analysisResults._colorHistogram || this._lastColorHistogram || [];
       
-      // Calculate match scores using multiple criteria
-      const scoredItems = allItems.map(item => {
-        // Multiple scoring components
-        const scores = {
-          title: this._calculateTitleScore(item, labels),
-          category: this._calculateCategoryScore(item, labels),
-          description: this._calculateDescriptionScore(item, labels),
-          color: this._calculateColorScore(item, colors),
-          objectMatch: this._calculateObjectMatch(item, objectFeatures),
-          featureMatch: this._calculateFeatureMatch(item, shapeFeatures, imageFingerprint)
-        };
+      // Compare uploaded image directly against each item's image
+      const scoredItems = [];
+      const uploadedPixelData = analysisResults._pixelData || null;
+      
+      for (const item of allItems) {
+        let hashScore = 0;
+        let colorCompareScore = 0;
+        let pixelScore = 0;
         
-        // Calculate weighted score
-        const weightedScore = (
-          scores.title * 0.30 +       // Title is most important
-          scores.category * 0.20 +     // Category is very relevant
-          scores.description * 0.15 +  // Description has some keywords
-          scores.color * 0.15 +        // Color still matters
-          scores.objectMatch * 0.10 +  // Object detection
-          scores.featureMatch * 0.10   // Shape and feature detection
-        );
+        // Direct image comparison if item has an image
+        if (item.image) {
+          try {
+            const itemFeatures = await this._getItemImageFeatures(item.image);
+            hashScore = this._compareFingerprints(uploadedFingerprint, itemFeatures.fingerprint);
+            colorCompareScore = this._compareColorHistograms(uploadedColorHist, itemFeatures.colorHistogram);
+            
+            // Direct pixel-level comparison for exact/near-exact match detection
+            if (uploadedPixelData && itemFeatures.pixelData) {
+              pixelScore = this._comparePixels(uploadedPixelData, itemFeatures.pixelData);
+            }
+          } catch (e) {
+            console.log('Could not compare image for item:', item.title, e.message);
+          }
+        }
         
-        // Add diagnostic info
+        // Use the BEST visual score between hash and pixel comparison
+        const visualScore = Math.max(hashScore, pixelScore);
+        
+        // Text-based scores
+        const titleScore = this._calculateTitleScore(item, labels);
+        const categoryScore = this._calculateCategoryScore(item, labels);
+        const descriptionScore = this._calculateDescriptionScore(item, labels);
+        
+        // Weighted score: visual comparison is dominant
+        // If pixel match is very high (>0.9), boost it heavily - it's likely the same image
+        let weightedScore;
+        if (pixelScore > 0.9) {
+          // Near-exact pixel match - this IS the same image
+          weightedScore = 0.92 + (pixelScore - 0.9) * 0.7;
+        } else {
+          weightedScore = (
+            visualScore * 0.55 +          // Best of hash/pixel comparison
+            colorCompareScore * 0.15 +    // Color histogram comparison
+            titleScore * 0.12 +           // Title keyword match
+            categoryScore * 0.10 +        // Category match
+            descriptionScore * 0.08       // Description match
+          );
+        }
+        
         const diagnostics = {
-          titleScore: scores.title,
-          categoryScore: scores.category,
-          descriptionScore: scores.description,
-          colorScore: scores.color,
-          objectMatchScore: scores.objectMatch,
-          featureMatchScore: scores.featureMatch
+          hashScore,
+          pixelScore,
+          visualScore,
+          colorCompareScore,
+          titleScore,
+          categoryScore,
+          descriptionScore
         };
         
-        return {
+        console.log(`Item "${item.title}": hash=${(hashScore*100).toFixed(1)}% pixel=${(pixelScore*100).toFixed(1)}% color=${(colorCompareScore*100).toFixed(1)}% total=${(weightedScore*100).toFixed(1)}%`);
+        
+        scoredItems.push({
           ...item,
-          score: Math.min(0.98, weightedScore),  // Cap at 98% for realism
+          score: Math.min(0.99, weightedScore),
           diagnostics
-        };
-      });
+        });
+      }
       
       // Sort by score (highest first)
       scoredItems.sort((a, b) => b.score - a.score);
@@ -167,6 +202,296 @@ class ImprovedImageAnalyzer {
       console.error('Error finding similar items:', error);
       throw new Error('Failed to find similar items');
     }
+  }
+  
+  /**
+   * Get image features from a loaded Image element (used for uploaded image)
+   * @private
+   */
+  async _getItemImageFeatures_fromImg(img) {
+    const compareCanvas = document.createElement('canvas');
+    const compareCtx = compareCanvas.getContext('2d');
+    compareCanvas.width = 64;
+    compareCanvas.height = 64;
+    compareCtx.drawImage(img, 0, 0, 64, 64);
+    const smallData = compareCtx.getImageData(0, 0, 64, 64);
+    
+    const fingerprint = this._createDHash(smallData);
+    const colorHistogram = this._createColorHistogram(smallData.data);
+    const pixelData = this._extractPixelSignature(smallData.data);
+    
+    return { fingerprint, colorHistogram, pixelData };
+  }
+  
+  /**
+   * Get image features for a stored item image (with caching)
+   * @private
+   */
+  async _getItemImageFeatures(imageSource) {
+    // Check cache
+    const cacheKey = typeof imageSource === 'string' ? imageSource.substring(0, 100) : 'blob';
+    if (this._imageFeatureCache && this._imageFeatureCache.has(cacheKey)) {
+      return this._imageFeatureCache.get(cacheKey);
+    }
+    if (!this._imageFeatureCache) this._imageFeatureCache = new Map();
+    
+    const img = await this._loadImage(imageSource);
+    
+    // Resize to standard size for comparison - SAME process as uploaded image
+    const compareCanvas = document.createElement('canvas');
+    const compareCtx = compareCanvas.getContext('2d');
+    compareCanvas.width = 64;
+    compareCanvas.height = 64;
+    compareCtx.drawImage(img, 0, 0, 64, 64);
+    const smallData = compareCtx.getImageData(0, 0, 64, 64);
+    
+    // Create fingerprint from the standardized image
+    const fingerprint = this._createDHash(smallData);
+    const colorHistogram = this._createColorHistogram(smallData.data);
+    const pixelData = this._extractPixelSignature(smallData.data);
+    
+    const features = { fingerprint, colorHistogram, pixelData };
+    this._imageFeatureCache.set(cacheKey, features);
+    return features;
+  }
+  
+  /**
+   * Extract a compact pixel signature for direct comparison
+   * Samples pixels in a center-weighted grid
+   * @private
+   */
+  _extractPixelSignature(pixels) {
+    // Extract grayscale values at every 4th pixel for a 64x64 image
+    // Focus more on the center (where the object usually is)
+    const signature = [];
+    const size = 64;
+    
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const idx = (y * size + x) * 4;
+        // Weighted grayscale
+        const gray = pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114;
+        signature.push(gray);
+      }
+    }
+    
+    return signature;
+  }
+  
+  /**
+   * Compare two pixel signatures using normalized cross-correlation
+   * This is excellent at detecting identical or near-identical images
+   * @private
+   */
+  _comparePixels(sig1, sig2) {
+    if (!sig1 || !sig2 || sig1.length === 0 || sig2.length === 0) return 0;
+    
+    const len = Math.min(sig1.length, sig2.length);
+    const size = 64;
+    
+    // Calculate means
+    let mean1 = 0, mean2 = 0;
+    for (let i = 0; i < len; i++) {
+      mean1 += sig1[i];
+      mean2 += sig2[i];
+    }
+    mean1 /= len;
+    mean2 /= len;
+    
+    // Calculate normalized cross-correlation with center weighting
+    let sumCross = 0, sumSq1 = 0, sumSq2 = 0;
+    const centerX = size / 2, centerY = size / 2;
+    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+    
+    for (let i = 0; i < len; i++) {
+      const x = i % size;
+      const y = Math.floor(i / size);
+      
+      // Center weight: pixels near center matter more
+      const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+      const weight = 1.0 + (1.0 - dist / maxDist); // 1.0 at edge, 2.0 at center
+      
+      const d1 = (sig1[i] - mean1) * weight;
+      const d2 = (sig2[i] - mean2) * weight;
+      
+      sumCross += d1 * d2;
+      sumSq1 += d1 * d1;
+      sumSq2 += d2 * d2;
+    }
+    
+    const denom = Math.sqrt(sumSq1 * sumSq2);
+    if (denom === 0) return 0;
+    
+    // NCC ranges from -1 to 1; we map it to 0-1
+    const ncc = sumCross / denom;
+    const score = (ncc + 1) / 2; // Map [-1,1] to [0,1]
+    
+    // Apply curve: identical images (score > 0.95) get very high results
+    if (score > 0.98) return 0.98 + (score - 0.98) * 0.5;
+    if (score > 0.90) return 0.85 + (score - 0.90) * 1.625;
+    if (score > 0.80) return 0.60 + (score - 0.80) * 2.5;
+    if (score > 0.65) return 0.30 + (score - 0.65) * 2.0;
+    return score * 0.46;
+  }
+  
+  /**
+   * Create a difference hash (dHash) with 17x16 = 256 bit resolution
+   * Higher resolution = better discrimination between different images
+   * @private
+   */
+  _createDHash(imageData) {
+    const width = imageData.width;
+    const height = imageData.height;
+    const pixels = imageData.data;
+    const hash = [];
+    
+    // Use a 17x16 grid for 256-bit hash (much more discriminating than 72-bit)
+    const gridW = 17;
+    const gridH = 16;
+    const gray = [];
+    
+    for (let y = 0; y < gridH; y++) {
+      for (let x = 0; x < gridW; x++) {
+        // Sample with area averaging for more stable results
+        const px = Math.floor(x * width / gridW);
+        const py = Math.floor(y * height / gridH);
+        const px2 = Math.min(width - 1, Math.floor((x + 1) * width / gridW));
+        const py2 = Math.min(height - 1, Math.floor((y + 1) * height / gridH));
+        
+        let sum = 0, count = 0;
+        for (let sy = py; sy <= py2; sy++) {
+          for (let sx = px; sx <= px2; sx++) {
+            const idx = (sy * width + sx) * 4;
+            sum += pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114;
+            count++;
+          }
+        }
+        gray.push(count > 0 ? sum / count : 0);
+      }
+    }
+    
+    // Compare adjacent pixels horizontally
+    for (let y = 0; y < gridH; y++) {
+      for (let x = 0; x < gridW - 1; x++) {
+        const idx = y * gridW + x;
+        hash.push(gray[idx] > gray[idx + 1] ? 1 : 0);
+      }
+    }
+    
+    return hash;
+  }
+  
+  /**
+   * Create a color histogram in HSL space with center weighting
+   * HSL is better than RGB for perceptual color matching
+   * Center weighting reduces background influence
+   * @private
+   */
+  _createColorHistogram(pixels) {
+    // 12 hue bins x 4 saturation bins x 4 lightness bins = 192 bins
+    const hBins = 12, sBins = 4, lBins = 4;
+    const totalBins = hBins * sBins * lBins;
+    const histogram = new Array(totalBins).fill(0);
+    let totalWeight = 0;
+    const size = 64; // Assuming 64x64 image
+    const centerX = size / 2, centerY = size / 2;
+    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+    
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i+3] < 128) continue; // skip transparent
+      
+      // Center weighting
+      const pixIdx = i / 4;
+      const x = pixIdx % size;
+      const y = Math.floor(pixIdx / size);
+      const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+      const weight = 1.0 + 2.0 * (1.0 - dist / maxDist); // 1 at edge, 3 at center
+      
+      // Convert RGB to HSL
+      const r = pixels[i] / 255, g = pixels[i+1] / 255, b = pixels[i+2] / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      let h = 0, s = 0;
+      
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (max === g) h = ((b - r) / d + 2) / 6;
+        else h = ((r - g) / d + 4) / 6;
+      }
+      
+      const hBin = Math.min(hBins - 1, Math.floor(h * hBins));
+      const sBin = Math.min(sBins - 1, Math.floor(s * sBins));
+      const lBin = Math.min(lBins - 1, Math.floor(l * lBins));
+      
+      histogram[hBin * sBins * lBins + sBin * lBins + lBin] += weight;
+      totalWeight += weight;
+    }
+    
+    // Normalize
+    if (totalWeight > 0) {
+      for (let i = 0; i < histogram.length; i++) {
+        histogram[i] /= totalWeight;
+      }
+    }
+    
+    return histogram;
+  }
+  
+  /**
+   * Compare two fingerprints using Hamming distance
+   * With 256-bit hash, we have much better discrimination
+   * @private
+   */
+  _compareFingerprints(fp1, fp2) {
+    if (!fp1 || !fp2 || fp1.length === 0 || fp2.length === 0) return 0;
+    
+    const len = Math.min(fp1.length, fp2.length);
+    if (len === 0) return 0;
+    
+    let matches = 0;
+    for (let i = 0; i < len; i++) {
+      if (fp1[i] === fp2[i]) matches++;
+    }
+    
+    // Hamming similarity (1 = identical, 0 = completely different)
+    const similarity = matches / len;
+    
+    // With 256-bit hash, random chance gives ~50% match
+    // Truly similar images should be >85%, identical >95%
+    // Scale so that 50% raw → ~0, 100% raw → 1.0
+    const adjusted = Math.max(0, (similarity - 0.50) / 0.50); // 0.5→0, 1.0→1.0
+    
+    // Apply curve to boost high matches
+    if (adjusted > 0.90) return 0.95 + (adjusted - 0.90) * 0.5;
+    if (adjusted > 0.70) return 0.75 + (adjusted - 0.70) * 1.0;
+    if (adjusted > 0.40) return 0.35 + (adjusted - 0.40) * 1.33;
+    return adjusted * 0.875;
+  }
+  
+  /**
+   * Compare two color histograms using Bhattacharyya coefficient
+   * More discriminating than simple intersection for HSL histograms
+   * @private
+   */
+  _compareColorHistograms(hist1, hist2) {
+    if (!hist1 || !hist2 || hist1.length === 0 || hist2.length === 0) return 0;
+    if (hist1.length !== hist2.length) return 0;
+    
+    // Bhattacharyya coefficient: sum of sqrt(h1[i] * h2[i])
+    let bc = 0;
+    for (let i = 0; i < hist1.length; i++) {
+      bc += Math.sqrt((hist1[i] || 0) * (hist2[i] || 0));
+    }
+    
+    // bc ranges from 0 (no overlap) to 1 (identical)
+    // Apply curve to spread scores - identical should be very high
+    const score = Math.min(1, bc);
+    if (score > 0.95) return 0.95 + (score - 0.95) * 1.0;
+    if (score > 0.80) return 0.65 + (score - 0.80) * 2.0;
+    if (score > 0.60) return 0.30 + (score - 0.60) * 1.75;
+    return score * 0.5;
   }
   
   // PRIVATE METHODS
@@ -545,36 +870,31 @@ class ImprovedImageAnalyzer {
   }
   
   /**
-   * Create a simplified image fingerprint
+   * Create image fingerprint using dHash for better matching
    * @private
    */
   _createImageFingerprint(imageData) {
-    // Create a simplified perceptual hash
-    // In reality, this would use a proper algorithm like pHash or dHash
-    const fingerprint = [];
-    const width = imageData.width;
-    const height = imageData.height;
-    const pixels = imageData.data;
+    // Use dHash for a proper perceptual hash
+    // First resize to 64x64 for standardized comparison
+    const resizeCanvas = document.createElement('canvas');
+    const resizeCtx = resizeCanvas.getContext('2d');
+    resizeCanvas.width = 64;
+    resizeCanvas.height = 64;
     
-    // Sample 16x16 grid
-    const gridSize = 16;
-    const stepX = width / gridSize;
-    const stepY = height / gridSize;
+    // Put original imageData into a temp canvas, then resize
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = imageData.width;
+    tempCanvas.height = imageData.height;
+    tempCtx.putImageData(imageData, 0, 0);
     
-    for (let y = 0; y < gridSize; y++) {
-      for (let x = 0; x < gridSize; x++) {
-        const pixelX = Math.floor(x * stepX);
-        const pixelY = Math.floor(y * stepY);
-        const idx = (pixelY * width + pixelX) * 4;
-        
-        // Average RGB
-        const avg = (pixels[idx] + pixels[idx + 1] + pixels[idx + 2]) / 3;
-        // Binarize
-        fingerprint.push(avg > 127 ? 1 : 0);
-      }
-    }
+    resizeCtx.drawImage(tempCanvas, 0, 0, 64, 64);
+    const smallData = resizeCtx.getImageData(0, 0, 64, 64);
     
-    return fingerprint;
+    // Store the color histogram for later comparison
+    this._lastColorHistogram = this._createColorHistogram(smallData.data);
+    
+    return this._createDHash(smallData);
   }
   
   /**
@@ -642,33 +962,8 @@ class ImprovedImageAnalyzer {
     return Math.min(1, matchCount * 0.2);
   }
   
-  /**
-   * Calculate color match score
-   * @private
-   */
-  _calculateColorScore(item, colors) {
-    // Without actual color data from items, use a placeholder score
-    // In a real implementation, we would extract colors from item images
-    return Math.random() * 0.5 + 0.2;
-  }
-  
-  /**
-   * Calculate object match score
-   * @private
-   */
-  _calculateObjectMatch(item, objectFeatures) {
-    // Placeholder score - in a real implementation, would compare object features
-    return Math.random() * 0.4 + 0.3;
-  }
-  
-  /**
-   * Calculate feature match score
-   * @private
-   */
-  _calculateFeatureMatch(item, shapeFeatures, imageFingerprint) {
-    // Placeholder score - in a real implementation, would compare features
-    return Math.random() * 0.4 + 0.3;
-  }
+  // Color, object, and feature scores are now handled by direct image comparison
+  // in findSimilarItems via _compareFingerprints and _compareColorHistograms
 }
 
 // Export globally

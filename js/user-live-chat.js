@@ -239,7 +239,8 @@ function setupEventListeners() {
     // Collect user information
     const name = document.getElementById('userName').value.trim();
     const email = document.getElementById('userEmail').value.trim();
-    const query = document.getElementById('userQuery').value.trim();
+    const queryEl = document.getElementById('userQuery');
+    const query = queryEl ? queryEl.value.trim() : '';
     
     // Start the chat with user info
     startChat(name, email, query);
@@ -426,17 +427,31 @@ function startChat(name, email, initialQuery) {
   // Create a unique chat ID with timestamp to ensure uniqueness regardless of email
   const uniqueChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
   
-  // Create a new chat document with custom ID
-  db.collection(CHAT_COLLECTION).doc(uniqueChatId).set({
+  // Capture item context from the page if available (when chatting from item-details)
+  const chatData = {
     userName: name,
     userEmail: email,
     startTime: firebase.firestore.FieldValue.serverTimestamp(),
     active: true,
     unreadCount: 0,
-    uniqueSessionId: uniqueChatId, // Store the unique ID in the document as well
-    // Add a new field to ensure this is a fresh chat session
+    uniqueSessionId: uniqueChatId,
     isNewSession: true
-  })
+  };
+  
+  // Try to get item info from the current page
+  const chatBtn = document.getElementById('chat-with-staff-btn');
+  const itemTitleEl = document.getElementById('item-title');
+  
+  if (chatBtn && chatBtn.dataset.itemId) {
+    chatData.itemId = chatBtn.dataset.itemId;
+    chatData.itemTitle = itemTitleEl ? itemTitleEl.textContent : '';
+    // Don't store image data directly - it can be a huge base64 string
+    // The admin side will fetch the image from the items collection using itemId
+    console.log('Chat includes item context:', chatData.itemTitle, 'itemId:', chatData.itemId);
+  }
+  
+  // Create a new chat document with custom ID
+  db.collection(CHAT_COLLECTION).doc(uniqueChatId).set(chatData)
   .then(() => {
     // Set the chat ID to our generated unique ID
     userChatId = uniqueChatId;
