@@ -504,7 +504,10 @@ function createChatInput() {
           display: none;
           padding: 4px 8px;
           margin-bottom: 6px;
-          position: relative;">
+          position: relative;
+          max-width: 100%;
+          overflow: hidden;
+          box-sizing: border-box;">
         </div>
         <form id="chatForm" style="
           display: flex !important;
@@ -604,7 +607,7 @@ function createChatInput() {
         pendingImage = { file, dataUrl: ev.target.result };
         chatImagePreview.innerHTML = `
           <div style="position:relative; display:inline-block;">
-            <img src="${ev.target.result}" style="max-height:60px; border-radius:4px; border:1px solid #d1d5db;">
+            <img src="${ev.target.result}" style="max-height:60px; max-width:80px; object-fit:cover; border-radius:4px; border:1px solid #d1d5db;">
             <span id="removeImageBtn" style="
               position:absolute; top:-6px; right:-6px;
               background:#ef4444; color:white; border-radius:50%;
@@ -645,22 +648,24 @@ function createChatInput() {
       
       if (hasImage) {
         // Upload image to Firebase Storage then send
-        uploadAndSendImage(pendingImage, messageText);
+        const imgToSend = pendingImage;
         pendingImage = null;
         if (chatImagePreview) {
           chatImagePreview.innerHTML = '';
           chatImagePreview.style.display = 'none';
         }
+        uploadAndSendImage(imgToSend, messageText).finally(() => {
+          isSubmitting = false;
+        });
       } else {
         // Send text message
         sendMessage(messageText);
+        // Reset flag after a delay
+        setTimeout(() => {
+          isSubmitting = false;
+        }, 1000);
       }
       messageInput.value = '';
-      
-      // Reset flag after a delay
-      setTimeout(() => {
-        isSubmitting = false;
-      }, 1000);
     }
   }
   
@@ -893,40 +898,52 @@ function sendMessage(messageText, imageUrl) {
     });
 }
 
-// Upload image to Firebase Storage and send as message
-function uploadAndSendImage(imageData, messageText) {
-  if (!window.firebase?.storage) {
-    // Fallback: send as data URL if storage not available
-    sendMessage(messageText, imageData.dataUrl);
-    return;
-  }
-  
-  const storageRef = firebase.storage().ref();
-  const fileName = `chat_images/${userChatId}/${Date.now()}_${imageData.file.name}`;
-  const imageRef = storageRef.child(fileName);
-  
-  // Show uploading state
-  addSystemMessage('Uploading image...');
-  
-  imageRef.put(imageData.file)
-    .then(snapshot => snapshot.ref.getDownloadURL())
-    .then(downloadUrl => {
-      // Remove uploading message
-      const msgs = messagesList?.querySelectorAll('.system-message');
-      if (msgs) {
-        const lastSys = msgs[msgs.length - 1];
-        if (lastSys && lastSys.textContent.includes('Uploading image')) {
-          lastSys.remove();
-        }
+// Resize image to keep data URL small enough for Firestore (max 800px)
+function resizeImage(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
       }
-      // Send message with the download URL
-      sendMessage(messageText, downloadUrl);
-    })
-    .catch(error => {
-      console.error('Error uploading image:', error);
-      // Fallback: send as data URL
-      sendMessage(messageText, imageData.dataUrl);
-    });
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// Send image as a resized data URL directly (no Firebase Storage needed)
+async function uploadAndSendImage(imageData, messageText) {
+  try {
+    addSystemMessage('Sending image...');
+    
+    // Resize image to keep it small
+    const resizedUrl = await resizeImage(imageData.dataUrl);
+    
+    // Remove sending message
+    const msgs = messagesList?.querySelectorAll('.system-message');
+    if (msgs) {
+      msgs.forEach(m => {
+        if (m.textContent.includes('Sending image')) m.remove();
+      });
+    }
+    
+    // Send directly as data URL in Firestore message
+    sendMessage(messageText, resizedUrl);
+    console.log('Image sent successfully');
+  } catch (error) {
+    console.error('Error sending image:', error);
+    // Last resort fallback
+    sendMessage(messageText, imageData.dataUrl);
+  }
 }
 
 // End the chat session

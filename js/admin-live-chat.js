@@ -815,8 +815,19 @@ function addMessageToUI(message) {
   
   const timestamp = formatTimestamp(message.timestamp);
   
+  let contentHTML = '';
+  if (message.imageUrl) {
+    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:250px; border-radius:8px; margin-bottom:4px; cursor:pointer; display:block;" onclick="window.open(this.src,'_blank')">`;
+  }
+  if (message.text) {
+    contentHTML += `<div class="message-content">${message.text}</div>`;
+  }
+  if (!message.text && !message.imageUrl) {
+    contentHTML += `<div class="message-content">(empty)</div>`;
+  }
+  
   messageDiv.innerHTML = `
-    <div class="message-content">${message.text}</div>
+    ${contentHTML}
     ${timestamp ? `<span class="message-time">${timestamp}</span>` : ''}
   `;
   
