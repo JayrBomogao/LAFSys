@@ -500,10 +500,32 @@ function createChatInput() {
       visibility: visible !important;
       opacity: 1 !important;
       border-radius: 0 0 12px 12px !important;">
+        <div id="chatImagePreview" style="
+          display: none;
+          padding: 4px 8px;
+          margin-bottom: 6px;
+          position: relative;">
+        </div>
         <form id="chatForm" style="
           display: flex !important;
-          gap: 8px !important;
-          width: 100% !important;">
+          gap: 4px !important;
+          width: 100% !important;
+          align-items: center !important;">
+            <input type="file" id="chatImageInput" accept="image/*" style="display:none !important;">
+            <button type="button" id="chatImageBtn" title="Send image" style="
+              background: none !important;
+              border: 1px solid #d1d5db !important;
+              border-radius: 4px !important;
+              cursor: pointer !important;
+              height: 36px !important;
+              width: 36px !important;
+              min-width: 36px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              font-size: 18px !important;
+              color: #6b7280 !important;
+              padding: 0 !important;">📷</button>
             <input type="text" id="messageInput" placeholder="Type your message here..." style="
               flex: 1 !important;
               padding: 10px !important;
@@ -513,12 +535,10 @@ function createChatInput() {
               height: 36px !important;
               background-color: white !important;
               color: black !important;
-              width: 75% !important;
               box-sizing: border-box !important;
               display: inline-block !important;
               visibility: visible !important;
-              opacity: 1 !important;"
-              required>
+              opacity: 1 !important;">
             <button type="submit" style="
               background-color: #2563eb !important;
               color: white !important;
@@ -528,7 +548,7 @@ function createChatInput() {
               font-weight: bold !important;
               cursor: pointer !important;
               height: 36px !important;
-              width: 25% !important;
+              min-width: 55px !important;
               text-align: center !important;">Send</button>
         </form>
     </div>
@@ -566,6 +586,46 @@ function createChatInput() {
     return { chatFormContainer: null, chatForm: null, messageInput: null };
   }
   
+  // Set up image upload button
+  const chatImageBtn = document.getElementById('chatImageBtn');
+  const chatImageInput = document.getElementById('chatImageInput');
+  const chatImagePreview = document.getElementById('chatImagePreview');
+  let pendingImage = null;
+  
+  if (chatImageBtn && chatImageInput) {
+    chatImageBtn.addEventListener('click', () => chatImageInput.click());
+    
+    chatImageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        pendingImage = { file, dataUrl: ev.target.result };
+        chatImagePreview.innerHTML = `
+          <div style="position:relative; display:inline-block;">
+            <img src="${ev.target.result}" style="max-height:60px; border-radius:4px; border:1px solid #d1d5db;">
+            <span id="removeImageBtn" style="
+              position:absolute; top:-6px; right:-6px;
+              background:#ef4444; color:white; border-radius:50%;
+              width:18px; height:18px; font-size:12px;
+              display:flex; align-items:center; justify-content:center;
+              cursor:pointer; line-height:1;">✕</span>
+          </div>`;
+        chatImagePreview.style.display = 'block';
+        
+        document.getElementById('removeImageBtn').addEventListener('click', () => {
+          pendingImage = null;
+          chatImagePreview.innerHTML = '';
+          chatImagePreview.style.display = 'none';
+          chatImageInput.value = '';
+        });
+      };
+      reader.readAsDataURL(file);
+      chatImageInput.value = '';
+    });
+  }
+  
   // Create a named handler function so we can remove it if needed
   function handleFormSubmit(e) {
     e.preventDefault();
@@ -577,18 +637,30 @@ function createChatInput() {
     }
     
     const messageText = messageInput.value.trim();
-    if (messageText && userChatId) {
+    const hasImage = !!pendingImage;
+    
+    if ((messageText || hasImage) && userChatId) {
       // Set flag to prevent duplicates
       isSubmitting = true;
       
-      // Send message
-      sendMessage(messageText);
+      if (hasImage) {
+        // Upload image to Firebase Storage then send
+        uploadAndSendImage(pendingImage, messageText);
+        pendingImage = null;
+        if (chatImagePreview) {
+          chatImagePreview.innerHTML = '';
+          chatImagePreview.style.display = 'none';
+        }
+      } else {
+        // Send text message
+        sendMessage(messageText);
+      }
       messageInput.value = '';
       
       // Reset flag after a delay
       setTimeout(() => {
         isSubmitting = false;
-      }, 1000); // Longer delay to prevent multiple submissions
+      }, 1000);
     }
   }
   
@@ -752,8 +824,15 @@ function addMessageToUI(message) {
   if (message.sender === 'system') {
     messageDiv.innerHTML = `<div class="message-content">${message.text}</div>`;
   } else {
+    let contentHTML = '';
+    if (message.imageUrl) {
+      contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:200px; border-radius:8px; margin-bottom:4px; cursor:pointer; display:block;" onclick="window.open(this.src,'_blank')">`;
+    }
+    if (message.text) {
+      contentHTML += `<div class="message-content">${message.text}</div>`;
+    }
     messageDiv.innerHTML = `
-      <div class="message-content">${message.text}</div>
+      ${contentHTML}
       <div class="message-time">${timestamp}</div>
     `;
   }
@@ -774,7 +853,7 @@ function addSystemMessage(text, isError = false) {
 }
 
 // Send a chat message
-function sendMessage(messageText) {
+function sendMessage(messageText, imageUrl) {
   if (!window.firebase?.firestore) {
     showError('Chat service is currently unavailable');
     return;
@@ -783,18 +862,26 @@ function sendMessage(messageText) {
   const db = firebase.firestore();
   const timestamp = firebase.firestore.FieldValue.serverTimestamp();
   
+  // Build message data
+  const messageData = {
+    text: messageText || '',
+    sender: 'user',
+    timestamp: timestamp
+  };
+  
+  if (imageUrl) {
+    messageData.imageUrl = imageUrl;
+    messageData.type = 'image';
+  }
+  
   // Add message to the chat
   db.collection(CHAT_COLLECTION).doc(userChatId)
     .collection(CHAT_MESSAGES_COLLECTION)
-    .add({
-      text: messageText,
-      sender: 'user',
-      timestamp: timestamp
-    })
+    .add(messageData)
     .then(() => {
       // Update the chat document with last message info
       return db.collection(CHAT_COLLECTION).doc(userChatId).update({
-        lastMessage: messageText,
+        lastMessage: imageUrl ? (messageText || '📷 Image') : messageText,
         lastTimestamp: timestamp,
         lastSender: 'user',
         unreadCount: firebase.firestore.FieldValue.increment(1)
@@ -803,6 +890,42 @@ function sendMessage(messageText) {
     .catch(error => {
       console.error('Error sending message:', error);
       showError('Failed to send message. Please try again.');
+    });
+}
+
+// Upload image to Firebase Storage and send as message
+function uploadAndSendImage(imageData, messageText) {
+  if (!window.firebase?.storage) {
+    // Fallback: send as data URL if storage not available
+    sendMessage(messageText, imageData.dataUrl);
+    return;
+  }
+  
+  const storageRef = firebase.storage().ref();
+  const fileName = `chat_images/${userChatId}/${Date.now()}_${imageData.file.name}`;
+  const imageRef = storageRef.child(fileName);
+  
+  // Show uploading state
+  addSystemMessage('Uploading image...');
+  
+  imageRef.put(imageData.file)
+    .then(snapshot => snapshot.ref.getDownloadURL())
+    .then(downloadUrl => {
+      // Remove uploading message
+      const msgs = messagesList?.querySelectorAll('.system-message');
+      if (msgs) {
+        const lastSys = msgs[msgs.length - 1];
+        if (lastSys && lastSys.textContent.includes('Uploading image')) {
+          lastSys.remove();
+        }
+      }
+      // Send message with the download URL
+      sendMessage(messageText, downloadUrl);
+    })
+    .catch(error => {
+      console.error('Error uploading image:', error);
+      // Fallback: send as data URL
+      sendMessage(messageText, imageData.dataUrl);
     });
 }
 
