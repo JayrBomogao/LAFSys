@@ -81,11 +81,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Check if the search term is in any of the fields
+                // Check if the search term is in the title or category
                 if (
                     title.includes(lowerSearchTerm) ||
-                    description.includes(lowerSearchTerm) ||
-                    location.includes(lowerSearchTerm) ||
                     category.includes(lowerSearchTerm)
                 ) {
                     searchResults.push({
@@ -121,37 +119,31 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Start building HTML for all items
+        // Build cards using the same template as fetchAndDisplayItems in dashboard.html
         let allItemsHTML = '';
         
-        // Process each item and build HTML string
         results.forEach(data => {
             const id = data.id;
             
             // Format date
-            const dateFound = data.date ? new Date(data.date.seconds ? data.date.seconds * 1000 : data.date) : null;
+            const dateFound = data.date ? new Date(data.date) : null;
             const formattedDate = dateFound ? dateFound.toLocaleDateString() : 'Unknown date';
             
-            // Use the actual image URL from Firebase Storage or fallback to placeholder
+            // Image URL
             let imageUrl = data.image || 'https://via.placeholder.com/300x200?text=No+Image';
             
-            // Determine the item status and the corresponding badge style
+            // Status badge (matching dashboard inline script)
             const itemStatus = data.status || 'active';
             let statusBadge = '';
-            
-            if (itemStatus === 'claimed') {
-                statusBadge = `<div class="status-badge status-claimed">Claimed</div>`;
-            } else if (itemStatus === 'returned') {
-                statusBadge = `<div class="status-badge status-returned">Returned</div>`;
-            } else if (itemStatus === 'disposed') {
-                statusBadge = `<div class="status-badge status-disposed">Disposed</div>`;
+            if (itemStatus === 'soon') {
+                statusBadge = `<div class="status-badge status-soon">Disposal Soon</div>`;
             } else {
                 statusBadge = `<div class="status-badge status-active">Active</div>`;
             }
             
-            // Build HTML for this item
+            // Build card HTML (exact same as dashboard fetchAndDisplayItems)
             allItemsHTML += `
-                <div class="item-card" data-item-id="${id}">
+                <div class="item-card" data-item-id="${id}" onclick="window.location.href='item-details.html?id=${id}'">
                     <div class="item-image">
                         <img src="${imageUrl}" alt="${data.title || 'Unknown item'}" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Error'">
                         ${statusBadge}
@@ -163,17 +155,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div>📍 ${data.location || 'Unknown location'}</div>
                             <div>📅 ${formattedDate}</div>
                         </div>
-                        <div class="item-actions">
-                            <button class="btn btn-primary view-item" onclick="window.location.href='item-details.html?id=${id}'">
-                                👁️ View Details
-                            </button>
-                        </div>
                     </div>
                 </div>
             `;
         });
         
-        // Update the container with all items at once
         itemsContainer.innerHTML = allItemsHTML;
         
         // Update the section title to show it's search results

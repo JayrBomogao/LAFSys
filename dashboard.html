@@ -450,7 +450,6 @@
                     
                     <div class="tabs">
                         <button class="tab-button active" data-tab="details">Item Details</button>
-                        <button class="tab-button" data-tab="chat">Chat with Staff</button>
                     </div>
                     
                     <div class="tab-content">
@@ -479,7 +478,7 @@
                                     <span id="modalItemDisposalDate"></span>
                                 </div>
                             </div>
-                            <button id="claimItemBtn" class="btn">Claim This Item</button>
+                            <button id="claimItemBtn" class="btn">Chat with Staff</button>
                         </div>
                         
                         <!-- Chat Tab -->
@@ -523,18 +522,23 @@
 
     <!-- Image Search Modal -->
     <div id="imageSearchModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content image-search-modal-content">
             <span class="close">&times;</span>
             <h2>Search by Image</h2>
-            <div class="image-upload-container">
-                <div id="imagePreview" class="image-preview">
-                    <p>No image selected</p>
+            <div class="image-search-top">
+                <div class="image-search-preview">
+                    <div class="image-upload-container">
+                        <div id="imagePreview" class="image-preview">
+                            <p>No image selected</p>
+                        </div>
+                        <div class="upload-actions">
+                            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                            <button id="uploadBtn" class="btn">Choose Image</button>
+                            <button id="findMatchesBtn" class="btn" disabled>Find Matches</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="upload-actions">
-                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-                    <button id="uploadBtn" class="btn">Choose Image</button>
-                    <button id="findMatchesBtn" class="btn" disabled>Find Matches</button>
-                </div>
+                <div id="analysisInfo" class="analysis-info"></div>
             </div>
             <div id="searchResults" class="search-results">
                 <!-- Search results will be displayed here -->

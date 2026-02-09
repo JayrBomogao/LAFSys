@@ -17,6 +17,16 @@ class Modal {
     close() {
         document.body.style.overflow = '';
         this.modal.classList.remove('active');
+        
+        // If closing item details modal and we came from image search, re-open it
+        if (this.modal.id === 'itemDetailsModal' && window._returnToImageSearch) {
+            window._returnToImageSearch = false;
+            setTimeout(() => {
+                if (window.imageSearchModal) {
+                    window.imageSearchModal.open();
+                }
+            }, 100);
+        }
     }
 
     setupEventListeners() {
@@ -168,11 +178,9 @@ function openItemDetails(item) {
     document.getElementById('modalItemTitle').textContent = item.title || 'Untitled Item';
     document.getElementById('modalItemDescription').textContent = item.description || 'No description available.';
     
-    // Set status badge
+    // Hide status badge
     const statusBadge = document.getElementById('modalItemStatus');
-    statusBadge.textContent = item.status === 'active' ? 'Available' : 
-                             item.status === 'claimed' ? 'Claimed' : 'Disposal Soon';
-    statusBadge.className = 'status-badge ' + `status-${item.status}`;
+    statusBadge.style.display = 'none';
     
     // Set item details
     document.getElementById('modalItemCategory').textContent = item.category || 'Not specified';
@@ -194,20 +202,18 @@ function openItemDetails(item) {
     document.getElementById('modalItemDate').textContent = formatDate(item.date);
     document.getElementById('modalItemDisposalDate').textContent = formatDate(item.disposalDate);
     
-    // Set up claim button
+    // Set up Chat with Staff button
     const claimBtn = document.getElementById('claimItemBtn');
     if (item.status === 'claimed') {
         claimBtn.textContent = 'This item has been claimed';
         claimBtn.disabled = true;
     } else {
-        claimBtn.textContent = 'Claim This Item';
+        claimBtn.textContent = 'Chat with Staff';
         claimBtn.disabled = false;
         claimBtn.onclick = (e) => {
             e.stopPropagation();
-            // Redirect to Chat with Staff tab instead of opening claim form
-            if (window.switchItemDetailsTab) {
-                window.switchItemDetailsTab('chat');
-            }
+            // Redirect to item details page with chat
+            window.location.href = `item-details.html?id=${item.id}`;
         };
     }
     

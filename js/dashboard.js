@@ -231,27 +231,9 @@ function openItemDetails(item) {
     // Set image
     document.getElementById('modalItemImage').src = item.image || 'https://via.placeholder.com/400x300?text=No+Image';
     
-    // Set status badge
+    // Hide status badge
     const statusBadge = document.getElementById('modalItemStatus');
-    statusBadge.className = 'status-badge';
-    statusBadge.classList.add(`status-${item.status}`);
-    
-    switch(item.status) {
-        case 'active':
-            statusBadge.textContent = 'Available';
-            break;
-        case 'claimed':
-            statusBadge.textContent = 'Claimed';
-            break;
-        case 'returned':
-            statusBadge.textContent = 'Returned';
-            break;
-        case 'disposed':
-            statusBadge.textContent = 'Disposed';
-            break;
-        default:
-            statusBadge.textContent = 'Active';
-    }
+    statusBadge.style.display = 'none';
     
     // Store item ID for claim form
     document.getElementById('claimItemBtn').dataset.id = item.id;

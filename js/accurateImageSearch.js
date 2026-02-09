@@ -53,7 +53,6 @@ class AccurateImageSearch {
         reader.onload = (e) => {
             this.imagePreview.innerHTML = `
                 <img src="${e.target.result}" alt="Preview">
-                <div class="ai-badge">AI Ready</div>
             `;
             this.findMatchesBtn.disabled = false;
             this.searchResults.innerHTML = ''; // Clear previous results
@@ -71,6 +70,8 @@ class AccurateImageSearch {
         this.findMatchesBtn.disabled = true;
         this.findMatchesBtn.innerHTML = '<span class="loading">Analyzing image...</span>';
         this.searchResults.innerHTML = '<p class="searching">Analyzing image with AI...</p>';
+        // Expand modal when analyzing
+        document.querySelector('.image-search-modal-content')?.classList.add('has-results');
 
         try {
             // Use the improved analyzer
@@ -171,7 +172,13 @@ class AccurateImageSearch {
             </div>
         `;
         
-        this.searchResults.innerHTML += analysisHtml;
+        // Render analysis into the dedicated analysis info area
+        const analysisInfo = document.getElementById('analysisInfo');
+        if (analysisInfo) {
+            analysisInfo.innerHTML = analysisHtml;
+        } else {
+            this.searchResults.innerHTML += analysisHtml;
+        }
     }
 
     displaySearchResults(items) {
@@ -190,7 +197,6 @@ class AccurateImageSearch {
                     <h4>${item.title || 'Unnamed Item'}</h4>
                     <p>${item.category || 'Uncategorized'}</p>
                     <p>${item.location || 'Unknown location'}</p>
-                    <button class="btn btn-sm view-item-btn">View Details</button>
                 </div>
             </div>
         `).join('');
@@ -201,36 +207,35 @@ class AccurateImageSearch {
         resultsContainer.innerHTML = resultsHTML;
         this.searchResults.appendChild(resultsContainer);
 
-        // Add click event to result items
+        // Make entire card clickable
         document.querySelectorAll('.search-result-item').forEach(item => {
-            const viewBtn = item.querySelector('.view-item-btn');
-            if (viewBtn) {
-                viewBtn.addEventListener('click', async () => {
-                    const itemId = item.dataset.id;
-                    try {
-                        // Get the item data from Firestore
-                        const docRef = firebase.firestore().collection('items').doc(itemId);
-                        const doc = await docRef.get();
+            item.addEventListener('click', async () => {
+                const itemId = item.dataset.id;
+                try {
+                    const docRef = firebase.firestore().collection('items').doc(itemId);
+                    const doc = await docRef.get();
+                    
+                    if (doc.exists) {
+                        const itemData = {
+                            id: doc.id,
+                            ...doc.data()
+                        };
                         
-                        if (doc.exists) {
-                            const itemData = {
-                                id: doc.id,
-                                ...doc.data()
-                            };
-                            
-                            // Close the modal and open item details
-                            window.imageSearchModal.close();
-                            openItemDetails(itemData);
-                        } else {
-                            console.error('Item not found:', itemId);
-                            alert('Item not found');
-                        }
-                    } catch (error) {
-                        console.error('Error getting item:', error);
-                        alert('Error loading item details');
+                        // Close search modal and open item details
+                        window.imageSearchModal.close();
+                        openItemDetails(itemData);
+                        
+                        // When item details modal closes, re-open search modal
+                        window._returnToImageSearch = true;
+                    } else {
+                        console.error('Item not found:', itemId);
+                        alert('Item not found');
                     }
-                });
-            }
+                } catch (error) {
+                    console.error('Error getting item:', error);
+                    alert('Error loading item details');
+                }
+            });
         });
     }
 }
@@ -239,23 +244,63 @@ class AccurateImageSearch {
 function addImprovedSearchStyles() {
     const styleEl = document.createElement('style');
     styleEl.textContent = `
-        .ai-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: #10b981;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 20px;
+        /* Image search modal - auto-size, expands when results appear */
+        .image-search-modal-content {
+            max-width: 96vw !important;
+            width: auto !important;
+            min-width: 300px !important;
+            max-height: 90vh !important;
+            margin: 2vh auto !important;
+            overflow-y: auto !important;
+        }
+        
+        .image-search-modal-content.has-results {
+            width: 96vw !important;
+        }
+        
+        /* Top row: image preview + analysis side by side */
+        .image-search-top {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 0.5rem;
+            flex-shrink: 0;
+        }
+        
+        .image-search-preview {
+            flex: 0 0 200px;
+        }
+        
+        .image-search-preview .image-preview {
+            height: 150px;
+        }
+        
+        .image-search-preview .upload-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .image-search-preview .upload-actions .btn {
+            flex: 1;
             font-size: 12px;
-            font-weight: bold;
+            padding: 6px 8px;
+        }
+        
+        .analysis-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        /* Override default grid on search-results so it acts as a plain container */
+        .image-search-modal-content > .search-results {
+            display: block !important;
+            margin-top: 0.5rem !important;
         }
         
         .analysis-container {
-            margin-top: 20px;
             background: #f9fafb;
             border-radius: 8px;
             padding: 15px;
+            margin-bottom: 15px;
         }
         
         .analysis-section {
@@ -264,50 +309,65 @@ function addImprovedSearchStyles() {
         
         .analysis-section h4 {
             margin: 0 0 8px 0;
-            font-size: 16px;
+            font-size: 15px;
             color: #1f2937;
         }
         
         .label-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
         }
         
         .label {
             background-color: #e0f2fe;
             color: #0369a1;
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-radius: 20px;
             font-size: 12px;
         }
         
         .color-container {
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
         
         .color-swatch {
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
+        .search-results-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            padding: 0;
+            width: 100%;
+        }
+        
         .search-result-item {
             display: flex;
+            flex-direction: column;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
-            margin-bottom: 15px;
             overflow: hidden;
             background: white;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .search-result-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
         .result-image {
             position: relative;
-            width: 100px;
-            height: 100px;
+            width: 100%;
+            height: 180px;
             flex-shrink: 0;
         }
         
@@ -319,36 +379,33 @@ function addImprovedSearchStyles() {
         
         .match-score {
             position: absolute;
-            bottom: 5px;
-            right: 5px;
+            bottom: 8px;
+            left: 8px;
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
-            font-size: 10px;
-            padding: 3px 6px;
+            font-size: 11px;
+            padding: 3px 8px;
             border-radius: 10px;
         }
         
         .result-details {
-            padding: 10px 15px;
+            padding: 10px 12px;
             flex-grow: 1;
         }
         
         .result-details h4 {
-            margin: 0 0 5px 0;
-            font-size: 16px;
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            color: #1f2937;
         }
         
         .result-details p {
-            margin: 0 0 5px 0;
-            font-size: 14px;
+            margin: 0 0 4px 0;
+            font-size: 13px;
             color: #6b7280;
         }
         
-        .view-item-btn {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 12px;
-        }
+        
         
         .searching {
             display: flex;
@@ -381,6 +438,16 @@ function addImprovedSearchStyles() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Responsive fallback for small screens */
+        @media (max-width: 640px) {
+            .image-search-layout {
+                flex-direction: column;
+            }
+            .image-search-left {
+                flex: none;
+            }
+        }
     `;
     document.head.appendChild(styleEl);
 }
@@ -404,6 +471,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('imagePreview').innerHTML = '<p>No image selected</p>';
             document.getElementById('findMatchesBtn').disabled = true;
             document.getElementById('searchResults').innerHTML = '';
+            const analysisInfo = document.getElementById('analysisInfo');
+            if (analysisInfo) analysisInfo.innerHTML = '';
+            document.querySelector('.image-search-modal-content')?.classList.remove('has-results');
             
             // Open the modal
             window.imageSearchModal.open();
