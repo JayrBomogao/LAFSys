@@ -8,6 +8,18 @@ const CHAT_COLLECTION = 'liveChats';
 const CHAT_MESSAGES_COLLECTION = 'messages';
 const IDLE_TIMEOUT = 3 * 60 * 1000; // 3 minutes in milliseconds
 
+// EmailJS Configuration
+const EMAILJS_PUBLIC_KEY = 'htcONvQFGnnjNMtOf';
+const EMAILJS_SERVICE_ID = 'service_rvn1rn4';
+const EMAILJS_TEMPLATE_ID = 'template_twn4j4h';
+
+// Email verification state
+let verificationCode = null;
+let verificationExpiry = null;
+let lastCodeSentAt = 0;
+const CODE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+const CODE_COOLDOWN_MS = 30 * 1000; // 30 seconds between sends
+
 // Chat state
 let userChatId = null;
 let userInfo = null;
@@ -242,8 +254,8 @@ function setupEventListeners() {
     const queryEl = document.getElementById('userQuery');
     const query = queryEl ? queryEl.value.trim() : '';
     
-    // Start the chat with user info
-    startChat(name, email, query);
+    // Request email verification before starting chat
+    requestEmailVerification(name, email, query);
   });
   
   // Chat message form submission
@@ -377,7 +389,7 @@ function forceInjectInputFields() {
     const email = emailInput.value.trim();
     
     if (name && email) {
-      startChat(name, email, '');
+      requestEmailVerification(name, email, '');
     } else {
       alert('Please provide both your name and email');
     }
@@ -424,60 +436,134 @@ function startChat(name, email, initialQuery) {
   
   const db = firebase.firestore();
   
-  // Create a unique chat ID with timestamp to ensure uniqueness regardless of email
-  const uniqueChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-  
-  // Capture item context from the page if available (when chatting from item-details)
-  const chatData = {
-    userName: name,
-    userEmail: email,
-    startTime: firebase.firestore.FieldValue.serverTimestamp(),
-    active: true,
-    unreadCount: 0,
-    uniqueSessionId: uniqueChatId,
-    isNewSession: true
-  };
-  
   // Try to get item info from the current page
   const chatBtn = document.getElementById('chat-with-staff-btn');
   const itemTitleEl = document.getElementById('item-title');
+  let itemId = null;
+  let itemTitle = '';
   
   if (chatBtn && chatBtn.dataset.itemId) {
-    chatData.itemId = chatBtn.dataset.itemId;
-    chatData.itemTitle = itemTitleEl ? itemTitleEl.textContent : '';
-    // Don't store image data directly - it can be a huge base64 string
-    // The admin side will fetch the image from the items collection using itemId
-    console.log('Chat includes item context:', chatData.itemTitle, 'itemId:', chatData.itemId);
+    itemId = chatBtn.dataset.itemId;
+    itemTitle = itemTitleEl ? itemTitleEl.textContent : '';
   }
   
-  // Create a new chat document with custom ID
-  db.collection(CHAT_COLLECTION).doc(uniqueChatId).set(chatData)
-  .then(() => {
-    // Set the chat ID to our generated unique ID
-    userChatId = uniqueChatId;
-    console.log('New chat created with ID:', userChatId);
-    
-    // Show chat interface
-    initChatInterface();
-    
-    // Add initial system message
-    addSystemMessage('Chat started. An administrator will be with you shortly.');
-    
-    // Send the initial query as the first message
-    if (initialQuery) {
-      sendMessage(initialQuery);
-    }
-    
-    // Start idle timer
-    resetIdleTimer();
-  })
-  .catch(error => {
-    console.error('Error creating chat:', error);
-    showError('Failed to start chat. Please try again.');
-    // Reset to show user details form again
-    chatContent.innerHTML = getChatWelcomeHTML();
-    setupUserDetailForm();
-  });
+  // Search for existing chat session
+  db.collection(CHAT_COLLECTION)
+    .where('userEmail', '==', email)
+    .get()
+    .then(snapshot => {
+      let existingChat = null;
+      
+      if (!snapshot.empty) {
+        // Filter results in memory to find the best match
+        // We look for same name and same item ID
+        const matches = [];
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Check if name matches (case insensitive) and item ID matches
+          if (data.userName && data.userName.toLowerCase() === name.toLowerCase()) {
+            // If we are looking for a specific item chat
+            if (itemId) {
+              if (data.itemId === itemId) {
+                matches.push({ id: doc.id, ...data });
+              }
+            } else {
+              // General chat (no item ID)
+              if (!data.itemId) {
+                matches.push({ id: doc.id, ...data });
+              }
+            }
+          }
+        });
+        
+        // If we found matches, pick the most recent one
+        if (matches.length > 0) {
+          // Sort by startTime desc
+          matches.sort((a, b) => {
+             const timeA = a.startTime ? (a.startTime.seconds || 0) : 0;
+             const timeB = b.startTime ? (b.startTime.seconds || 0) : 0;
+             return timeB - timeA;
+          });
+          existingChat = matches[0];
+        }
+      }
+      
+      if (existingChat) {
+        // RESUME EXISTING CHAT
+        console.log('Restoring existing chat:', existingChat.id);
+        userChatId = existingChat.id;
+        
+        // Update chat status to active
+        return db.collection(CHAT_COLLECTION).doc(userChatId).update({
+          active: true,
+          // Don't overwrite original start time, maybe add lastResumedTime?
+          lastResumedTime: firebase.firestore.FieldValue.serverTimestamp(),
+          // Reset endedBy flags
+          endedBy: firebase.firestore.FieldValue.delete() 
+        }).then(() => {
+          return 'restored';
+        });
+      } else {
+        // CREATE NEW CHAT
+        // Create a unique chat ID with timestamp to ensure uniqueness regardless of email
+        const uniqueChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        userChatId = uniqueChatId;
+        
+        const chatData = {
+          userName: name,
+          userEmail: email,
+          startTime: firebase.firestore.FieldValue.serverTimestamp(),
+          active: true,
+          unreadCount: 0,
+          uniqueSessionId: uniqueChatId,
+          isNewSession: true
+        };
+        
+        if (itemId) {
+          chatData.itemId = itemId;
+          chatData.itemTitle = itemTitle;
+          console.log('Chat includes item context:', chatData.itemTitle, 'itemId:', chatData.itemId);
+        }
+        
+        return db.collection(CHAT_COLLECTION).doc(uniqueChatId).set(chatData).then(() => {
+          return 'new';
+        });
+      }
+    })
+    .then((status) => {
+      console.log('Chat session initialized:', status, 'ID:', userChatId);
+      
+      // Show chat interface
+      initChatInterface();
+      
+      if (status === 'new') {
+        // Add initial system message for new chat
+        addSystemMessage('Chat started. An administrator will be with you shortly.');
+        
+        // Send the initial query as the first message
+        if (initialQuery) {
+          sendMessage(initialQuery);
+        }
+      } else {
+        // Add welcome back message for restored chat
+        // Delay slightly to allow Firestore to load existing messages first
+        setTimeout(() => {
+            addSystemMessage('Chat history restored. You can continue your conversation.');
+            scrollToBottom();
+        }, 1500);
+      }
+      
+      // Start idle timer
+      resetIdleTimer();
+    })
+    .catch(error => {
+      console.error('Error starting chat:', error);
+      showError('Failed to start chat session. Please try again.');
+      // Revert UI to form
+      chatContent.innerHTML = getChatWelcomeHTML();
+      setupUserDetailForm();
+    });
 }
 
 // Create a new chat input form when needed - using direct HTML injection for maximum compatibility
@@ -1212,9 +1298,281 @@ function setupUserDetailForm() {
     
     console.log('Form data:', { name, email });
     
-    // Start chat with an empty query since we removed that field
-    startChat(name, email, '');
+    // Request email verification before starting chat
+    requestEmailVerification(name, email, '');
   });
+}
+
+// Initialize EmailJS
+function initEmailJS() {
+  if (typeof emailjs !== 'undefined') {
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    console.log('EmailJS initialized');
+  } else {
+    console.warn('EmailJS SDK not loaded');
+  }
+}
+
+// Generate a 6-digit verification code
+function generateCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Request email verification - shows verification step
+function requestEmailVerification(name, email, query) {
+  if (!name || !email) {
+    alert('Please provide both your name and email.');
+    return;
+  }
+  
+  // Replace the welcome screen with verification UI
+  if (!chatContent) return;
+  
+  chatContent.innerHTML = `
+    <div class="welcome-screen" style="padding: 1rem;">
+      <h3 style="margin: 0 0 0.25rem 0; font-size: 1.1rem;">Verify Your Email</h3>
+      <p style="color: #6b7280; font-size: 0.85rem; margin: 0 0 0.75rem 0;">We'll send a 6-digit code to <strong>${email}</strong></p>
+      
+      <div id="verifyMsg" style="display:none; padding:8px; border-radius:6px; margin-bottom:8px; font-size:0.85rem;"></div>
+      
+      <button id="sendCodeBtn" type="button" style="
+        display: block; width: 100%; padding: 10px; margin-bottom: 10px;
+        background: #2563eb; color: white; border: none; border-radius: 6px;
+        font-weight: bold; cursor: pointer; font-size: 0.95rem;">Send Verification Code</button>
+      
+      <div id="codeInputSection" style="display:none;">
+        <label style="display:block; font-weight:600; margin-bottom:4px; font-size:0.9rem;">Enter 6-digit Code</label>
+        <input type="text" id="verifyCodeInput" maxlength="6" placeholder="000000" style="
+          display: block; width: 100%; padding: 10px; margin-bottom: 10px;
+          border: 2px solid #2563eb; border-radius: 6px; font-size: 1.2rem;
+          text-align: center; letter-spacing: 8px; font-weight: bold;
+          box-sizing: border-box; background: white; color: black;">
+        <button id="verifyCodeBtn" type="button" style="
+          display: block; width: 100%; padding: 10px;
+          background: #16a34a; color: white; border: none; border-radius: 6px;
+          font-weight: bold; cursor: pointer; font-size: 0.95rem;">Verify & Start Chat</button>
+      </div>
+      
+      <button id="backToFormBtn" type="button" style="
+        display: block; width: 100%; padding: 8px; margin-top: 8px;
+        background: none; color: #6b7280; border: 1px solid #d1d5db; border-radius: 6px;
+        cursor: pointer; font-size: 0.85rem;">← Back</button>
+    </div>
+  `;
+  
+  // Send Code button
+  document.getElementById('sendCodeBtn').addEventListener('click', () => {
+    sendVerificationCode(name, email);
+  });
+  
+  // Verify Code button
+  document.getElementById('verifyCodeBtn').addEventListener('click', () => {
+    const inputCode = document.getElementById('verifyCodeInput').value.trim();
+    if (verifyCode(inputCode)) {
+      // Verification successful - start chat
+      startChat(name, email, query);
+    }
+  });
+  
+  // Allow Enter key on code input
+  document.getElementById('verifyCodeInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('verifyCodeBtn')?.click();
+    }
+  });
+  
+  // Back button
+  document.getElementById('backToFormBtn').addEventListener('click', () => {
+    // Reset verification state
+    verificationCode = null;
+    verificationExpiry = null;
+    // Rebuild the welcome form
+    chatContent.innerHTML = getChatWelcomeHTML();
+    setupUserDetailForm();
+    // Prefill the fields
+    const nameEl = document.getElementById('userName');
+    const emailEl = document.getElementById('userEmail');
+    if (nameEl) nameEl.value = name;
+    if (emailEl) emailEl.value = email;
+  });
+}
+
+// Send verification code via EmailJS
+function sendVerificationCode(name, email) {
+  const msgEl = document.getElementById('verifyMsg');
+  const sendBtn = document.getElementById('sendCodeBtn');
+  const codeSection = document.getElementById('codeInputSection');
+  
+  // Check if EmailJS is configured
+  if (EMAILJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY' || 
+      EMAILJS_SERVICE_ID === 'YOUR_EMAILJS_SERVICE_ID' || 
+      EMAILJS_TEMPLATE_ID === 'YOUR_EMAILJS_TEMPLATE_ID') {
+    showVerifyMsg('System Error: Email service not configured properly.', 'error');
+    return;
+  }
+  
+  // Rate limit check
+  const now = Date.now();
+  if (now - lastCodeSentAt < CODE_COOLDOWN_MS) {
+    const waitSec = Math.ceil((CODE_COOLDOWN_MS - (now - lastCodeSentAt)) / 1000);
+    showVerifyMsg(`Please wait ${waitSec}s before requesting a new code.`, 'warning');
+    return;
+  }
+  
+  // Generate code
+  verificationCode = generateCode();
+  verificationExpiry = Date.now() + CODE_EXPIRY_MS;
+  
+  // Disable button and show loading
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending...';
+  sendBtn.style.opacity = '0.6';
+  
+  // Initialize EmailJS if not done
+  if (typeof emailjs !== 'undefined') {
+    try {
+      emailjs.init({
+        publicKey: EMAILJS_PUBLIC_KEY,
+      });
+    } catch (e) {
+      console.warn('EmailJS init warning:', e);
+    }
+  }
+  
+  if (typeof emailjs === 'undefined') {
+    showVerifyMsg('Email service not available. Please try again later.', 'error');
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send Verification Code';
+    sendBtn.style.opacity = '1';
+    return;
+  }
+  
+  // Send email via EmailJS
+  // We send multiple variants of the email variable to ensure it matches whatever is configured in the EmailJS template
+  const templateParams = {
+    to_email: email,
+    email: email,        // Common fallback
+    recipient: email,    // Common fallback
+    reply_to: email,     // Common fallback
+    to: email,           // Another fallback
+    target_email: email, // Another fallback
+    to_name: name,
+    verification_code: verificationCode,
+    from_name: 'Lost & Found - Baguio City'
+  };
+  
+  console.log('Sending EmailJS payload:', templateParams);
+  
+  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, {
+    publicKey: EMAILJS_PUBLIC_KEY,
+  })
+  .then(() => {
+    lastCodeSentAt = Date.now();
+    showVerifyMsg('Verification code sent! Check your email.', 'success');
+    // Show code input
+    if (codeSection) codeSection.style.display = 'block';
+    // Update button to resend
+    sendBtn.textContent = 'Resend Code';
+    sendBtn.disabled = false;
+    sendBtn.style.opacity = '1';
+    // Focus the code input
+    document.getElementById('verifyCodeInput')?.focus();
+  })
+  .catch((error) => {
+    console.error('EmailJS FAILED:', error);
+    if (error.text) console.error('Error Details:', error.text);
+    
+    let errorMsg = 'Failed to send code. ';
+    
+    // Check for common issues
+    if (window.location.protocol === 'file:') {
+      errorMsg += 'WARNING: EmailJS often fails when running from "file://" protocol. Please use a local server (localhost) or deploy the site. ';
+      console.warn('EmailJS Protocol Warning: APIs often block file:// origin. Use a local server.');
+    }
+    
+    if (error.text && error.text.includes('recipients address is empty')) {
+      errorMsg = 'Configuration Error: "To Email" field is missing in your EmailJS Template. Please go to EmailJS -> Email Templates -> Settings, and set "To Email" to {{to_email}}. ';
+    } else if (error.status === 0 || error.text === 'Network Error') {
+      errorMsg += 'Network error. Please check your internet connection or disable Ad Blockers (they often block EmailJS).';
+    } else if (error.status === 400) {
+      errorMsg += 'Invalid configuration. Please check your EmailJS Public Key and IDs.';
+    } else if (error.status === 412) {
+      errorMsg += 'Template error. The variables in your code do not match your EmailJS template.';
+    } else {
+      errorMsg += error.text || 'Unknown error. Check console (F12) for details.';
+    }
+    
+    showVerifyMsg(errorMsg, 'error');
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send Verification Code';
+    sendBtn.style.opacity = '1';
+
+    // Add Test Mode fallback link
+    const msgEl = document.getElementById('verifyMsg');
+    if (msgEl) {
+        const testLink = document.createElement('div');
+        testLink.style.marginTop = '8px';
+        testLink.style.fontSize = '0.8rem';
+        testLink.innerHTML = `<a href="#" id="testModeLink" style="color: #6b7280; text-decoration: underline;">Test Mode: Click here to see code (Bypass Email)</a>`;
+        msgEl.appendChild(testLink);
+        
+        document.getElementById('testModeLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            alert(`TEST MODE CODE: ${verificationCode}`);
+            console.log(`TEST MODE CODE: ${verificationCode}`);
+            if (codeSection) codeSection.style.display = 'block';
+            document.getElementById('verifyCodeInput').value = verificationCode;
+        });
+    }
+  });
+}
+
+// Verify the entered code
+function verifyCode(inputCode) {
+  if (!inputCode || inputCode.length !== 6) {
+    showVerifyMsg('Please enter the 6-digit code.', 'warning');
+    return false;
+  }
+  
+  if (!verificationCode || !verificationExpiry) {
+    showVerifyMsg('No code has been sent. Please request a new code.', 'error');
+    return false;
+  }
+  
+  if (Date.now() > verificationExpiry) {
+    showVerifyMsg('Code has expired. Please request a new code.', 'error');
+    verificationCode = null;
+    return false;
+  }
+  
+  if (inputCode !== verificationCode) {
+    showVerifyMsg('Incorrect code. Please try again.', 'error');
+    return false;
+  }
+  
+  // Code is valid - reset state
+  verificationCode = null;
+  verificationExpiry = null;
+  return true;
+}
+
+// Show message in the verification UI
+function showVerifyMsg(text, type) {
+  const el = document.getElementById('verifyMsg');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = text;
+  if (type === 'success') {
+    el.style.background = '#dcfce7';
+    el.style.color = '#166534';
+  } else if (type === 'error') {
+    el.style.background = '#fef2f2';
+    el.style.color = '#991b1b';
+  } else {
+    el.style.background = '#fef9c3';
+    el.style.color = '#854d0e';
+  }
 }
 
 // Get HTML for the welcome screen with user details form
