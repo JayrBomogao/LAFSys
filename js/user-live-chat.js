@@ -24,6 +24,8 @@ const CODE_COOLDOWN_MS = 30 * 1000; // 30 seconds between sends
 let userChatId = null;
 let userInfo = null;
 let idleTimer = null;
+let messagesUnsubscribe = null;
+let statusUnsubscribe = null;
 
 // DOM Elements - will be initialized when needed
 // chatButton has been removed
@@ -282,7 +284,7 @@ function toggleChatWidget() {
 
     // Force rebuild of input fields when showing the widget
     setTimeout(function() {
-      createChatForm();
+      // createChatForm(); // Function does not exist
       const nameInput = document.getElementById('userName');
       const emailInput = document.getElementById('userEmail');
       
@@ -805,7 +807,7 @@ function initChatInterface() {
     flex: 1 !important;
     overflow-y: auto !important;
     padding: 1rem !important;
-    padding-bottom: 60px !important; /* Add padding at bottom to avoid messages being hidden by input */
+    padding-bottom: 90px !important; /* Add padding at bottom to avoid messages being hidden by input */
     max-height: 350px !important;
     scroll-behavior: smooth !important;
   `;
@@ -862,7 +864,17 @@ function initChatInterface() {
   if (window.firebase?.firestore) {
     const db = firebase.firestore();
     
-    db.collection(CHAT_COLLECTION).doc(userChatId)
+    // Clear previous listeners if they exist to prevent duplicates
+    if (messagesUnsubscribe) {
+      messagesUnsubscribe();
+      messagesUnsubscribe = null;
+    }
+    if (statusUnsubscribe) {
+      statusUnsubscribe();
+      statusUnsubscribe = null;
+    }
+    
+    messagesUnsubscribe = db.collection(CHAT_COLLECTION).doc(userChatId)
       .collection(CHAT_MESSAGES_COLLECTION)
       .orderBy('timestamp', 'asc')
       .onSnapshot((snapshot) => {
@@ -873,7 +885,7 @@ function initChatInterface() {
       });
       
     // Also listen for chat status changes (e.g., if admin ends it)
-    db.collection(CHAT_COLLECTION).doc(userChatId)
+    statusUnsubscribe = db.collection(CHAT_COLLECTION).doc(userChatId)
       .onSnapshot((doc) => {
         const data = doc.data();
         if (data && data.active === false) {
@@ -1120,12 +1132,19 @@ function handleChatEnded(endedBy) {
     console.error('Chat input elements not found when ending chat');
   }
   
-  // Add event listener to restart button
-  const restartButton = document.getElementById('restartChat');
-  if (restartButton) {
-    restartButton.addEventListener('click', function() {
+  // Add event listener to restart button - attach directly to the element we just created
+  // This is more reliable than getElementById
+  const restartBtn = restartDiv.querySelector('button');
+  if (restartBtn) {
+    console.log('Attaching listener to Restart Chat button');
+    restartBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Restart Chat button clicked');
       resetChat();
     });
+  } else {
+    console.error('Restart button not found in the new div');
   }
   
   // Reset chat ID
@@ -1134,6 +1153,16 @@ function handleChatEnded(endedBy) {
 
 // Reset chat to initial state
 function resetChat() {
+  // Clear real-time listeners
+  if (messagesUnsubscribe) {
+    messagesUnsubscribe();
+    messagesUnsubscribe = null;
+  }
+  if (statusUnsubscribe) {
+    statusUnsubscribe();
+    statusUnsubscribe = null;
+  }
+  
   // Clear current chat state
   userChatId = null;
   
@@ -1251,8 +1280,11 @@ function resetChat() {
   // Set up the form event listeners
   setupUserDetailForm();
   
-  // Hide the chat form
-  document.getElementById('chatFormContainer').style.display = 'none';
+  // Hide the chat form if it exists
+  const chatFormContainer = document.getElementById('chatFormContainer');
+  if (chatFormContainer) {
+    chatFormContainer.style.display = 'none';
+  }
   
   // Clear idle timer
   clearTimeout(idleTimer);

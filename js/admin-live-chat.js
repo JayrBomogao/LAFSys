@@ -817,7 +817,7 @@ function addMessageToUI(message) {
   
   let contentHTML = '';
   if (message.imageUrl) {
-    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:250px; border-radius:8px; margin-bottom:4px; cursor:pointer; display:block;" onclick="window.open(this.src,'_blank')">`;
+    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:280px; border-radius:6px; margin-bottom:10px; cursor:pointer; display:block;" onclick="window.open(this.src,'_blank')">`;
   }
   if (message.text) {
     contentHTML += `<div class="message-content">${message.text}</div>`;
@@ -1347,15 +1347,19 @@ function addChatStyles() {
     }
     
     .chat-message {
-      max-width: 75% !important;
-      min-width: 120px !important;
-      padding: 12px 18px !important;
+      max-width: 90% !important;
+      min-width: 200px !important;
+      padding: 0.75rem 1rem !important;
       border-radius: 8px !important;
       position: relative !important;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-      margin-bottom: 10px !important;
-      font-size: 15px !important;
-      line-height: 1.5 !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+      margin-bottom: 0 !important;
+      font-size: 18px !important;
+      line-height: 1.6 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: visible !important;
+      word-break: break-word !important;
     }
     
     .user-message {
@@ -1390,8 +1394,8 @@ function addChatStyles() {
     
     .message-content {
       word-wrap: break-word !important;
-      font-size: 15px !important;
-      line-height: 1.5 !important;
+      font-size: 18px !important;
+      line-height: 1.6 !important;
     }
     
     .admin-message .message-time {
