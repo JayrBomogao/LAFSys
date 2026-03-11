@@ -590,14 +590,21 @@ class ImprovedImageAnalyzer {
   }
   
   /**
-   * Extract dominant colors from pixels
+   * Extract dominant colors from pixels with center-weighting
+   * Center pixels are more likely to be the actual object, not background
    * @private
    */
   _extractColors(pixels) {
     const colorCounts = new Map();
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
     
-    // Sample pixels at regular intervals for efficiency
-    for (let i = 0; i < pixels.length; i += 16) {
+    // Sample pixels with center weighting
+    const step = 4; // Sample every 4th pixel for better accuracy
+    for (let i = 0; i < pixels.length; i += step * 4) {
       const r = pixels[i];
       const g = pixels[i + 1];
       const b = pixels[i + 2];
@@ -606,21 +613,24 @@ class ImprovedImageAnalyzer {
       // Skip transparent pixels
       if (a < 128) continue;
       
+      // Calculate center weight - center pixels matter 3x more than edge pixels
+      const pixIdx = i / 4;
+      const x = pixIdx % width;
+      const y = Math.floor(pixIdx / width);
+      const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+      const weight = 1.0 + 2.0 * (1.0 - dist / maxDist); // 1 at edge, 3 at center
+      
       // Quantize colors to reduce variants
-      const qr = Math.floor(r / 16) * 16;
-      const qg = Math.floor(g / 16) * 16;
-      const qb = Math.floor(b / 16) * 16;
+      const qr = Math.floor(r / 24) * 24;
+      const qg = Math.floor(g / 24) * 24;
+      const qb = Math.floor(b / 24) * 24;
       
       const colorKey = `${qr},${qg},${qb}`;
       
-      if (colorCounts.has(colorKey)) {
-        colorCounts.set(colorKey, colorCounts.get(colorKey) + 1);
-      } else {
-        colorCounts.set(colorKey, 1);
-      }
+      colorCounts.set(colorKey, (colorCounts.get(colorKey) || 0) + weight);
     }
     
-    // Convert to array and sort by frequency
+    // Convert to array and sort by weighted frequency
     const sortedColors = [...colorCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(entry => {
@@ -634,110 +644,186 @@ class ImprovedImageAnalyzer {
   
   /**
    * Generate labels from colors
+   * Focuses on color descriptions first, then adds broad category hints
+   * Specific object guessing is handled by shape and texture analysis
    * @private
    */
   _generateLabelsFromColors(colors) {
-    // This method is similar to the original but improved
     const colorNames = [
       { name: 'red', r: 255, g: 0, b: 0 },
+      { name: 'dark red', r: 139, g: 0, b: 0 },
       { name: 'pink', r: 255, g: 192, b: 203 },
       { name: 'orange', r: 255, g: 165, b: 0 },
       { name: 'yellow', r: 255, g: 255, b: 0 },
-      { name: 'green', r: 0, g: 255, b: 0 },
+      { name: 'green', r: 0, g: 128, b: 0 },
+      { name: 'light green', r: 144, g: 238, b: 144 },
       { name: 'blue', r: 0, g: 0, b: 255 },
+      { name: 'navy', r: 0, g: 0, b: 128 },
+      { name: 'light blue', r: 173, g: 216, b: 230 },
       { name: 'purple', r: 128, g: 0, b: 128 },
-      { name: 'brown', r: 165, g: 42, b: 42 },
+      { name: 'brown', r: 139, g: 69, b: 19 },
+      { name: 'tan', r: 210, g: 180, b: 140 },
       { name: 'black', r: 0, g: 0, b: 0 },
       { name: 'white', r: 255, g: 255, b: 255 },
-      { name: 'gray', r: 128, g: 128, b: 128 }
+      { name: 'gray', r: 128, g: 128, b: 128 },
+      { name: 'silver', r: 192, g: 192, b: 192 },
+      { name: 'beige', r: 245, g: 245, b: 220 }
     ];
     
-    // Identify color names
-    const identifiedColors = colors.map(color => {
+    // Identify color names for each dominant color
+    const identifiedColors = [];
+    colors.forEach(color => {
       let minDistance = Infinity;
       let nearestColor = 'unknown';
       
       colorNames.forEach(namedColor => {
         const distance = Math.sqrt(
-          Math.pow(color.r - namedColor.r, 2) +
-          Math.pow(color.g - namedColor.g, 2) +
-          Math.pow(color.b - namedColor.b, 2)
+          (color.r - namedColor.r) ** 2 +
+          (color.g - namedColor.g) ** 2 +
+          (color.b - namedColor.b) ** 2
         );
-        
         if (distance < minDistance) {
           minDistance = distance;
           nearestColor = namedColor.name;
         }
       });
       
-      return nearestColor;
+      if (!identifiedColors.includes(nearestColor)) {
+        identifiedColors.push(nearestColor);
+      }
     });
     
-    // Find matching category based on colors
-    let categories = [];
+    // Start labels with actual color descriptions
+    const labels = [...identifiedColors];
     
-    // Color-category associations
-    const colorCategories = {
-      'black': ['electronics', 'accessories'],
-      'white': ['electronics', 'accessories'],
-      'blue': ['electronics', 'clothing'],
-      'red': ['accessories', 'clothing'],
+    // Add broad category hints based on color combinations (not specific objects)
+    const colorCategoryHints = {
+      'black': ['bag', 'accessories'],
+      'white': ['clothing', 'electronics'],
+      'blue': ['clothing', 'bag'],
+      'navy': ['bag', 'clothing'],
+      'red': ['bag', 'clothing'],
+      'brown': ['bag', 'wallet', 'clothing'],
+      'tan': ['bag', 'clothing'],
+      'gray': ['electronics', 'bag'],
+      'silver': ['electronics', 'accessories'],
       'pink': ['accessories', 'clothing'],
-      'brown': ['accessories', 'clothing', 'documents'],
-      'green': ['clothing', 'accessories'],
-      'gray': ['electronics', 'accessories']
+      'green': ['bag', 'clothing'],
+      'yellow': ['accessories', 'clothing'],
+      'orange': ['bag', 'clothing'],
+      'purple': ['bag', 'clothing']
     };
     
-    // Add categories based on identified colors
-    identifiedColors.forEach(color => {
-      if (colorCategories[color]) {
-        categories = [...categories, ...colorCategories[color]];
-      }
-    });
+    // Only add 1-2 broad hints from the primary color
+    const primaryColor = identifiedColors[0];
+    if (primaryColor && colorCategoryHints[primaryColor]) {
+      const hints = colorCategoryHints[primaryColor];
+      hints.forEach(hint => {
+        if (!labels.includes(hint)) labels.push(hint);
+      });
+    }
     
-    // Remove duplicates from categories
-    categories = [...new Set(categories)];
-    
-    // Generate labels from categories
-    const labels = [];
-    categories.forEach(category => {
-      if (this.categoryKeywords[category]) {
-        // Add the top 3 keywords from each matching category
-        labels.push(...this.categoryKeywords[category].slice(0, 3));
-      }
-    });
-    
-    // Add color names as labels
-    identifiedColors.forEach(color => {
-      if (!labels.includes(color)) {
-        labels.push(color);
-      }
-    });
-    
-    return labels.slice(0, 10); // Limit to 10 labels
+    return labels.slice(0, 8);
   }
   
   /**
-   * Detect shapes in an image
+   * Detect shapes in an image using edge-based analysis
+   * Finds the foreground object bounding box and computes shape metrics
    * @private
    */
   _detectShapes(imageData) {
-    // A simplified shape detection algorithm
     const width = imageData.width;
     const height = imageData.height;
-    const aspectRatio = width / height;
+    const pixels = imageData.data;
     
-    // Calculate rectangularity (simplified)
-    const rectangularity = Math.min(1.0, Math.max(0.5, 1.0 - Math.abs(aspectRatio - 1.5) / 2));
+    // Convert to grayscale and compute gradient magnitude (Sobel-like)
+    const gray = new Float32Array(width * height);
+    for (let i = 0; i < pixels.length; i += 4) {
+      gray[i / 4] = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
+    }
     
-    // Calculate roundness (simplified)
-    const roundness = Math.min(1.0, Math.max(0.0, 1.0 - Math.abs(aspectRatio - 1.0) * 2));
+    // Compute edge magnitude
+    const edgeMag = new Float32Array(width * height);
+    let totalEdge = 0;
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        const gx = -gray[idx - width - 1] + gray[idx - width + 1]
+                  - 2 * gray[idx - 1] + 2 * gray[idx + 1]
+                  - gray[idx + width - 1] + gray[idx + width + 1];
+        const gy = -gray[idx - width - 1] - 2 * gray[idx - width] - gray[idx - width + 1]
+                  + gray[idx + width - 1] + 2 * gray[idx + width] + gray[idx + width + 1];
+        edgeMag[idx] = Math.sqrt(gx * gx + gy * gy);
+        totalEdge += edgeMag[idx];
+      }
+    }
     
-    // Calculate squareness
-    const squareness = Math.min(1.0, Math.max(0.0, 1.0 - Math.abs(aspectRatio - 1.0) * 3));
+    // Find edge threshold (Otsu-like: use mean + 0.5 * stddev)
+    const meanEdge = totalEdge / (width * height);
+    let variance = 0;
+    for (let i = 0; i < edgeMag.length; i++) {
+      variance += (edgeMag[i] - meanEdge) ** 2;
+    }
+    const stddev = Math.sqrt(variance / edgeMag.length);
+    const edgeThreshold = meanEdge + 0.5 * stddev;
     
-    // Calculate complexity (simplified)
-    const complexity = Math.random() * 0.5 + 0.5; // Placeholder
+    // Find bounding box of strong edge pixels (the object)
+    let minX = width, maxX = 0, minY = height, maxY = 0;
+    let edgePixelCount = 0;
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        if (edgeMag[y * width + x] > edgeThreshold) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          edgePixelCount++;
+        }
+      }
+    }
+    
+    // Fallback if no edges found
+    if (maxX <= minX || maxY <= minY) {
+      minX = 0; maxX = width; minY = 0; maxY = height;
+    }
+    
+    const objWidth = maxX - minX;
+    const objHeight = maxY - minY;
+    const aspectRatio = objWidth / Math.max(1, objHeight);
+    const boundingArea = objWidth * objHeight;
+    
+    // Rectangularity: how much of the bounding box is filled by edge pixels
+    const edgeDensity = edgePixelCount / Math.max(1, boundingArea);
+    const rectangularity = Math.min(1.0, Math.max(0.0, 1.0 - Math.abs(aspectRatio - 1.5) / 3 + edgeDensity * 0.3));
+    
+    // Roundness: based on aspect ratio near 1.0 and edge distribution
+    const roundness = Math.min(1.0, Math.max(0.0, 1.0 - Math.abs(aspectRatio - 1.0) * 1.5));
+    
+    // Squareness
+    const squareness = Math.min(1.0, Math.max(0.0, 1.0 - Math.abs(aspectRatio - 1.0) * 2.5));
+    
+    // Complexity: based on edge density relative to perimeter
+    const perimeter = 2 * (objWidth + objHeight);
+    const complexity = Math.min(1.0, edgePixelCount / Math.max(1, perimeter * 2));
+    
+    // Symmetry: compare left-right edge distribution
+    let leftEdges = 0, rightEdges = 0;
+    const midX = (minX + maxX) / 2;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (edgeMag[y * width + x] > edgeThreshold) {
+          if (x < midX) leftEdges++;
+          else rightEdges++;
+        }
+      }
+    }
+    const symmetry = 1.0 - Math.abs(leftEdges - rightEdges) / Math.max(1, leftEdges + rightEdges);
+    
+    // Compactness: ratio of edge pixels to bounding box area
+    const compactness = Math.min(1.0, (edgePixelCount / Math.max(1, boundingArea)) * 10);
+    
+    // Circularity: 4π * area / perimeter²
+    const circularity = Math.min(1.0, (4 * Math.PI * edgePixelCount) / Math.max(1, perimeter * perimeter));
     
     return {
       aspectRatio,
@@ -745,9 +831,9 @@ class ImprovedImageAnalyzer {
       roundness,
       squareness,
       complexity,
-      circularity: roundness,
-      symmetry: Math.random() * 0.5 + 0.5, // Placeholder
-      compactness: Math.random() * 0.5 + 0.5 // Placeholder
+      circularity: Math.max(circularity, roundness * 0.5),
+      symmetry,
+      compactness
     };
   }
   
@@ -792,30 +878,143 @@ class ImprovedImageAnalyzer {
   }
   
   /**
-   * Detect edges in an image (simplified)
+   * Detect edges in an image using Sobel filter
    * @private
    */
   _detectEdges(imageData) {
-    // This would normally use a Sobel filter or similar
-    // Here we're just returning placeholder data
+    const width = imageData.width;
+    const height = imageData.height;
+    const pixels = imageData.data;
+    
+    // Convert to grayscale
+    const gray = new Float32Array(width * height);
+    for (let i = 0; i < pixels.length; i += 4) {
+      gray[i / 4] = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
+    }
+    
+    // Apply Sobel filter and count edge pixels
+    let edgeCount = 0;
+    let totalMag = 0;
+    const totalPixels = (width - 2) * (height - 2);
+    
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        const gx = -gray[idx - width - 1] + gray[idx - width + 1]
+                  - 2 * gray[idx - 1] + 2 * gray[idx + 1]
+                  - gray[idx + width - 1] + gray[idx + width + 1];
+        const gy = -gray[idx - width - 1] - 2 * gray[idx - width] - gray[idx - width + 1]
+                  + gray[idx + width - 1] + 2 * gray[idx + width] + gray[idx + width + 1];
+        const mag = Math.sqrt(gx * gx + gy * gy);
+        totalMag += mag;
+        if (mag > 30) edgeCount++; // threshold for significant edge
+      }
+    }
+    
     return {
-      count: Math.floor(Math.random() * 100) + 50,
-      density: Math.random() * 0.5 + 0.3
+      count: edgeCount,
+      density: edgeCount / Math.max(1, totalPixels),
+      averageMagnitude: totalMag / Math.max(1, totalPixels)
     };
   }
   
   /**
-   * Analyze image texture (simplified)
+   * Analyze image texture using pixel variance and neighbor differences
    * @private
    */
   _analyzeTexture(imageData) {
-    return {
-      coarseness: Math.random(),
-      contrast: Math.random(),
-      directionality: Math.random(),
-      roughness: Math.random(),
-      regularity: Math.random()
-    };
+    const width = imageData.width;
+    const height = imageData.height;
+    const pixels = imageData.data;
+    
+    // Convert to grayscale
+    const gray = new Float32Array(width * height);
+    for (let i = 0; i < pixels.length; i += 4) {
+      gray[i / 4] = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
+    }
+    
+    // Coarseness: average absolute difference between pixels at different scales
+    // High coarseness = large uniform regions (fabric, leather)
+    // Low coarseness = fine detail (metal, glass)
+    let fineDiff = 0, coarseDiff = 0;
+    let fineCount = 0, coarseCount = 0;
+    const step2 = 2, step8 = 8;
+    
+    for (let y = 0; y < height - step8; y += 4) {
+      for (let x = 0; x < width - step8; x += 4) {
+        const idx = y * width + x;
+        // Fine scale: nearby pixels
+        fineDiff += Math.abs(gray[idx] - gray[idx + step2]);
+        fineDiff += Math.abs(gray[idx] - gray[idx + step2 * width]);
+        fineCount += 2;
+        // Coarse scale: distant pixels
+        coarseDiff += Math.abs(gray[idx] - gray[idx + step8]);
+        coarseDiff += Math.abs(gray[idx] - gray[idx + step8 * width]);
+        coarseCount += 2;
+      }
+    }
+    
+    const fineAvg = fineCount > 0 ? fineDiff / fineCount : 0;
+    const coarseAvg = coarseCount > 0 ? coarseDiff / coarseCount : 0;
+    // If coarse differences >> fine differences, texture is coarse
+    const coarseness = coarseAvg > 0 ? Math.min(1.0, (coarseAvg - fineAvg) / coarseAvg) : 0;
+    
+    // Contrast: standard deviation of grayscale values (normalized)
+    let mean = 0;
+    for (let i = 0; i < gray.length; i++) mean += gray[i];
+    mean /= gray.length;
+    let varianceSum = 0;
+    for (let i = 0; i < gray.length; i++) varianceSum += (gray[i] - mean) ** 2;
+    const contrast = Math.min(1.0, Math.sqrt(varianceSum / gray.length) / 128);
+    
+    // Directionality: compare horizontal vs vertical gradients
+    let hGrad = 0, vGrad = 0, gradCount = 0;
+    for (let y = 1; y < height - 1; y += 2) {
+      for (let x = 1; x < width - 1; x += 2) {
+        const idx = y * width + x;
+        hGrad += Math.abs(gray[idx + 1] - gray[idx - 1]);
+        vGrad += Math.abs(gray[idx + width] - gray[idx - width]);
+        gradCount++;
+      }
+    }
+    const hAvg = gradCount > 0 ? hGrad / gradCount : 0;
+    const vAvg = gradCount > 0 ? vGrad / gradCount : 0;
+    const directionality = (hAvg + vAvg) > 0 ? Math.abs(hAvg - vAvg) / (hAvg + vAvg) : 0;
+    
+    // Roughness: combination of coarseness and contrast
+    const roughness = Math.min(1.0, coarseness + contrast * 0.5);
+    
+    // Regularity: measure how uniform the local variance is across image blocks
+    const blockSize = Math.max(4, Math.floor(Math.min(width, height) / 8));
+    const blockVars = [];
+    for (let by = 0; by < height - blockSize; by += blockSize) {
+      for (let bx = 0; bx < width - blockSize; bx += blockSize) {
+        let bMean = 0, bCount = 0;
+        for (let y = by; y < by + blockSize; y++) {
+          for (let x = bx; x < bx + blockSize; x++) {
+            bMean += gray[y * width + x];
+            bCount++;
+          }
+        }
+        bMean /= bCount;
+        let bVar = 0;
+        for (let y = by; y < by + blockSize; y++) {
+          for (let x = bx; x < bx + blockSize; x++) {
+            bVar += (gray[y * width + x] - bMean) ** 2;
+          }
+        }
+        blockVars.push(bVar / bCount);
+      }
+    }
+    let varMean = 0;
+    for (const v of blockVars) varMean += v;
+    varMean /= Math.max(1, blockVars.length);
+    let varOfVar = 0;
+    for (const v of blockVars) varOfVar += (v - varMean) ** 2;
+    varOfVar /= Math.max(1, blockVars.length);
+    const regularity = varMean > 0 ? Math.max(0, 1.0 - Math.sqrt(varOfVar) / varMean) : 0;
+    
+    return { coarseness, contrast, directionality, roughness, regularity };
   }
   
   /**
@@ -861,12 +1060,29 @@ class ImprovedImageAnalyzer {
   }
   
   /**
-   * Calculate image contrast (simplified)
+   * Calculate image contrast using standard deviation of luminance
    * @private
    */
   _calculateContrast(pixels) {
-    // Simplified calculation - would normally calculate variance
-    return Math.random() * 0.5 + 0.25;
+    let sum = 0;
+    let count = 0;
+    
+    // Calculate mean luminance
+    for (let i = 0; i < pixels.length; i += 4) {
+      sum += pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
+      count++;
+    }
+    const mean = sum / count;
+    
+    // Calculate variance
+    let varianceSum = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const lum = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114;
+      varianceSum += (lum - mean) ** 2;
+    }
+    
+    // Normalize standard deviation to 0-1 range (max possible stddev for 0-255 is ~128)
+    return Math.min(1.0, Math.sqrt(varianceSum / count) / 128);
   }
   
   /**

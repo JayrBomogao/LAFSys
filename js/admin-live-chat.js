@@ -817,7 +817,7 @@ function addMessageToUI(message) {
   
   let contentHTML = '';
   if (message.imageUrl) {
-    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:280px; border-radius:6px; margin-bottom:10px; cursor:pointer; display:block;" onclick="window.open(this.src,'_blank')">`;
+    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" onclick="window.open(this.src,'_blank')">`;
   }
   if (message.text) {
     contentHTML += `<div class="message-content">${message.text}</div>`;
@@ -1198,12 +1198,17 @@ function addChatStyles() {
     
     /* Force chat messages to display properly */
     .chat-message {
-      display: block !important;
+      display: flex !important;
+      flex-direction: column !important;
       visibility: visible !important;
       opacity: 1 !important;
       position: relative !important;
-      z-index: 200 !important;
-      min-height: 30px !important;
+      z-index: auto !important;
+      min-height: auto !important;
+      overflow: visible !important;
+      padding: 12px 16px !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
     }
     
     .chat-welcome-message {
@@ -1347,19 +1352,29 @@ function addChatStyles() {
     }
     
     .chat-message {
-      max-width: 90% !important;
-      min-width: 200px !important;
-      padding: 0.75rem 1rem !important;
-      border-radius: 8px !important;
+      max-width: 75% !important;
+      min-width: 140px !important;
+      padding: 12px 16px !important;
+      border-radius: 12px !important;
       position: relative !important;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
       margin-bottom: 0 !important;
-      font-size: 18px !important;
-      line-height: 1.6 !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: visible !important;
       word-break: break-word !important;
+    }
+    
+    .chat-message img {
+      max-width: 100% !important;
+      max-height: 200px !important;
+      height: auto !important;
+      border-radius: 6px !important;
+      display: block !important;
+      margin-bottom: 8px !important;
+      cursor: pointer !important;
     }
     
     .user-message {
@@ -1394,8 +1409,8 @@ function addChatStyles() {
     
     .message-content {
       word-wrap: break-word !important;
-      font-size: 18px !important;
-      line-height: 1.6 !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
     }
     
     .admin-message .message-time {
