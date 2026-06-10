@@ -1,6 +1,37 @@
-/**
- * Accurate Image Search implementation using the improved analyzer
- */
+function _rgbToColorName(r, g, b) {
+    const named = [
+        { name: 'Black',       r: 0,   g: 0,   b: 0   },
+        { name: 'White',       r: 255, g: 255, b: 255  },
+        { name: 'Gray',        r: 128, g: 128, b: 128  },
+        { name: 'Light Gray',  r: 211, g: 211, b: 211  },
+        { name: 'Dark Gray',   r: 64,  g: 64,  b: 64   },
+        { name: 'Red',         r: 220, g: 20,  b: 20   },
+        { name: 'Dark Red',    r: 139, g: 0,   b: 0    },
+        { name: 'Orange',      r: 255, g: 165, b: 0    },
+        { name: 'Yellow',      r: 255, g: 220, b: 0    },
+        { name: 'Green',       r: 0,   g: 160, b: 0    },
+        { name: 'Dark Green',  r: 0,   g: 100, b: 0    },
+        { name: 'Teal',        r: 0,   g: 128, b: 128  },
+        { name: 'Cyan',        r: 0,   g: 210, b: 210  },
+        { name: 'Blue',        r: 0,   g: 80,  b: 200  },
+        { name: 'Navy',        r: 0,   g: 0,   b: 128  },
+        { name: 'Purple',      r: 128, g: 0,   b: 128  },
+        { name: 'Violet',      r: 148, g: 0,   b: 211  },
+        { name: 'Pink',        r: 255, g: 105, b: 180  },
+        { name: 'Brown',       r: 139, g: 69,  b: 19   },
+        { name: 'Tan',         r: 210, g: 180, b: 140  },
+        { name: 'Beige',       r: 245, g: 245, b: 220  },
+        { name: 'Gold',        r: 218, g: 165, b: 32   },
+        { name: 'Silver',      r: 192, g: 192, b: 192  },
+    ];
+    let best = named[0], bestDist = Infinity;
+    for (const c of named) {
+        const d = (r - c.r) ** 2 + (g - c.g) ** 2 + (b - c.b) ** 2;
+        if (d < bestDist) { bestDist = d; best = c; }
+    }
+    return best.name;
+}
+
 class AccurateImageSearch {
     constructor() {
         // DOM elements
@@ -74,19 +105,42 @@ class AccurateImageSearch {
         document.querySelector('.image-search-modal-content')?.classList.add('has-results');
 
         try {
-            // Use the improved analyzer
+            // Step 1: Local pixel/hash analysis (fast, works offline)
             const analysisResults = await window.ImprovedImageAnalyzer.analyzeImage(this.selectedImage);
-            console.log('Improved image analysis results:', analysisResults);
-            
+            console.log('Local image analysis results:', analysisResults);
+
+            // Step 2: Cloud Vision analysis (semantic labels, brand detection)
+            // Merges real Vision labels into analysisResults — improves search quality
+            if (window.CloudVision && window.CloudVision.available) {
+                try {
+                    this.searchResults.innerHTML = '<p class="searching">Analyzing image...</p>';
+                    const visionResults = await window.CloudVision.analyzeImage(this.selectedImage);
+                    if (visionResults && visionResults.labelAnnotations && visionResults.labelAnnotations.length > 0) {
+                        analysisResults.labelAnnotations = visionResults.labelAnnotations;
+                        analysisResults.visionWebEntities = (visionResults.webDetection && visionResults.webDetection.webEntities) || [];
+                        analysisResults.textAnnotations = visionResults.textAnnotations || [];
+                        // Override local color analysis with Vision API's more accurate colors
+                        if (visionResults.imagePropertiesAnnotation) {
+                            analysisResults.imagePropertiesAnnotation = visionResults.imagePropertiesAnnotation;
+                        }
+                        console.log('Cloud Vision labels merged:', visionResults.labelAnnotations.length, 'labels');
+                    } else {
+                        console.warn('Cloud Vision returned empty labels:', visionResults);
+                    }
+                } catch (visionErr) {
+                    console.error('Cloud Vision failed:', visionErr.message);
+                }
+            }
+
             // Display analysis results
             this.searchResults.innerHTML = '<p class="analysis-results">Image Analysis Complete</p>';
             this.displayAnalysisResults(analysisResults);
-            
+
             // Find similar items based on the analysis
             const matchingItems = await window.ImprovedImageAnalyzer.findSimilarItems(analysisResults);
-            
+
             // Display the results
-            this.displaySearchResults(matchingItems);
+            this.displaySearchResults(matchingItems, analysisResults);
         } catch (error) {
             console.error('Error finding similar items:', error);
             this.searchResults.innerHTML = `
@@ -120,44 +174,62 @@ class AccurateImageSearch {
         
         // Extract colors if available
         let colorsHtml = '';
-        if (analysisResults.imagePropertiesAnnotation && 
+        if (analysisResults.imagePropertiesAnnotation &&
             analysisResults.imagePropertiesAnnotation.dominantColors) {
             const colors = analysisResults.imagePropertiesAnnotation.dominantColors.colors;
             if (colors && colors.length > 0) {
+                const sortedColors = colors
+                    .filter(c => c.color)
+                    .sort((a, b) => (b.pixelFraction || b.score || 0) - (a.pixelFraction || a.score || 0))
+                    .slice(0, 6);
                 colorsHtml = `
                     <div class="analysis-section">
                         <h4>Dominant Colors</h4>
                         <div class="color-container">
-                            ${colors.slice(0, 5).map(colorInfo => {
-                                const {red, green, blue} = colorInfo.color;
-                                return `<div class="color-swatch" style="background-color: rgb(${red}, ${green}, ${blue})"></div>`;
+                            ${sortedColors.map(colorInfo => {
+                                const r = Math.round(colorInfo.color.red || 0);
+                                const g = Math.round(colorInfo.color.green || 0);
+                                const b = Math.round(colorInfo.color.blue || 0);
+                                const pct = colorInfo.pixelFraction ? Math.round(colorInfo.pixelFraction * 100) + '%' : '';
+                                const name = _rgbToColorName(r, g, b);
+                                return `<div class="color-swatch-wrap" title="${name}${pct ? ' · ' + pct : ''}">
+                                    <div class="color-swatch" style="background-color: rgb(${r},${g},${b})"></div>
+                                    <span class="color-label">${name}</span>
+                                </div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
         }
-        
-        // Add shape features if available
-        let shapesHtml = '';
-        if (analysisResults.shapeFeatures) {
-            const shapes = [];
-            if (analysisResults.shapeFeatures.rectangularity > 0.7) shapes.push('rectangular');
-            if (analysisResults.shapeFeatures.circularity > 0.7) shapes.push('circular');
-            if (analysisResults.shapeFeatures.symmetry > 0.7) shapes.push('symmetrical');
-            
-            if (shapes.length > 0) {
-                shapesHtml = `
-                    <div class="analysis-section">
-                        <h4>Shape Features</h4>
-                        <div class="label-container">
-                            ${shapes.map(shape => `
-                                <span class="label">${shape}</span>
-                            `).join('')}
-                        </div>
+
+        // Material & Texture — extracted from Vision labels
+        let materialsHtml = '';
+        const MATERIAL_KEYWORDS = [
+            'leather','fabric','metal','plastic','glass','wood','rubber','denim',
+            'cotton','nylon','canvas','velvet','silk','wool','polyester','suede',
+            'vinyl','foam','ceramic','paper','cardboard','stone','silver','gold',
+            'stainless steel','aluminum','copper','brass','titanium','fur','mesh',
+            'woven','knit','lace','synthetic','transparent','opaque','glossy','matte'
+        ];
+        const materialLabels = (analysisResults.labelAnnotations || [])
+            .filter(l => MATERIAL_KEYWORDS.some(kw => l.description.toLowerCase().includes(kw)))
+            .map(l => l.description);
+        // Also pull high-confidence web entities (brand names)
+        const brandEntities = (analysisResults.visionWebEntities || [])
+            .filter(e => e.score >= 0.5 && e.description)
+            .slice(0, 3)
+            .map(e => e.description);
+        const detailTags = [...new Set([...materialLabels, ...brandEntities])].slice(0, 6);
+        if (detailTags.length > 0) {
+            materialsHtml = `
+                <div class="analysis-section">
+                    <h4>Material & Details</h4>
+                    <div class="label-container">
+                        ${detailTags.map(tag => `<span class="label">${tag}</span>`).join('')}
                     </div>
-                `;
-            }
+                </div>
+            `;
         }
         
         // Add the analysis results to the search results element
@@ -165,7 +237,7 @@ class AccurateImageSearch {
             <div class="analysis-container">
                 ${labelsHtml}
                 ${colorsHtml}
-                ${shapesHtml}
+                ${materialsHtml}
                 <div class="analysis-section">
                     <h4>Similar Items</h4>
                 </div>
@@ -181,13 +253,32 @@ class AccurateImageSearch {
         }
     }
 
-    displaySearchResults(items) {
+    displaySearchResults(items, analysisResults) {
         if (!items || items.length === 0) {
             this.searchResults.innerHTML += '<p class="no-results">No matching items found.</p>';
             return;
         }
 
-        const resultsHTML = items.map(item => `
+        // Build a set of query label texts for fast intersection lookup
+        const queryLabelTexts = new Set(
+            ((analysisResults && analysisResults.labelAnnotations) || [])
+                .map(l => l.description.toLowerCase())
+        );
+
+        const resultsHTML = items.map(item => {
+            // Find which stored Vision labels match the query labels
+            let matchedOnHtml = '';
+            if (item.visionLabels && item.visionLabels.length > 0) {
+                const matched = item.visionLabels
+                    .filter(l => queryLabelTexts.has(l.description.toLowerCase()))
+                    .slice(0, 4)
+                    .map(l => l.description);
+                if (matched.length > 0) {
+                    matchedOnHtml = `<p class="matched-on">Matched on: ${matched.join(', ')}</p>`;
+                }
+            }
+
+            return `
             <div class="search-result-item" data-id="${item.id}">
                 <div class="result-image">
                     <img src="${item.image}" alt="${item.title}" onerror="this.src='https://via.placeholder.com/100x100?text=No+Image'">
@@ -197,9 +288,10 @@ class AccurateImageSearch {
                     <h4>${item.title || 'Unnamed Item'}</h4>
                     <p>${item.category || 'Uncategorized'}</p>
                     <p>${item.location || 'Unknown location'}</p>
+                    ${matchedOnHtml}
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
         // Append results (don't replace the whole content to preserve the analysis results)
         const resultsContainer = document.createElement('div');
@@ -332,12 +424,29 @@ function addImprovedSearchStyles() {
             gap: 8px;
         }
         
+        .color-swatch-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
         .color-swatch {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+
+        .color-label {
+            font-size: 10px;
+            color: #6b7280;
+            text-align: center;
+            max-width: 48px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .search-results-list {
@@ -404,9 +513,34 @@ function addImprovedSearchStyles() {
             font-size: 13px;
             color: #6b7280;
         }
-        
-        
-        
+
+        .matched-on {
+            font-size: 11px;
+            color: #0369a1;
+            font-style: italic;
+            margin: 4px 0 0 0 !important;
+        }
+
+        .vision-warning {
+            font-size: 12px;
+            color: #92400e;
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .vision-ok {
+            font-size: 12px;
+            color: #065f46;
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
         .searching {
             display: flex;
             align-items: center;

@@ -346,6 +346,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="js/firebase-debug.js"></script>
     <script src="js/image-compressor.js"></script>
+    <script src="js/cloudVision.js"></script>
     
     <!-- Firebase Config -->
     <script>
@@ -719,6 +720,12 @@
                                         // Update the item in database with the permanent URL
                                         return db.collection('items').doc(docId).update({
                                             image: downloadURL
+                                        }).then(function() {
+                                            // Fire-and-forget: enrich item with Vision labels in background
+                                            // Uses imageFile (still in scope) for best quality — no extra network fetch needed
+                                            if (window.CloudVision && window.CloudVision.available) {
+                                                window.CloudVision.enrichItem(docId, imageFile);
+                                            }
                                         });
                                     }).catch(function(error) {
                                         console.error('Background upload failed:', error);

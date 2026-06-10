@@ -756,6 +756,74 @@
                     </div>
                     <div id="allItemsContainer"></div>
                 </div>
+
+                <!-- Vision Enrichment Utility -->
+                <div id="visionEnrichmentCard" style="margin-top:2rem;padding:1rem 1.5rem;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:200px;">
+                        <strong style="color:#0369a1;">Image Recognition Enrichment</strong>
+                        <p style="margin:4px 0 0;font-size:13px;color:#374151;">Enrich existing items with Google Cloud Vision labels to improve image search accuracy. Only processes items that have not been analyzed yet.</p>
+                    </div>
+                    <button id="enrichAllBtn" onclick="runVisionEnrichment()" style="padding:0.6rem 1.4rem;background:#0369a1;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                        Enrich Items
+                    </button>
+                    <div id="enrichStatus" style="font-size:13px;color:#374151;width:100%;display:none;"></div>
+                </div>
+                <script>
+                async function runVisionEnrichment() {
+                    const btn = document.getElementById('enrichAllBtn');
+                    const statusEl = document.getElementById('enrichStatus');
+
+                    if (!window.CloudVision || !window.CloudVision.available) {
+                        statusEl.style.display = 'block';
+                        statusEl.textContent = 'Vision API key not configured. Set VISION_API_KEY in js/cloudVision.js first.';
+                        return;
+                    }
+
+                    btn.disabled = true;
+                    btn.textContent = 'Running...';
+                    statusEl.style.display = 'block';
+                    statusEl.textContent = 'Fetching items...';
+
+                    try {
+                        const snapshot = await firebase.firestore().collection('items').get();
+                        const unprocessed = snapshot.docs.filter(doc => {
+                            const d = doc.data();
+                            return !d.visionAnalyzedAt && d.image && !d.image.startsWith('data:');
+                        });
+
+                        if (unprocessed.length === 0) {
+                            statusEl.textContent = 'All items already have Vision labels.';
+                            btn.disabled = false;
+                            btn.textContent = 'Enrich Items';
+                            return;
+                        }
+
+                        statusEl.textContent = `Found ${unprocessed.length} items to enrich. Starting...`;
+                        const batchSize = 3;
+                        let done = 0;
+
+                        for (let i = 0; i < unprocessed.length; i += batchSize) {
+                            const batch = unprocessed.slice(i, i + batchSize);
+                            await Promise.allSettled(
+                                batch.map(doc => window.CloudVision.enrichItem(doc.id, doc.data().image))
+                            );
+                            done += batch.length;
+                            statusEl.textContent = `Enriched ${done} / ${unprocessed.length} items...`;
+                            if (i + batchSize < unprocessed.length) {
+                                await new Promise(r => setTimeout(r, 1000));
+                            }
+                        }
+
+                        statusEl.textContent = `Done! Enriched ${done} items with Vision labels.`;
+                        btn.textContent = 'Enrich Items';
+                        btn.disabled = false;
+                    } catch (err) {
+                        statusEl.textContent = 'Error: ' + err.message;
+                        btn.disabled = false;
+                        btn.textContent = 'Retry';
+                    }
+                }
+                </script>
             </section>
             
             <!-- Inbox Section - Live Chat Support Only -->
@@ -773,6 +841,7 @@
     <script src="js/ensure-firebase.js"></script>
     
     <!-- App Scripts -->
+    <script src="js/cloudVision.js"></script>
     <script src="js/data.js"></script>
     <script src="js/users.js"></script>
     <script src="js/messages.js"></script>

@@ -124,12 +124,28 @@ class ImprovedImageAnalyzer {
       const shapeFeatures = analysisResults.shapeFeatures || {};
       const uploadedFingerprint = analysisResults.imageFingerprint || [];
       const uploadedColorHist = analysisResults._colorHistogram || this._lastColorHistogram || [];
+
+      // Keep annotated labels (with scores) for semantic Vision matching
+      const queryVisionLabels = (analysisResults.labelAnnotations || []).map(l => ({
+        description: l.description,
+        score: l.score || 0.5
+      }));
+
+      // Infer probable category from Vision labels before the item loop
+      const inferredCategory = this._inferCategoryFromLabels(queryVisionLabels);
+      if (inferredCategory) console.log('Inferred query category:', inferredCategory);
       
       // Compare uploaded image directly against each item's image
       const scoredItems = [];
       const uploadedPixelData = analysisResults._pixelData || null;
       
       for (const item of allItems) {
+        // Pre-filter: skip items whose category is clearly incompatible with the query
+        if (!this._categoriesAreCompatible(inferredCategory, item.category)) {
+          console.log(`Skipping "${item.title}" — category mismatch (${item.category})`);
+          continue;
+        }
+
         let hashScore = 0;
         let colorCompareScore = 0;
         let pixelScore = 0;
@@ -158,33 +174,54 @@ class ImprovedImageAnalyzer {
         const categoryScore = this._calculateCategoryScore(item, labels);
         const descriptionScore = this._calculateDescriptionScore(item, labels);
         
-        // Weighted score: visual comparison is dominant
-        // If pixel match is very high (>0.9), boost it heavily - it's likely the same image
-        let weightedScore;
-        if (pixelScore > 0.9) {
-          // Near-exact pixel match - this IS the same image
-          weightedScore = 0.92 + (pixelScore - 0.9) * 0.7;
-        } else {
-          weightedScore = (
-            visualScore * 0.55 +          // Best of hash/pixel comparison
-            colorCompareScore * 0.15 +    // Color histogram comparison
-            titleScore * 0.12 +           // Title keyword match
-            categoryScore * 0.10 +        // Category match
-            descriptionScore * 0.08       // Description match
+        // Vision label semantic score (only when item has been enriched with Vision data)
+        const hasStoredVision = item.visionLabels && item.visionLabels.length > 0;
+        let visionLabelScore = 0;
+        if (hasStoredVision) {
+          visionLabelScore = this._calculateVisionLabelMatchScore(
+            queryVisionLabels,
+            item.visionLabels,
+            item.visionObjects || [],
+            item.visionWebEntities || []
           );
         }
-        
+
+        let weightedScore;
+        if (pixelScore > 0.9) {
+          // Near-exact pixel match — same image
+          weightedScore = 0.92 + (pixelScore - 0.9) * 0.7;
+        } else if (hasStoredVision) {
+          // Semantic-first scoring when Vision data is available
+          weightedScore = (
+            visionLabelScore  * 0.40 +
+            colorCompareScore * 0.25 +
+            categoryScore     * 0.15 +
+            visualScore       * 0.15 +
+            titleScore        * 0.05
+          );
+        } else {
+          // Legacy scoring for items not yet enriched with Vision labels
+          weightedScore = (
+            visualScore       * 0.55 +
+            colorCompareScore * 0.15 +
+            titleScore        * 0.12 +
+            categoryScore     * 0.10 +
+            descriptionScore  * 0.08
+          );
+        }
+
         const diagnostics = {
           hashScore,
           pixelScore,
           visualScore,
           colorCompareScore,
+          visionLabelScore,
           titleScore,
           categoryScore,
           descriptionScore
         };
-        
-        console.log(`Item "${item.title}": hash=${(hashScore*100).toFixed(1)}% pixel=${(pixelScore*100).toFixed(1)}% color=${(colorCompareScore*100).toFixed(1)}% total=${(weightedScore*100).toFixed(1)}%`);
+
+        console.log(`Item "${item.title}": vision=${(visionLabelScore*100).toFixed(1)}% hash=${(hashScore*100).toFixed(1)}% pixel=${(pixelScore*100).toFixed(1)}% color=${(colorCompareScore*100).toFixed(1)}% total=${(weightedScore*100).toFixed(1)}%`);
         
         scoredItems.push({
           ...item,
@@ -234,22 +271,46 @@ class ImprovedImageAnalyzer {
       return this._imageFeatureCache.get(cacheKey);
     }
     if (!this._imageFeatureCache) this._imageFeatureCache = new Map();
-    
-    const img = await this._loadImage(imageSource);
-    
-    // Resize to standard size for comparison - SAME process as uploaded image
+
+    // For Firebase Storage / external HTTP URLs, fetch as blob first so the canvas
+    // is never tainted (blob: URLs are treated as same-origin by the canvas API)
+    let imageToLoad = imageSource;
+    if (typeof imageSource === 'string' && imageSource.startsWith('http')) {
+      try {
+        const res = await fetch(imageSource);
+        if (res.ok) {
+          const blob = await res.blob();
+          imageToLoad = URL.createObjectURL(blob);
+        }
+      } catch (fetchErr) {
+        console.log('Could not fetch image for pixel comparison:', fetchErr.message);
+        // Fall through to direct load (canvas may be tainted, handled below)
+      }
+    }
+
+    const img = await this._loadImage(imageToLoad);
+
     const compareCanvas = document.createElement('canvas');
     const compareCtx = compareCanvas.getContext('2d');
     compareCanvas.width = 64;
     compareCanvas.height = 64;
     compareCtx.drawImage(img, 0, 0, 64, 64);
-    const smallData = compareCtx.getImageData(0, 0, 64, 64);
-    
-    // Create fingerprint from the standardized image
+
+    let smallData;
+    try {
+      smallData = compareCtx.getImageData(0, 0, 64, 64);
+    } catch (e) {
+      // Canvas tainted by cross-origin image — pixel comparison unavailable for this item
+      console.log('Canvas tainted for', cacheKey.substring(0, 60), '— pixel comparison skipped');
+      const features = { fingerprint: [], colorHistogram: [], pixelData: null };
+      this._imageFeatureCache.set(cacheKey, features);
+      return features;
+    }
+
     const fingerprint = this._createDHash(smallData);
     const colorHistogram = this._createColorHistogram(smallData.data);
     const pixelData = this._extractPixelSignature(smallData.data);
-    
+
     const features = { fingerprint, colorHistogram, pixelData };
     this._imageFeatureCache.set(cacheKey, features);
     return features;
@@ -503,13 +564,33 @@ class ImprovedImageAnalyzer {
   _loadImage(source) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      
+
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Failed to load image'));
-      
+      img.onerror = () => {
+        // If crossOrigin fetch failed (server doesn't support CORS), retry without it.
+        // The canvas will be tainted but the image will at least load for display.
+        if (img._crossOriginSet) {
+          const fallback = new Image();
+          fallback.onload = () => resolve(fallback);
+          fallback.onerror = () => reject(new Error('Failed to load image'));
+          if (source instanceof Blob || source instanceof File) {
+            fallback.src = URL.createObjectURL(source);
+          } else {
+            fallback.src = source;
+          }
+        } else {
+          reject(new Error('Failed to load image'));
+        }
+      };
+
       if (source instanceof Blob || source instanceof File) {
         img.src = URL.createObjectURL(source);
       } else if (typeof source === 'string') {
+        // Set crossOrigin for external HTTP(S) URLs so canvas.getImageData() works
+        if (source.startsWith('http')) {
+          img.crossOrigin = 'anonymous';
+          img._crossOriginSet = true;
+        }
         img.src = source;
       } else {
         reject(new Error('Unsupported image source'));
@@ -1180,6 +1261,123 @@ class ImprovedImageAnalyzer {
   
   // Color, object, and feature scores are now handled by direct image comparison
   // in findSimilarItems via _compareFingerprints and _compareColorHistograms
+
+  /**
+   * Confidence-weighted Jaccard similarity between query Vision labels and stored item labels.
+   * @param {Array<{description,score}>} queryLabels - from analyzeImage result
+   * @param {Array<{description,score}>} storedLabels - item.visionLabels
+   * @param {Array<{name,score}>} storedObjects - item.visionObjects
+   * @param {Array<{description,score}>} storedWebEntities - item.visionWebEntities
+   * @returns {number} 0–1
+   * @private
+   */
+  _calculateVisionLabelMatchScore(queryLabels, storedLabels, storedObjects = [], storedWebEntities = []) {
+    if (!queryLabels || queryLabels.length === 0) return 0;
+    if (!storedLabels || storedLabels.length === 0) return 0;
+
+    const normalize = (arr, key = 'description') => {
+      const map = new Map();
+      for (const item of arr) {
+        const text = ((item[key] || item.name) || '').toLowerCase().trim();
+        if (text) map.set(text, Math.max(map.get(text) || 0, item.score || 0));
+      }
+      return map;
+    };
+
+    const qMap = normalize(queryLabels);
+    const sMap = new Map();
+    for (const [k, v] of normalize(storedLabels)) sMap.set(k, v);
+    for (const [k, v] of normalize(storedObjects, 'name')) {
+      sMap.set(k, Math.max(sMap.get(k) || 0, v));
+    }
+    // Web entities are precise brand/product signals — weight slightly lower to avoid false positives
+    for (const [k, v] of normalize(storedWebEntities)) {
+      sMap.set(k, Math.max(sMap.get(k) || 0, v * 0.8));
+    }
+
+    // Weighted Jaccard numerator: sum of min(qW, sW) for matching labels
+    let intersectionSum = 0;
+    for (const [label, qWeight] of qMap) {
+      if (sMap.has(label)) {
+        intersectionSum += Math.min(qWeight, sMap.get(label));
+      } else {
+        // Partial credit for substring containment (e.g. "phone" ↔ "smartphone")
+        for (const [sLabel, sWeight] of sMap) {
+          if (sLabel.includes(label) || label.includes(sLabel)) {
+            intersectionSum += Math.min(qWeight, sWeight) * 0.5;
+            break;
+          }
+        }
+      }
+    }
+
+    // Weighted Jaccard denominator: sum of max(qW, sW) across union of all labels
+    const allLabels = new Set([...qMap.keys(), ...sMap.keys()]);
+    let unionSum = 0;
+    for (const label of allLabels) {
+      unionSum += Math.max(qMap.get(label) || 0, sMap.get(label) || 0);
+    }
+
+    if (unionSum === 0) return 0;
+
+    const rawScore = intersectionSum / unionSum;
+
+    // Mild curve: 30–50% label overlap is a meaningful match for lost-and-found
+    if (rawScore >= 0.5)  return 0.85 + (rawScore - 0.5) * 0.3;
+    if (rawScore >= 0.25) return 0.50 + (rawScore - 0.25) * 1.4;
+    return rawScore * 2.0;
+  }
+
+  /**
+   * Infer the probable category of the query image from its Vision labels.
+   * Returns a category key (from this.categoryKeywords) or null if uncertain.
+   * @param {Array<{description,score}>} labels
+   * @returns {string|null}
+   * @private
+   */
+  _inferCategoryFromLabels(labels) {
+    if (!labels || labels.length === 0) return null;
+    const labelTexts = labels.map(l => l.description.toLowerCase());
+
+    let bestCategory = null;
+    let bestScore = 0;
+
+    for (const [category, keywords] of Object.entries(this.categoryKeywords)) {
+      let matches = 0;
+      for (const kw of keywords) {
+        if (labelTexts.some(l => l.includes(kw) || kw.includes(l))) matches++;
+      }
+      const score = matches / keywords.length;
+      if (score > bestScore && score > 0.15) {
+        bestScore = score;
+        bestCategory = category;
+      }
+    }
+
+    return bestCategory;
+  }
+
+  /**
+   * Return false only when two categories are clearly incompatible.
+   * Defaults to true (compare items) when either category is unknown.
+   * @param {string|null} inferredCategory
+   * @param {string} itemCategory
+   * @returns {boolean}
+   * @private
+   */
+  _categoriesAreCompatible(inferredCategory, itemCategory) {
+    if (!inferredCategory || !itemCategory) return true;
+
+    const incompatible = {
+      'electronics': ['clothing', 'documents'],
+      'clothing':    ['electronics', 'documents'],
+      'documents':   ['electronics', 'clothing', 'personal'],
+      'personal':    ['electronics', 'clothing', 'documents']
+    };
+
+    const blocklist = incompatible[inferredCategory] || [];
+    return !blocklist.includes(itemCategory.toLowerCase());
+  }
 }
 
 // Export globally

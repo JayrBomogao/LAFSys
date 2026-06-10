@@ -1,217 +1,160 @@
 /**
  * Google Cloud Vision API integration for LAFSys
- * This file provides functions to analyze images using Google Cloud Vision API
+ * Calls the Vision REST API directly from the browser (no Cloud Function required).
+ *
+ * SETUP: Replace the placeholder below with your Google Cloud Vision API key.
+ * Get one at: https://console.cloud.google.com → APIs & Services → Credentials → Create API Key
+ * Then enable the Cloud Vision API: APIs & Services → Library → search "Cloud Vision API" → Enable
+ * Restrict the key to your domain: Credentials → edit key → HTTP referrers
  */
+const VISION_API_KEY = 'AIzaSyAKl8m89GmmhyS88ushFDQi0r4F6CSXwkg';
 
-// Cloud Vision API Helper Class
+const VISION_API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${VISION_API_KEY}`;
+
 class CloudVisionHelper {
     constructor() {
-        console.log('Cloud Vision Helper initialized');
-        // Check if Firebase is available
-        if (!firebase || !firebase.functions) {
-            console.error('Firebase functions not available');
-            this.available = false;
+        this.available = VISION_API_KEY !== 'YOUR_VISION_API_KEY' && VISION_API_KEY.length > 0;
+        if (!this.available) {
+            console.warn('Cloud Vision: API key not configured. Set VISION_API_KEY in cloudVision.js');
         } else {
-            this.available = true;
-            // Initialize Firebase Functions
-            this.functions = firebase.functions();
+            console.log('Cloud Vision Helper initialized (direct REST API mode)');
         }
     }
 
     /**
-     * Analyze an image using Google Cloud Vision API
-     * @param {string|Blob} imageData - The image data (URL, Blob, or Base64)
-     * @returns {Promise<Object>} - The analysis results
+     * Analyze an image using the Vision REST API.
+     * @param {File|Blob|string} imageData - File, Blob, data URL, or Storage URL
+     * @returns {Promise<Object>} Vision API response (labelAnnotations, webDetection, etc.)
      */
     async analyzeImage(imageData) {
         if (!this.available) {
-            console.error('Cloud Vision Helper not available');
-            throw new Error('Cloud Vision integration not available');
+            throw new Error('Cloud Vision API key not configured. See cloudVision.js for setup instructions.');
         }
 
-        try {
-            console.log('Preparing image for Cloud Vision analysis');
-            let imageBase64;
+        const imageBase64 = await this._toBase64(imageData);
 
-            // Convert image to base64 if it's a blob or file
-            if (imageData instanceof Blob) {
-                imageBase64 = await this._blobToBase64(imageData);
-            } else if (typeof imageData === 'string') {
-                // If it's a data URL, extract the base64 part
-                if (imageData.startsWith('data:image')) {
-                    imageBase64 = imageData.split(',')[1];
-                } else {
-                    // If it's a regular URL, we'll need to fetch it first
-                    const response = await fetch(imageData);
-                    const blob = await response.blob();
-                    imageBase64 = await this._blobToBase64(blob);
-                }
-            } else {
-                throw new Error('Invalid image format');
-            }
+        const requestBody = {
+            requests: [{
+                image: { content: imageBase64 },
+                features: [
+                    { type: 'LABEL_DETECTION',       maxResults: 15 },
+                    { type: 'OBJECT_LOCALIZATION',    maxResults: 10 },
+                    { type: 'IMAGE_PROPERTIES',       maxResults: 10 },
+                    { type: 'SAFE_SEARCH_DETECTION' },
+                    { type: 'WEB_DETECTION',          maxResults: 10 },
+                    { type: 'TEXT_DETECTION' }
+                ]
+            }]
+        };
 
-            console.log('Image prepared, calling Cloud Vision API');
-            
-            // Call the Cloud Function
-            const analyzeImageFunction = this.functions.httpsCallable('analyzeImage');
-            const result = await analyzeImageFunction({ image: imageBase64 });
-            
-            console.log('Cloud Vision analysis complete', result);
-            return result.data;
-        } catch (error) {
-            console.error('Error analyzing image:', error);
-            throw error;
+        const response = await fetch(VISION_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(`Vision API error ${response.status}: ${(err.error && err.error.message) || response.statusText}`);
         }
+
+        const data = await response.json();
+
+        if (data.responses && data.responses[0] && data.responses[0].error) {
+            throw new Error(`Vision API error: ${data.responses[0].error.message}`);
+        }
+
+        return data.responses[0] || {};
     }
 
     /**
-     * Search for similar items based on image analysis
-     * @param {Object} analysisResults - The analysis results from Cloud Vision
-     * @returns {Promise<Array>} - Array of matching items
+     * Analyze an item's image and write Vision labels back to its Firestore document.
+     * Safe to call fire-and-forget — all errors are caught and logged.
+     * @param {string} itemId - Firestore document ID
+     * @param {File|Blob|string} imageData - image File, Blob, or URL
+     * @returns {Promise<void>}
      */
-    async findSimilarItems(analysisResults) {
+    async enrichItem(itemId, imageData) {
         if (!this.available) {
-            throw new Error('Cloud Vision integration not available');
+            console.warn('Vision enrichment skipped: API key not configured.');
+            return;
         }
 
         try {
-            console.log('Searching for similar items based on analysis');
-            
-            // Extract labels, objects, and colors from the analysis
-            const labels = this._extractLabels(analysisResults);
-            const colors = this._extractColors(analysisResults);
-            
-            console.log('Extracted search terms:', { labels, colors });
-            
-            // Get all items from Firestore
-            const querySnapshot = await firebase.firestore().collection('items').get();
-            const allItems = [];
-            querySnapshot.forEach(doc => {
-                allItems.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            // Calculate similarity scores for each item
-            const itemsWithScores = this._calculateSimilarityScores(allItems, labels, colors);
-            
-            // Sort by similarity score (descending)
-            itemsWithScores.sort((a, b) => b.score - a.score);
-            
-            // Return the top 5 items or all if less than 5
-            return itemsWithScores.slice(0, 5).map(item => item.item);
-        } catch (error) {
-            console.error('Error finding similar items:', error);
-            throw error;
+            const result = await this.analyzeImage(imageData);
+
+            const labelAnnotations          = result.labelAnnotations || [];
+            const localizedObjectAnnotations = result.localizedObjectAnnotations || [];
+            const colors = (result.imagePropertiesAnnotation &&
+                            result.imagePropertiesAnnotation.dominantColors &&
+                            result.imagePropertiesAnnotation.dominantColors.colors) || [];
+            const webEntities = (result.webDetection && result.webDetection.webEntities) || [];
+            const textAnnotations = result.textAnnotations || [];
+
+            const visionData = {
+                visionLabels: labelAnnotations.map(l => ({
+                    description: l.description || '',
+                    score: l.score || 0
+                })),
+                visionObjects: localizedObjectAnnotations.map(o => ({
+                    name: o.name || '',
+                    score: o.score || 0
+                })),
+                visionColors: colors.slice(0, 5).map(c => ({
+                    red:          (c.color && c.color.red)   || 0,
+                    green:        (c.color && c.color.green) || 0,
+                    blue:         (c.color && c.color.blue)  || 0,
+                    score:        c.score || 0,
+                    pixelFraction: c.pixelFraction || 0
+                })),
+                visionWebEntities: webEntities.slice(0, 10).map(e => ({
+                    description: e.description || '',
+                    score: e.score || 0
+                })),
+                visionText: textAnnotations.length > 0 ? (textAnnotations[0].description || '') : '',
+                visionAnalyzedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            await firebase.firestore().collection('items').doc(itemId).update(visionData);
+            console.log(`Vision enrichment complete for ${itemId}: ${labelAnnotations.length} labels`);
+        } catch (err) {
+            console.warn(`Vision enrichment failed for ${itemId} (non-critical):`, err.message);
         }
     }
 
     /**
-     * Convert a Blob to Base64 string
+     * Convert any supported image format to a raw base64 string (no data: prefix).
+     * @private
+     */
+    async _toBase64(imageData) {
+        if (imageData instanceof Blob) {
+            return this._blobToBase64(imageData);
+        }
+        if (typeof imageData === 'string') {
+            if (imageData.startsWith('data:')) {
+                return imageData.split(',')[1];
+            }
+            // Storage URL or any HTTP URL — fetch first
+            const res = await fetch(imageData);
+            const blob = await res.blob();
+            return this._blobToBase64(blob);
+        }
+        throw new Error('Unsupported image format for Vision API');
+    }
+
+    /**
+     * Read a Blob/File as base64 using FileReader.
      * @private
      */
     _blobToBase64(blob) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => {
-                const base64String = reader.result.split(',')[1];
-                resolve(base64String);
-            };
+            reader.onload  = () => resolve(reader.result.split(',')[1]);
             reader.onerror = () => reject(new Error('Failed to convert image to base64'));
             reader.readAsDataURL(blob);
         });
     }
-
-    /**
-     * Extract labels from the analysis results
-     * @private
-     */
-    _extractLabels(analysisResults) {
-        const labels = [];
-        
-        // Extract from labelAnnotations
-        if (analysisResults.labelAnnotations) {
-            analysisResults.labelAnnotations.forEach(label => {
-                labels.push({
-                    text: label.description,
-                    score: label.score || 0
-                });
-            });
-        }
-        
-        // Extract from localizedObjectAnnotations
-        if (analysisResults.localizedObjectAnnotations) {
-            analysisResults.localizedObjectAnnotations.forEach(obj => {
-                labels.push({
-                    text: obj.name,
-                    score: obj.score || 0
-                });
-            });
-        }
-        
-        return labels;
-    }
-
-    /**
-     * Extract color information from the analysis results
-     * @private
-     */
-    _extractColors(analysisResults) {
-        const colors = [];
-        
-        // Extract from imagePropertiesAnnotation
-        if (analysisResults.imagePropertiesAnnotation && 
-            analysisResults.imagePropertiesAnnotation.dominantColors &&
-            analysisResults.imagePropertiesAnnotation.dominantColors.colors) {
-                
-            analysisResults.imagePropertiesAnnotation.dominantColors.colors.forEach(color => {
-                const { red, green, blue } = color.color;
-                colors.push({
-                    rgb: { red, green, blue },
-                    score: color.score || 0
-                });
-            });
-        }
-        
-        return colors;
-    }
-
-    /**
-     * Calculate similarity scores for items based on labels and colors
-     * @private
-     */
-    _calculateSimilarityScores(items, labels, colors) {
-        return items.map(item => {
-            let score = 0;
-            
-            // Check for label matches in title, description, and category
-            labels.forEach(label => {
-                const labelLower = label.text.toLowerCase();
-                if (item.title && item.title.toLowerCase().includes(labelLower)) {
-                    score += 2 * label.score; // Title match is more important
-                }
-                if (item.description && item.description.toLowerCase().includes(labelLower)) {
-                    score += 1 * label.score;
-                }
-                if (item.category && item.category.toLowerCase().includes(labelLower)) {
-                    score += 1.5 * label.score;
-                }
-            });
-            
-            // TODO: Color matching could be implemented here
-            // This would require color extraction from item images
-            
-            return {
-                item,
-                score
-            };
-        });
-    }
 }
 
-// Initialize the Cloud Vision Helper
 const cloudVision = new CloudVisionHelper();
-
-// Export globally
 window.CloudVision = cloudVision;
