@@ -27,7 +27,6 @@ let activeChatsList;
 let chatWindow;
 let messagesList;
 let chatForm;
-let endChatButton;
 
 // Initialize live chat system
 document.addEventListener('DOMContentLoaded', function() {
@@ -428,7 +427,6 @@ function initializeChatInterface() {
             <textarea id="messageInput" placeholder="Type your message here..." rows="3"></textarea>
             <button type="submit" class="chat-send-button">Send</button>
           </form>
-          <button id="endChatButton" class="end-chat-button">End Chat</button>
         </div>
       </div>
     </div>
@@ -446,7 +444,6 @@ function initializeChatInterface() {
   chatWindow = document.getElementById('chatWindow');
   chatForm = document.getElementById('chatForm');
   messageInput = document.getElementById('messageInput');
-  endChatButton = document.getElementById('endChatButton');
   chatControls = document.getElementById('chatControls');
   
   // Set up event listeners
@@ -464,12 +461,10 @@ function setupEventListeners() {
   // Remove any existing event listeners first to prevent duplicates
   chatForm.removeEventListener('submit', handleFormSubmit);
   messageInput.removeEventListener('keydown', handleKeyDown);
-  endChatButton.removeEventListener('click', handleEndChat);
-  
+
   // Add the event listeners with named functions
   chatForm.addEventListener('submit', handleFormSubmit);
   messageInput.addEventListener('keydown', handleKeyDown);
-  endChatButton.addEventListener('click', handleEndChat);
   
   console.log('Event listeners initialized');
 }
@@ -489,12 +484,6 @@ function handleKeyDown(e) {
   }
 }
 
-// Handle end chat button click
-function handleEndChat() {
-  if (activeChatId) {
-    endChat(activeChatId);
-  }
-}
 
 // Common function to send message if valid
 function sendMessageIfValid() {
@@ -868,123 +857,11 @@ function sendMessage(chatId, messageText, sender) {
     });
 }
 
-// End a chat session
-function endChat(chatId) {
-  if (!window.firebase?.firestore) {
-    showError('Firebase not available');
-    return;
-  }
-  
-  if (confirm('Are you sure you want to end this chat?')) {
-    const db = firebase.firestore();
-    
-    // Add system message that the chat has ended
-    db.collection(CHAT_COLLECTION).doc(chatId)
-      .collection(CHAT_MESSAGES_COLLECTION)
-      .add({
-        text: 'Chat ended by administrator',
-        sender: 'system',
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    
-    // Mark chat as inactive
-    db.collection(CHAT_COLLECTION).doc(chatId)
-      .update({
-        active: false,
-        endTime: firebase.firestore.FieldValue.serverTimestamp(),
-        endedBy: 'admin'
-      })
-      .then(() => {
-        // Clear idle timer
-        clearTimeout(idleTimers[chatId]);
-        delete idleTimers[chatId];
-        
-        // Reset UI
-        activeChatId = null;
-        chatWindow.innerHTML = `
-          <div class="chat-welcome-message">
-            <h3>Chat Ended</h3>
-            <p>The chat session has been closed.</p>
-          </div>
-        `;
-        chatControls.style.display = 'none';
-      })
-      .catch(error => {
-        console.error('Error ending chat:', error);
-        showError('Failed to end chat');
-      });
-  }
-}
 
-// Set up idle timer for a chat
-function setupIdleTimer(chatId) {
-  // Clear any existing timer
-  if (idleTimers[chatId]) {
-    clearTimeout(idleTimers[chatId]);
-  }
-  
-  // Start a new idle timer
-  resetIdleTimer(chatId);
-}
-
-// Reset the idle timer for a chat
-function resetIdleTimer(chatId) {
-  // Clear existing timer
-  clearTimeout(idleTimers[chatId]);
-  
-  // Set new timer
-  idleTimers[chatId] = setTimeout(() => {
-    handleIdleTimeout(chatId);
-  }, IDLE_TIMEOUT);
-}
-
-// Handle idle timeout
-function handleIdleTimeout(chatId) {
-  console.log(`Chat ${chatId} has been idle for too long`);
-  
-  // Only end the chat if it's still active
-  if (currentChats.some(c => c.id === chatId)) {
-    // Add system message
-    if (window.firebase?.firestore) {
-      const db = firebase.firestore();
-      
-      // Add system message that the chat has timed out
-      db.collection(CHAT_COLLECTION).doc(chatId)
-        .collection(CHAT_MESSAGES_COLLECTION)
-        .add({
-          text: 'Chat automatically ended due to inactivity',
-          sender: 'system',
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      
-      // Mark chat as inactive
-      db.collection(CHAT_COLLECTION).doc(chatId)
-        .update({
-          active: false,
-          endTime: firebase.firestore.FieldValue.serverTimestamp(),
-          endedBy: 'timeout'
-        })
-        .catch(error => {
-          console.error('Error ending idle chat:', error);
-        });
-    }
-    
-    // Reset UI if this was the active chat
-    if (activeChatId === chatId) {
-      activeChatId = null;
-      chatWindow.innerHTML = `
-        <div class="chat-welcome-message">
-          <h3>Chat Ended</h3>
-          <p>The chat session has been closed due to inactivity.</p>
-        </div>
-      `;
-      chatControls.style.display = 'none';
-    }
-  }
-  
-  // Clean up the timer
-  delete idleTimers[chatId];
-}
+// Idle auto-end removed — chats stay open until manually managed
+function setupIdleTimer(chatId) {}
+function resetIdleTimer(chatId) {}
+function handleIdleTimeout(chatId) {}
 
 // Format a timestamp for display
 function formatTimestamp(timestamp) {

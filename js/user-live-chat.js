@@ -97,111 +97,15 @@ function createChatWidget() {
   chatContent.id = 'chatContent';
   chatContent.className = 'chat-content';
   
-  // Welcome screen
+  // Welcome screen — just a loading indicator; auto-starts once auth user is confirmed
   const welcomeScreen = document.createElement('div');
   welcomeScreen.className = 'welcome-screen';
-  
-  const heading = document.createElement('h3');
-  heading.textContent = 'Welcome to Lost & Found Support';
-  
-  const subtext = document.createElement('p');
-  subtext.textContent = 'Please provide your details to start chatting with our team';
-  
-  // Create the form
-  const form = document.createElement('form');
-  form.id = 'userDetailForm';
-  form.className = 'user-detail-form';
-  
-  // Name field
-  const nameGroup = document.createElement('div');
-  nameGroup.className = 'form-group';
-  
-  const nameLabel = document.createElement('label');
-  nameLabel.setAttribute('for', 'userName');
-  nameLabel.textContent = 'Your Name';
-  
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.id = 'userName';
-  nameInput.name = 'userName';
-  nameInput.placeholder = 'Full Name';
-  nameInput.required = true;
-  nameInput.style.cssText = `
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    padding: 0.75rem !important;
-    margin: 0.5rem 0 !important;
-    border: 3px solid #2563eb !important;
-    border-radius: 6px !important;
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    font-size: 1rem !important;
-    min-height: 45px !important;
-    box-sizing: border-box !important;
-    opacity: 1 !important;
-    position: relative !important;
-    z-index: 10000 !important;
-  `;
-  
-  nameGroup.appendChild(nameLabel);
-  nameGroup.appendChild(nameInput);
-  
-  // Email field
-  const emailGroup = document.createElement('div');
-  emailGroup.className = 'form-group';
-  
-  const emailLabel = document.createElement('label');
-  emailLabel.setAttribute('for', 'userEmail');
-  emailLabel.textContent = 'Email Address';
-  
-  const emailInput = document.createElement('input');
-  emailInput.type = 'email';
-  emailInput.id = 'userEmail';
-  emailInput.name = 'userEmail';
-  emailInput.placeholder = 'Email Address';
-  emailInput.required = true;
-  emailInput.style.cssText = `
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    padding: 0.75rem !important;
-    margin: 0.5rem 0 !important;
-    border: 3px solid #2563eb !important;
-    border-radius: 6px !important;
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    font-size: 1rem !important;
-    min-height: 45px !important;
-    box-sizing: border-box !important;
-    opacity: 1 !important;
-    position: relative !important;
-    z-index: 10000 !important;
-  `;
-  
-  emailGroup.appendChild(emailLabel);
-  emailGroup.appendChild(emailInput);
-  
-  // Submit button
-  const submitButton = document.createElement('button');
-  submitButton.type = 'submit';
-  submitButton.className = 'start-chat-btn';
-  submitButton.textContent = 'Start Chat';
-  
-  // Add form elements
-  form.appendChild(nameGroup);
-  form.appendChild(emailGroup);
-  form.appendChild(submitButton);
-  
-  // Add elements to welcome screen
-  welcomeScreen.appendChild(heading);
-  welcomeScreen.appendChild(subtext);
-  welcomeScreen.appendChild(form);
-  
-  // Add welcome screen to content
+  welcomeScreen.id = 'chatWelcomeScreen';
+  welcomeScreen.innerHTML = '<div class="chat-loading">Connecting…</div>';
+
   chatContent.appendChild(welcomeScreen);
   widget.appendChild(chatContent);
-  
+
   // Create chat form container
   const chatFormContainer = document.createElement('div');
   chatFormContainer.id = 'chatFormContainer';
@@ -246,20 +150,6 @@ function setupEventListeners() {
   // Close button for the chat widget
   document.getElementById('closeChat').addEventListener('click', closeChatWidget);
   
-  // User details form submission
-  userDetailForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    // Collect user information
-    const name = document.getElementById('userName').value.trim();
-    const email = document.getElementById('userEmail').value.trim();
-    const queryEl = document.getElementById('userQuery');
-    const query = queryEl ? queryEl.value.trim() : '';
-    
-    // Request email verification before starting chat
-    requestEmailVerification(name, email, query);
-  });
-  
   // Chat message form submission
   chatForm.addEventListener('submit', function(e) {
     e.preventDefault();
@@ -277,131 +167,67 @@ function setupEventListeners() {
   });
 }
 
-// Toggle chat widget visibility
+// Toggle chat widget visibility — auto-starts using the logged-in Firebase Auth user
 function toggleChatWidget() {
   if (chatWidget.style.display === 'none') {
     chatWidget.style.display = 'flex';
 
-    // Force rebuild of input fields when showing the widget
-    setTimeout(function() {
-      // createChatForm(); // Function does not exist
-      const nameInput = document.getElementById('userName');
-      const emailInput = document.getElementById('userEmail');
-      
-      if (!nameInput || !emailInput || nameInput.offsetHeight === 0) {
-        console.log('Input fields not rendering properly, forcing direct injection');
-        forceInjectInputFields();
-      }
-    }, 100);
-    
-    // If chat is already in progress, scroll to bottom
     if (userChatId && messagesList) {
+      // Chat already open — just scroll to bottom
       scrollToBottom();
+      return;
     }
+
+    // Show connecting state while waiting for auth to initialize
+    if (chatContent) {
+      chatContent.innerHTML = '<div class="chat-loading">Connecting…</div>';
+    }
+
+    // Use onAuthStateChanged with immediate unsubscribe so we wait for
+    // Firebase Auth to finish loading before checking login state.
+    // firebase.auth().currentUser is null on first load even when logged in.
+    if (!window.firebase || !firebase.auth) {
+      chatWidget.style.display = 'none';
+      window.location.href = 'login.html';
+      return;
+    }
+
+    const unsubscribe = firebase.auth().onAuthStateChanged(function(authUser) {
+      unsubscribe(); // one-time only
+      if (authUser) {
+        startChatForUser(authUser);
+      } else {
+        chatWidget.style.display = 'none';
+        window.location.href = 'login.html';
+      }
+    });
   } else {
     minimizeChatWidget();
   }
 }
 
-// Force inject input fields directly into the DOM
-function forceInjectInputFields() {
-  const welcomeScreen = document.querySelector('.welcome-screen');
-  if (!welcomeScreen) return;
-  
-  // Clear existing content
-  welcomeScreen.innerHTML = '';
-  
-  // Create new content
-  const heading = document.createElement('h3');
-  heading.textContent = 'Welcome to Lost & Found Support';
-  
-  const subtext = document.createElement('p');
-  subtext.textContent = 'Please provide your details to start chatting with our team';
-  
-  // Create direct form fields
-  const nameLabel = document.createElement('label');
-  nameLabel.textContent = 'Your Name';
-  nameLabel.style.cssText = 'display: block; font-weight: bold; margin-top: 10px;';
-  
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.id = 'userName';
-  nameInput.name = 'userName';
-  nameInput.placeholder = 'Full Name';
-  nameInput.style.cssText = `
-    display: block !important;
-    width: 100% !important;
-    padding: 10px !important;
-    margin: 5px 0 15px 0 !important;
-    border: 3px solid red !important;
-    border-radius: 5px !important;
-    box-sizing: border-box !important;
-    font-size: 16px !important;
-    background: white !important;
-  `;
-  
-  const emailLabel = document.createElement('label');
-  emailLabel.textContent = 'Email Address';
-  emailLabel.style.cssText = 'display: block; font-weight: bold; margin-top: 10px;';
-  
-  const emailInput = document.createElement('input');
-  emailInput.type = 'email';
-  emailInput.id = 'userEmail';
-  emailInput.name = 'userEmail';
-  emailInput.placeholder = 'Email Address';
-  emailInput.style.cssText = `
-    display: block !important;
-    width: 100% !important;
-    padding: 10px !important;
-    margin: 5px 0 15px 0 !important;
-    border: 3px solid red !important;
-    border-radius: 5px !important;
-    box-sizing: border-box !important;
-    font-size: 16px !important;
-    background: white !important;
-  `;
-  
-  const startButton = document.createElement('button');
-  startButton.textContent = 'Start Chat';
-  startButton.style.cssText = `
-    display: block !important;
-    width: 100% !important;
-    padding: 10px !important;
-    margin-top: 20px !important;
-    background: #2563eb !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 5px !important;
-    font-weight: bold !important;
-    cursor: pointer !important;
-  `;
-  
-  // Add all elements
-  welcomeScreen.appendChild(heading);
-  welcomeScreen.appendChild(subtext);
-  welcomeScreen.appendChild(nameLabel);
-  welcomeScreen.appendChild(nameInput);
-  welcomeScreen.appendChild(emailLabel);
-  welcomeScreen.appendChild(emailInput);
-  welcomeScreen.appendChild(startButton);
-  
-  // Add click handler
-  startButton.addEventListener('click', function() {
-    const name = nameInput.value.trim();
-    const email = emailInput.value.trim();
-    
-    if (name && email) {
-      requestEmailVerification(name, email, '');
-    } else {
-      alert('Please provide both your name and email');
-    }
-  });
-  
-  console.log('Directly injected input fields:', { nameInput, emailInput });
-}
-
 // Expose the toggleChatWidget function globally
 window.toggleChatWidget = toggleChatWidget;
+
+// Called externally (e.g. item Inquire button) to open chat for a specific item
+window.openUserChat = function(itemId, itemTitle) {
+  // Set context on the invisible sentinel button so startChatForCurrentUser() can read it
+  let btn = document.getElementById('chat-with-staff-btn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'chat-with-staff-btn';
+    btn.style.display = 'none';
+    document.body.appendChild(btn);
+  }
+  btn.dataset.itemId    = itemId    || '';
+  btn.dataset.itemTitle = itemTitle || '';
+
+  // Also update item-title element if it exists
+  const titleEl = document.getElementById('item-title');
+  if (titleEl && itemTitle) titleEl.textContent = itemTitle;
+
+  toggleChatWidget();
+};
 
 // Minimize chat widget
 function minimizeChatWidget() {
@@ -409,86 +235,47 @@ function minimizeChatWidget() {
   // chatButton reference removed
 }
 
-// Close chat widget and end chat if in progress
+// Close chat widget — just hides it, chat session stays open in Firestore
 function closeChatWidget() {
-  if (userChatId) {
-    if (confirm('Are you sure you want to end this chat session?')) {
-      endChat();
-      chatWidget.style.display = 'none';
-      // chatButton reference removed
-    }
-  } else {
-    chatWidget.style.display = 'none';
-    // chatButton reference removed
-  }
+  chatWidget.style.display = 'none';
 }
 
-// Start a new chat session
-function startChat(name, email, initialQuery) {
+// Start chat using a Firebase Auth user object — looks up existing chat by userId + itemId
+function startChatForUser(authUser) {
   if (!window.firebase?.firestore) {
     showError('Chat service is currently unavailable');
     return;
   }
-  
-  // Save user info
-  userInfo = { name, email };
-  
-  // Show loading state
-  chatContent.innerHTML = '<div class="chat-loading">Starting chat...</div>';
-  
+
+  const name  = authUser.displayName || authUser.email;
+  const email = authUser.email;
+  const uid   = authUser.uid;
+
+  userInfo = { name, email, uid };
+
+  chatContent.innerHTML = '<div class="chat-loading">Starting chat…</div>';
+
   const db = firebase.firestore();
-  
-  // Try to get item info from the current page
-  const chatBtn = document.getElementById('chat-with-staff-btn');
-  const itemTitleEl = document.getElementById('item-title');
-  let itemId = null;
-  let itemTitle = '';
-  
-  if (chatBtn && chatBtn.dataset.itemId) {
-    itemId = chatBtn.dataset.itemId;
-    itemTitle = itemTitleEl ? itemTitleEl.textContent : '';
+
+  const chatBtn   = document.getElementById('chat-with-staff-btn');
+  let itemId    = (chatBtn && chatBtn.dataset.itemId)    ? chatBtn.dataset.itemId    : null;
+  let itemTitle = (chatBtn && chatBtn.dataset.itemTitle) ? chatBtn.dataset.itemTitle : '';
+  if (!itemTitle) {
+    const titleEl = document.getElementById('item-title');
+    if (titleEl) itemTitle = titleEl.textContent.trim();
   }
-  
-  // Search for existing chat session
-  db.collection(CHAT_COLLECTION)
-    .where('userEmail', '==', email)
-    .get()
+
+  // Query only by userId (no composite index needed), then filter itemId in JS
+  db.collection(CHAT_COLLECTION).where('userId', '==', uid).get()
     .then(snapshot => {
       let existingChat = null;
-      
       if (!snapshot.empty) {
-        // Filter results in memory to find the best match
-        // We look for same name and same item ID
-        const matches = [];
-        
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          // Check if name matches (case insensitive) and item ID matches
-          if (data.userName && data.userName.toLowerCase() === name.toLowerCase()) {
-            // If we are looking for a specific item chat
-            if (itemId) {
-              if (data.itemId === itemId) {
-                matches.push({ id: doc.id, ...data });
-              }
-            } else {
-              // General chat (no item ID)
-              if (!data.itemId) {
-                matches.push({ id: doc.id, ...data });
-              }
-            }
-          }
-        });
-        
-        // If we found matches, pick the most recent one
-        if (matches.length > 0) {
-          // Sort by startTime desc
-          matches.sort((a, b) => {
-             const timeA = a.startTime ? (a.startTime.seconds || 0) : 0;
-             const timeB = b.startTime ? (b.startTime.seconds || 0) : 0;
-             return timeB - timeA;
-          });
-          existingChat = matches[0];
-        }
+        // Filter by itemId in memory, then sort by startTime desc, pick most recent
+        const docs = snapshot.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(d => (d.itemId || null) === (itemId || null))
+          .sort((a, b) => ((b.startTime && b.startTime.seconds) || 0) - ((a.startTime && a.startTime.seconds) || 0));
+        existingChat = docs[0] || null;
       }
       
       if (existingChat) {
@@ -513,17 +300,18 @@ function startChat(name, email, initialQuery) {
         userChatId = uniqueChatId;
         
         const chatData = {
+          userId: uid,
           userName: name,
           userEmail: email,
           startTime: firebase.firestore.FieldValue.serverTimestamp(),
           active: true,
           unreadCount: 0,
           uniqueSessionId: uniqueChatId,
-          isNewSession: true
+          isNewSession: true,
+          itemId: itemId || null
         };
-        
+
         if (itemId) {
-          chatData.itemId = itemId;
           chatData.itemTitle = itemTitle;
           console.log('Chat includes item context:', chatData.itemTitle, 'itemId:', chatData.itemId);
         }
@@ -542,11 +330,6 @@ function startChat(name, email, initialQuery) {
       if (status === 'new') {
         // Add initial system message for new chat
         addSystemMessage('Chat started. An administrator will be with you shortly.');
-        
-        // Send the initial query as the first message
-        if (initialQuery) {
-          sendMessage(initialQuery);
-        }
       } else {
         // Add welcome back message for restored chat
         // Delay slightly to allow Firestore to load existing messages first
@@ -562,9 +345,9 @@ function startChat(name, email, initialQuery) {
     .catch(error => {
       console.error('Error starting chat:', error);
       showError('Failed to start chat session. Please try again.');
-      // Revert UI to form
-      chatContent.innerHTML = getChatWelcomeHTML();
-      setupUserDetailForm();
+      if (chatContent) {
+        chatContent.innerHTML = '<div style="padding:1rem;text-align:center"><p style="color:#991b1b;margin-bottom:0.75rem">Failed to connect to chat.</p><button onclick="resetChat()" style="background:#2563eb;color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-weight:500">Try Again</button></div>';
+      }
     });
 }
 
@@ -1044,28 +827,8 @@ async function uploadAndSendImage(imageData, messageText) {
   }
 }
 
-// End the chat session
-function endChat() {
-  if (!window.firebase?.firestore || !userChatId) {
-    return;
-  }
-  
-  const db = firebase.firestore();
-  
-  // Mark chat as inactive
-  db.collection(CHAT_COLLECTION).doc(userChatId)
-    .update({
-      active: false,
-      endTime: firebase.firestore.FieldValue.serverTimestamp(),
-      endedBy: 'user'
-    })
-    .then(() => {
-      handleChatEnded('user');
-    })
-    .catch(error => {
-      console.error('Error ending chat:', error);
-    });
-}
+// Chat ending removed — sessions persist until admin closes them
+function endChat() {}
 
 // Handle when a chat is ended (by user, admin, or timeout)
 function handleChatEnded(endedBy) {
@@ -1151,7 +914,7 @@ function handleChatEnded(endedBy) {
   userChatId = null;
 }
 
-// Reset chat to initial state
+// Reset chat to initial state — re-authenticates via Firebase and starts a new chat
 function resetChat() {
   // Clear real-time listeners
   if (messagesUnsubscribe) {
@@ -1162,178 +925,55 @@ function resetChat() {
     statusUnsubscribe();
     statusUnsubscribe = null;
   }
-  
+
   // Clear current chat state
   userChatId = null;
-  
-  // Clear user info to ensure a completely fresh start
-  // This ensures no persistence between sessions
   userInfo = null;
-  
-  // Reset UI to show user details form
-  chatContent.innerHTML = ''; // Clear content first
-  
-  // Welcome screen
-  const welcomeScreen = document.createElement('div');
-  welcomeScreen.className = 'welcome-screen';
-  
-  const heading = document.createElement('h3');
-  heading.textContent = 'Welcome to Lost & Found Support';
-  
-  const subtext = document.createElement('p');
-  subtext.textContent = 'Please provide your details to start chatting with our team';
-  
-  // Create the form
-  const form = document.createElement('form');
-  form.id = 'userDetailForm';
-  form.className = 'user-detail-form';
-  
-  // Name field
-  const nameGroup = document.createElement('div');
-  nameGroup.className = 'form-group';
-  
-  const nameLabel = document.createElement('label');
-  nameLabel.setAttribute('for', 'userName');
-  nameLabel.textContent = 'Your Name';
-  
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.id = 'userName';
-  nameInput.name = 'userName';
-  nameInput.placeholder = 'Full Name';
-  nameInput.required = true;
-  nameInput.style.cssText = `
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    padding: 0.75rem !important;
-    margin: 0.5rem 0 !important;
-    border: 3px solid #2563eb !important;
-    border-radius: 6px !important;
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    font-size: 1rem !important;
-    min-height: 45px !important;
-    box-sizing: border-box !important;
-    opacity: 1 !important;
-    position: relative !important;
-    z-index: 10000 !important;
-  `;
-  
-  nameGroup.appendChild(nameLabel);
-  nameGroup.appendChild(nameInput);
-  
-  // Email field
-  const emailGroup = document.createElement('div');
-  emailGroup.className = 'form-group';
-  
-  const emailLabel = document.createElement('label');
-  emailLabel.setAttribute('for', 'userEmail');
-  emailLabel.textContent = 'Email Address';
-  
-  const emailInput = document.createElement('input');
-  emailInput.type = 'email';
-  emailInput.id = 'userEmail';
-  emailInput.name = 'userEmail';
-  emailInput.placeholder = 'Email Address';
-  emailInput.required = true;
-  emailInput.style.cssText = `
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    padding: 0.75rem !important;
-    margin: 0.5rem 0 !important;
-    border: 3px solid #2563eb !important;
-    border-radius: 6px !important;
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    font-size: 1rem !important;
-    min-height: 45px !important;
-    box-sizing: border-box !important;
-    opacity: 1 !important;
-    position: relative !important;
-    z-index: 10000 !important;
-  `;
-  
-  emailGroup.appendChild(emailLabel);
-  emailGroup.appendChild(emailInput);
-  
-  // Submit button
-  const submitButton = document.createElement('button');
-  submitButton.type = 'submit';
-  submitButton.className = 'start-chat-btn';
-  submitButton.textContent = 'Start Chat';
-  
-  // Add form elements
-  form.appendChild(nameGroup);
-  form.appendChild(emailGroup);
-  form.appendChild(submitButton);
-  
-  // Add elements to welcome screen
-  welcomeScreen.appendChild(heading);
-  welcomeScreen.appendChild(subtext);
-  welcomeScreen.appendChild(form);
-  
-  // Add welcome screen to content
-  chatContent.appendChild(welcomeScreen);
-  
-  // Set up the form event listeners
-  setupUserDetailForm();
-  
-  // Hide the chat form if it exists
+
+  // Clear idle timer
+  clearTimeout(idleTimer);
+
+  // Reset the message input if it was disabled from a previous ended chat
+  const msgInput = document.getElementById('messageInput');
+  if (msgInput) {
+    msgInput.disabled = false;
+    msgInput.placeholder = 'Type your message here...';
+    msgInput.style.backgroundColor = '';
+    msgInput.style.color = '';
+    msgInput.value = '';
+  }
+
+  // Hide chat form container while reconnecting
   const chatFormContainer = document.getElementById('chatFormContainer');
   if (chatFormContainer) {
     chatFormContainer.style.display = 'none';
   }
-  
-  // Clear idle timer
-  clearTimeout(idleTimer);
-  
-  console.log('Chat reset complete. Form elements:', {
-    nameInput: document.getElementById('userName'),
-    emailInput: document.getElementById('userEmail'),
-    form: document.getElementById('userDetailForm')
+
+  // Show connecting state
+  if (chatContent) {
+    chatContent.innerHTML = '<div class="chat-loading">Connecting…</div>';
+  }
+
+  // Re-start with the currently logged-in Firebase Auth user
+  if (!window.firebase || !firebase.auth) {
+    if (chatWidget) chatWidget.style.display = 'none';
+    window.location.href = 'login.html';
+    return;
+  }
+
+  const unsubscribe = firebase.auth().onAuthStateChanged(function(authUser) {
+    unsubscribe();
+    if (authUser) {
+      startChatForUser(authUser);
+    } else {
+      if (chatWidget) chatWidget.style.display = 'none';
+      window.location.href = 'login.html';
+    }
   });
 }
 
-// Set up user detail form after resetting chat
-function setupUserDetailForm() {
-  // Get new reference to the form
-  userDetailForm = document.getElementById('userDetailForm');
-  
-  // Debug form visibility
-  console.log('Setting up user detail form', userDetailForm);
-  
-  if (!userDetailForm) {
-    console.error('User detail form not found!');
-    return;
-  }
-  
-  // Always start with completely empty form
-  // No prefilling from previous chats to ensure a fresh start
-  const nameInput = document.getElementById('userName');
-  const emailInput = document.getElementById('userEmail');
-  
-  console.log('Form elements:', { nameInput, emailInput });
-  
-  // Clear all fields explicitly
-  if (nameInput) nameInput.value = '';
-  if (emailInput) emailInput.value = '';
-  
-  // Set up event listener
-  userDetailForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    console.log('Form submitted');
-    
-    const name = document.getElementById('userName')?.value.trim() || '';
-    const email = document.getElementById('userEmail')?.value.trim() || '';
-    
-    console.log('Form data:', { name, email });
-    
-    // Request email verification before starting chat
-    requestEmailVerification(name, email, '');
-  });
-}
+// No-op: name/email form replaced by Firebase Auth
+function setupUserDetailForm() {}
 
 // Initialize EmailJS
 function initEmailJS() {
@@ -1607,27 +1247,9 @@ function showVerifyMsg(text, type) {
   }
 }
 
-// Get HTML for the welcome screen with user details form
+// No-op: name/email welcome form replaced by Firebase Auth
 function getChatWelcomeHTML() {
-  return `
-    <div class="welcome-screen">
-      <h3>Welcome to Lost & Found Support</h3>
-      <p>Please provide your details to start chatting with our team</p>
-      
-      <form id="userDetailForm" class="user-detail-form">
-        <div class="form-group">
-          <label for="userName">Your Name</label>
-          <input type="text" id="userName" name="userName" placeholder="Full Name" required>
-        </div>
-        <div class="form-group">
-          <label for="userEmail">Email Address</label>
-          <input type="email" id="userEmail" name="userEmail" placeholder="Email Address" required>
-        </div>
-        <!-- Removed the item inquiry field -->
-        <button type="submit" class="start-chat-btn">Start Chat</button>
-      </form>
-    </div>
-  `;
+  return '<div class="chat-loading">Connecting…</div>';
 }
 
 // Reset the idle timer
@@ -1643,49 +1265,9 @@ function resetIdleTimer() {
   }, IDLE_TIMEOUT);
 }
 
-// Handle idle timeout
-function handleIdleTimeout() {
-  if (!userChatId) return;
-  
-  // Only show warning if chat is active
-  addSystemMessage('Your chat will end soon due to inactivity. Please respond to keep the chat active.');
-  
-  // Give an additional minute grace period
-  idleTimer = setTimeout(() => {
-    endChatDueToIdle();
-  }, 60000);
-}
-
-// End chat due to idle timeout
-function endChatDueToIdle() {
-  if (!window.firebase?.firestore || !userChatId) {
-    return;
-  }
-  
-  const db = firebase.firestore();
-  
-  // Add system message that the chat has timed out
-  db.collection(CHAT_COLLECTION).doc(userChatId)
-    .collection(CHAT_MESSAGES_COLLECTION)
-    .add({
-      text: 'Chat automatically ended due to inactivity',
-      sender: 'system',
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  
-  // Mark chat as inactive
-  db.collection(CHAT_COLLECTION).doc(userChatId)
-    .update({
-      active: false,
-      endTime: firebase.firestore.FieldValue.serverTimestamp(),
-      endedBy: 'timeout'
-    })
-    .catch(error => {
-      console.error('Error ending idle chat:', error);
-    });
-    
-  // Local UI updates will happen via the chat document listener
-}
+// Idle auto-end removed — chats stay open
+function handleIdleTimeout() {}
+function endChatDueToIdle() {}
 
 // Format a timestamp for display
 function formatTimestamp(timestamp) {

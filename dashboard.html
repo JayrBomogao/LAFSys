@@ -395,6 +395,65 @@
 </head>
 <body>
     <script type="module" src="js/firebase.js"></script>
+
+    <!-- Auth guard: redirect to login if not signed in -->
+    <script>
+    (function() {
+        function waitForAuth(retries) {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                if (retries > 0) setTimeout(() => waitForAuth(retries - 1), 100);
+                return;
+            }
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html';
+                } else {
+                    // Show user info in header once auth is confirmed
+                    const nameEl = document.getElementById('userDisplayName');
+                    if (nameEl) nameEl.textContent = user.displayName || user.email;
+                    document.getElementById('userNav').style.display = 'flex';
+                }
+            });
+        }
+        waitForAuth(20);
+    })();
+
+    function doLogout() {
+        firebase.auth().signOut().then(() => {
+            window.location.href = 'login.html';
+        });
+    }
+    </script>
+
+    <style>
+        .user-nav {
+            display: none;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.875rem;
+        }
+        .user-nav .user-name {
+            color: #374151;
+            font-weight: 500;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .btn-logout {
+            padding: 0.4rem 0.9rem;
+            background: none;
+            border: 1.5px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .btn-logout:hover { border-color: #ef4444; color: #ef4444; }
+    </style>
+
     <header class="header">
         <div class="logo">
             <h1>Lost & Found – Baguio City</h1>
@@ -407,6 +466,10 @@
                 <i data-lucide="image"></i>
                 <span>Search by Image</span>
             </button>
+        </div>
+        <div class="user-nav" id="userNav">
+            <span class="user-name" id="userDisplayName"></span>
+            <button class="btn-logout" onclick="doLogout()">Logout</button>
         </div>
     </header>
 
@@ -778,7 +841,7 @@
     <script src="js/modal.js"></script>
     
     <!-- Improved image analysis and search -->
-    <script src="js/improvedImageAnalyzer.js?v=4.0"></script>
+    <script src="js/improvedImageAnalyzer.js?v=5.0"></script>
     <script src="js/cloudVision.js?v=4.0"></script>
     <script src="js/accurateImageSearch.js?v=5.0"></script>
     

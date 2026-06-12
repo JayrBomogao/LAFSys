@@ -259,7 +259,68 @@ class ImprovedImageAnalyzer {
     
     return { fingerprint, colorHistogram, pixelData };
   }
-  
+
+  /**
+   * Re-compute fingerprint, color histogram, and dominant colors from a
+   * normalized bounding box crop — used to strip background influence.
+   * bbox: { x1, y1, x2, y2 } all in [0,1]
+   */
+  async recomputeFeaturesFromBBox(imageData, bbox) {
+    try {
+      const img = await this._loadImage(imageData);
+      const iw = img.naturalWidth  || img.width;
+      const ih = img.naturalHeight || img.height;
+
+      // Pixel coordinates of the crop
+      const cropX = Math.max(0, Math.floor(bbox.x1 * iw));
+      const cropY = Math.max(0, Math.floor(bbox.y1 * ih));
+      const cropW = Math.min(iw - cropX, Math.ceil((bbox.x2 - bbox.x1) * iw));
+      const cropH = Math.min(ih - cropY, Math.ceil((bbox.y2 - bbox.y1) * ih));
+
+      if (cropW < 4 || cropH < 4) return null;
+
+      // Draw cropped region scaled to 64×64 for fingerprint
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, 64, 64);
+      const smallData = ctx.getImageData(0, 0, 64, 64);
+
+      const fingerprint    = this._createDHash(smallData);
+      const colorHistogram = this._createColorHistogram(smallData.data);
+
+      // Extract dominant colors from the cropped pixel data
+      const colorCounts = new Map();
+      const px = smallData.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i + 3] < 128) continue;
+        const qr = Math.floor(px[i]     / 24) * 24;
+        const qg = Math.floor(px[i + 1] / 24) * 24;
+        const qb = Math.floor(px[i + 2] / 24) * 24;
+        const key = `${qr},${qg},${qb}`;
+        colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+      }
+      const totalSamples = [...colorCounts.values()].reduce((a, b) => a + b, 0) || 1;
+      const dominantColors = [...colorCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([key, count]) => {
+          const [r, g, b] = key.split(',').map(Number);
+          return {
+            color: { red: r, green: g, blue: b },
+            score: count / totalSamples,
+            pixelFraction: count / totalSamples
+          };
+        });
+
+      return { fingerprint, colorHistogram, dominantColors };
+    } catch (e) {
+      console.warn('recomputeFeaturesFromBBox failed:', e.message);
+      return null;
+    }
+  }
+
   /**
    * Get image features for a stored item image (with caching)
    * @private

@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const vision = require('@google-cloud/vision');
 const admin = require('firebase-admin');
+const https = require('https');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -153,4 +154,107 @@ exports.enrichItemWithVision = functions.https.onCall(async (data, context) => {
       `Error enriching item: ${error.message}`
     );
   }
+});
+
+// ── EmailJS REST helper ────────────────────────────────────────────────────────
+function sendEmailJS(templateParams) {
+  const body = JSON.stringify({
+    service_id:      'service_rvn1rn4',
+    template_id:     'template_twn4j4h',
+    user_id:         'htcONvQFGnnjNMtOf',
+    template_params: templateParams,
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.emailjs.com',
+      path:     '/api/v1.0/email/send',
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => {
+        console.log(`EmailJS response: status=${res.statusCode}, body=${raw}`);
+        res.statusCode >= 200 && res.statusCode < 300
+          ? resolve()
+          : reject(new Error(`EmailJS ${res.statusCode}: ${raw}`));
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// ── sendPasswordResetCode ─────────────────────────────────────────────────────
+// Called by client: generates OTP, stores it, emails it.
+exports.sendPasswordResetCode = functions.https.onCall(async (data) => {
+  const email = (data.email || '').trim().toLowerCase();
+  if (!email) throw new functions.https.HttpsError('invalid-argument', 'Email is required.');
+
+  let user;
+  try {
+    user = await admin.auth().getUserByEmail(email);
+  } catch (_) {
+    throw new functions.https.HttpsError('not-found', 'No account found with that email address.');
+  }
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  await db.collection('passwordResets').doc(email).set({
+    otp,
+    expiresAt,
+    uid: user.uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  try {
+    await sendEmailJS({
+      to_name:   user.displayName || email,
+      to_email:  email,
+      email:     email,
+      from_name: 'Lost & Found - Baguio City',
+      message:   `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`,
+    });
+  } catch (emailErr) {
+    console.error('EmailJS failed:', emailErr.message);
+    // Clean up the stored OTP since the user won't receive the code
+    await db.collection('passwordResets').doc(email).delete().catch(() => {});
+    throw new functions.https.HttpsError('internal', 'Failed to send verification email. Please try again.');
+  }
+
+  return { success: true };
+});
+
+// ── confirmPasswordResetOTP ───────────────────────────────────────────────────
+// Called by client after user enters OTP: verifies, updates password.
+exports.confirmPasswordResetOTP = functions.https.onCall(async (data) => {
+  const email       = (data.email       || '').trim().toLowerCase();
+  const otp         = (data.otp         || '').trim();
+  const newPassword =  data.newPassword || '';
+
+  if (!email || !otp || !newPassword)
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required fields.');
+  if (newPassword.length < 6)
+    throw new functions.https.HttpsError('invalid-argument', 'Password must be at least 6 characters.');
+
+  const doc = await db.collection('passwordResets').doc(email).get();
+  if (!doc.exists)
+    throw new functions.https.HttpsError('not-found', 'No reset code found. Please request a new one.');
+
+  const record = doc.data();
+
+  if (Date.now() > record.expiresAt) {
+    await db.collection('passwordResets').doc(email).delete();
+    throw new functions.https.HttpsError('deadline-exceeded', 'Code has expired. Please request a new one.');
+  }
+
+  if (record.otp !== otp)
+    throw new functions.https.HttpsError('invalid-argument', 'Incorrect code. Please try again.');
+
+  await admin.auth().updateUser(record.uid, { password: newPassword });
+  await db.collection('passwordResets').doc(email).delete();
+
+  return { success: true };
 });

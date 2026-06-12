@@ -119,11 +119,42 @@ class AccurateImageSearch {
                         analysisResults.labelAnnotations = visionResults.labelAnnotations;
                         analysisResults.visionWebEntities = (visionResults.webDetection && visionResults.webDetection.webEntities) || [];
                         analysisResults.textAnnotations = visionResults.textAnnotations || [];
-                        // Override local color analysis with Vision API's more accurate colors
-                        if (visionResults.imagePropertiesAnnotation) {
+
+                        // Crop to the main object's bounding box so background doesn't
+                        // pollute the fingerprint, color histogram, or color display.
+                        const objects = visionResults.localizedObjectAnnotations || [];
+                        let bboxApplied = false;
+                        if (objects.length > 0) {
+                            const verts = (objects[0].boundingPoly && objects[0].boundingPoly.normalizedVertices) || [];
+                            if (verts.length >= 4) {
+                                const xs = verts.map(v => v.x || 0);
+                                const ys = verts.map(v => v.y || 0);
+                                const bbox = {
+                                    x1: Math.max(0, Math.min(...xs)),
+                                    y1: Math.max(0, Math.min(...ys)),
+                                    x2: Math.min(1, Math.max(...xs)),
+                                    y2: Math.min(1, Math.max(...ys))
+                                };
+                                const area = (bbox.x2 - bbox.x1) * (bbox.y2 - bbox.y1);
+                                // Only crop when bbox is a meaningful sub-region (5%–97% of image)
+                                if (area > 0.05 && area < 0.97) {
+                                    const cropped = await window.ImprovedImageAnalyzer.recomputeFeaturesFromBBox(this.selectedImage, bbox);
+                                    if (cropped) {
+                                        analysisResults.imageFingerprint  = cropped.fingerprint;
+                                        analysisResults._colorHistogram   = cropped.colorHistogram;
+                                        analysisResults.imagePropertiesAnnotation = {
+                                            dominantColors: { colors: cropped.dominantColors }
+                                        };
+                                        bboxApplied = true;
+                                    }
+                                }
+                            }
+                        }
+                        // Fall back to Vision's full-image colors if no valid bbox
+                        if (!bboxApplied && visionResults.imagePropertiesAnnotation) {
                             analysisResults.imagePropertiesAnnotation = visionResults.imagePropertiesAnnotation;
                         }
-                        console.log('Cloud Vision labels merged:', visionResults.labelAnnotations.length, 'labels');
+                        console.log('Cloud Vision labels merged:', visionResults.labelAnnotations.length, 'labels', bboxApplied ? '(bbox crop applied)' : '');
                     } else {
                         console.warn('Cloud Vision returned empty labels:', visionResults);
                     }

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login – Lost & Found Baguio City</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 1rem;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            width: 100%;
+            max-width: 420px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: #1e3a5f;
+            padding: 2rem 2rem 1.5rem;
+            text-align: center;
+            color: #fff;
+        }
+
+        .card-header h1 { font-size: 1.5rem; font-weight: 700; }
+        .card-header p  { font-size: 0.85rem; opacity: 0.75; margin-top: 0.25rem; }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.9rem;
+            background: none;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #6b7280;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .tab-btn.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+        }
+
+        .tab-panel { display: none; padding: 1.75rem 2rem 2rem; }
+        .tab-panel.active { display: block; }
+
+        .form-group { margin-bottom: 1rem; }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.4rem;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"] {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #111;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        input:focus { border-color: #2563eb; }
+
+        .btn {
+            width: 100%;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn-outline {
+            background: none;
+            border: 1.5px solid #2563eb;
+            color: #2563eb;
+            margin-top: 0.5rem;
+        }
+
+        .btn-outline:hover { background: #eff6ff; }
+        .btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .otp-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .otp-row .form-group { flex: 1; margin-bottom: 0; }
+
+        .otp-row .btn-outline {
+            flex-shrink: 0;
+            width: auto;
+            padding: 0.7rem 1rem;
+            margin-top: 0;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        #otpSection { display: none; margin-top: 0.5rem; }
+
+        .alert {
+            padding: 0.7rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .alert-info    { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+
+        .divider {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.8rem;
+            margin: 0.75rem 0;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="card-header">
+        <h1>Lost &amp; Found – Baguio City</h1>
+        <p>Sign in to browse and inquire about items</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('login')">Login</button>
+        <button class="tab-btn" onclick="showTab('register')">Register</button>
+    </div>
+
+    <!-- LOGIN TAB -->
+    <div id="loginPanel" class="tab-panel active">
+        <!-- Normal login form -->
+        <div id="loginForm">
+            <div id="loginAlert"></div>
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password">
+            </div>
+            <div style="text-align:right;margin:-0.25rem 0 0.75rem 0;">
+                <a href="#" onclick="showForgotPanel();return false;" style="font-size:0.85rem;color:#2563eb;text-decoration:none;">Forgot password?</a>
+            </div>
+            <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Login</button>
+        </div>
+
+        <!-- Forgot password flow (hidden by default) -->
+        <div id="forgotPanel" style="display:none;">
+            <div id="fpAlert"></div>
+
+            <!-- Step 1: enter email -->
+            <div id="fpStep1">
+                <p style="font-weight:600;margin-bottom:1rem;">Reset Password</p>
+                <p style="font-size:0.875rem;color:#6b7280;margin-bottom:1rem;">Enter your email and we'll send you a 6-digit code.</p>
+                <div class="form-group">
+                    <label for="fpEmail">Email</label>
+                    <input type="email" id="fpEmail" placeholder="you@example.com" autocomplete="email">
+                </div>
+                <button class="btn btn-primary" id="fpSendBtn" onclick="fpSendCode()">Send Code</button>
+                <button class="btn" onclick="showLoginForm()" style="margin-top:0.5rem;background:none;color:#6b7280;border:1px solid #d1d5db;">Back to Login</button>
+            </div>
+
+            <!-- Step 2: enter OTP -->
+            <div id="fpStep2" style="display:none;">
+                <p style="font-weight:600;margin-bottom:0.5rem;">Enter the Code</p>
+                <p style="font-size:0.875rem;color:#6b7280;margin-bottom:1rem;">A 6-digit code was sent to <strong id="fpEmailDisplay"></strong>.</p>
+                <div class="form-group">
+                    <label for="fpOtp">Verification Code</label>
+                    <input type="text" id="fpOtp" placeholder="000000" maxlength="6" inputmode="numeric" style="letter-spacing:0.3em;font-size:1.25rem;text-align:center;">
+                </div>
+                <button class="btn btn-primary" id="fpVerifyBtn" onclick="fpVerifyCode()">Verify Code</button>
+                <button class="btn" onclick="fpGoBack(1)" style="margin-top:0.5rem;background:none;color:#6b7280;border:1px solid #d1d5db;">Resend Code</button>
+            </div>
+
+            <!-- Step 3: set new password directly -->
+            <div id="fpStep3" style="display:none;">
+                <p style="font-weight:600;margin-bottom:0.5rem;">Set New Password</p>
+                <p style="font-size:0.875rem;color:#6b7280;margin-bottom:1rem;">Identity verified. Enter your new password below.</p>
+                <div class="form-group">
+                    <label for="fpNewPass">New Password</label>
+                    <input type="password" id="fpNewPass" placeholder="At least 6 characters">
+                </div>
+                <div class="form-group">
+                    <label for="fpConfirmPass">Confirm Password</label>
+                    <input type="password" id="fpConfirmPass" placeholder="Repeat new password">
+                </div>
+                <button class="btn btn-primary" id="fpResetBtn" onclick="fpResetPassword()">Reset Password</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTER TAB -->
+    <div id="registerPanel" class="tab-panel">
+        <div id="registerAlert"></div>
+        <div class="form-group">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" placeholder="Juan dela Cruz">
+        </div>
+        <div class="form-group">
+            <label for="regEmail">Email</label>
+            <input type="email" id="regEmail" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+            <label for="regPassword">Password</label>
+            <input type="password" id="regPassword" placeholder="At least 6 characters">
+        </div>
+        <div class="form-group">
+            <label for="regConfirm">Confirm Password</label>
+            <input type="password" id="regConfirm" placeholder="Repeat password">
+        </div>
+
+        <!-- OTP row — shown after clicking Send Code -->
+        <div id="otpSection">
+            <div class="divider">Check your email for a verification code</div>
+            <div class="otp-row">
+                <div class="form-group">
+                    <label for="otpInput">Verification Code</label>
+                    <input type="number" id="otpInput" placeholder="6-digit code" maxlength="6">
+                </div>
+                <button class="btn btn-outline" id="resendBtn" onclick="sendOTP(true)">Resend</button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="registerBtn" onclick="handleRegisterStep()">Send Verification Code</button>
+    </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+<script>
+// ── Firebase ──────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+    apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+    authDomain: "lafsys.firebaseapp.com",
+    projectId: "lafsys",
+    storageBucket: "lafsys.appspot.com",
+    messagingSenderId: "103945210522",
+    appId: "1:103945210522:web:f5a51c84653a0cab10ed23"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── EmailJS ───────────────────────────────────────────────────────────────────
+const EMAILJS_PUBLIC_KEY   = 'htcONvQFGnnjNMtOf';
+const EMAILJS_SERVICE_ID   = 'service_rvn1rn4';
+const EMAILJS_TEMPLATE_ID  = 'template_twn4j4h';
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+// ── OTP state ─────────────────────────────────────────────────────────────────
+let otpCode       = null;
+let otpExpiry     = 0;
+let otpPending    = false;   // true after code sent, waiting for verify
+let lastSentAt    = 0;
+const OTP_TTL     = 5 * 60 * 1000;   // 5 min
+const OTP_COOLDOWN = 30 * 1000;       // 30 s
+
+// ── Redirect if already logged in ────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+    if (user) window.location.href = 'dashboard.html';
+});
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) =>
+        b.classList.toggle('active', (i === 0) === (tab === 'login')));
+    document.getElementById('loginPanel').classList.toggle('active', tab === 'login');
+    document.getElementById('registerPanel').classList.toggle('active', tab === 'register');
+    if (tab === 'login') showLoginForm();
+    clearAlert('loginAlert');
+    clearAlert('registerAlert');
+}
+
+// ── Alert helpers ─────────────────────────────────────────────────────────────
+function showAlert(id, msg, type = 'error') {
+    document.getElementById(id).innerHTML =
+        `<div class="alert alert-${type}">${msg}</div>`;
+}
+function clearAlert(id) { document.getElementById(id).innerHTML = ''; }
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const btn      = document.getElementById('loginBtn');
+    clearAlert('loginAlert');
+
+    if (!email || !password) {
+        showAlert('loginAlert', 'Please enter your email and password.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Logging in…';
+
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // onAuthStateChanged will redirect to dashboard
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Login';
+        const msg = ['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-login-credentials', 'auth/invalid-credential'].includes(err.code)
+            ? 'Incorrect email or password. Please try again.'
+            : err.code === 'auth/too-many-requests'
+            ? 'Too many failed attempts. Please wait a few minutes and try again.'
+            : err.code === 'auth/user-disabled'
+            ? 'This account has been disabled. Please contact support.'
+            : 'Login failed. Please check your connection and try again.';
+        showAlert('loginAlert', msg);
+    }
+}
+
+// ── Forgot Password ────────────────────────────────────────────────────────────
+let fpEmail = '';
+
+function showForgotPanel() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('forgotPanel').style.display = 'block';
+    fpGoBack(1);
+    const typed = document.getElementById('loginEmail').value.trim();
+    if (typed) document.getElementById('fpEmail').value = typed;
+}
+
+function showLoginForm() {
+    document.getElementById('forgotPanel').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    clearAlert('loginAlert');
+}
+
+function fpGoBack(step) {
+    ['fpStep1','fpStep2','fpStep3'].forEach((id, i) =>
+        document.getElementById(id).style.display = (i + 1 === step) ? 'block' : 'none');
+    clearAlert('fpAlert');
+}
+
+function fpShowAlert(msg, type) { showAlert('fpAlert', msg, type); }
+function fpClearAlert()          { clearAlert('fpAlert'); }
+
+async function fpSendCode() {
+    const email = document.getElementById('fpEmail').value.trim();
+    fpClearAlert();
+    if (!email) { fpShowAlert('Please enter your email address.'); return; }
+
+    const btn = document.getElementById('fpSendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Sending…';
+
+    try {
+        // Cloud Function generates OTP, stores it in Firestore, and emails it
+        const fn = firebase.functions().httpsCallable('sendPasswordResetCode');
+        await fn({ email });
+        fpEmail = email;
+        document.getElementById('fpEmailDisplay').textContent = email;
+        fpGoBack(2);
+        fpShowAlert(`A 6-digit code was sent to <strong>${email}</strong>. Check your inbox (and spam folder).`, 'success');
+    } catch (err) {
+        const msg = err.code === 'functions/not-found'
+            ? 'No account found with that email address.'
+            : err.code === 'functions/internal'
+            ? 'Failed to send verification email. Please try again later.'
+            : err.message || 'Failed to send code. Please try again.';
+        fpShowAlert(msg);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Code';
+    }
+}
+
+function fpVerifyCode() {
+    const entered = document.getElementById('fpOtp').value.trim();
+    fpClearAlert();
+
+    if (!/^\d{6}$/.test(entered)) { fpShowAlert('Please enter the full 6-digit code.'); return; }
+
+    // OTP is verified server-side in fpResetPassword — just advance to step 3
+    fpGoBack(3);
+    document.getElementById('fpNewPass').value = '';
+    document.getElementById('fpConfirmPass').value = '';
+}
+
+async function fpResetPassword() {
+    const newPass     = document.getElementById('fpNewPass').value;
+    const confirmPass = document.getElementById('fpConfirmPass').value;
+    fpClearAlert();
+
+    if (newPass.length < 6) { fpShowAlert('Password must be at least 6 characters.'); return; }
+    if (newPass !== confirmPass) { fpShowAlert('Passwords do not match.'); return; }
+
+    const btn = document.getElementById('fpResetBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Resetting…';
+
+    try {
+        // Store the verified OTP + new password in Firestore so the Cloud Function
+        // can update the password securely using Firebase Admin SDK.
+        const otp = document.getElementById('fpOtp').value.trim();
+        const fn  = firebase.functions().httpsCallable('confirmPasswordResetOTP');
+        await fn({ email: fpEmail, otp, newPassword: newPass });
+        showLoginForm();
+        showAlert('loginAlert', 'Password reset successfully! You can now log in with your new password.', 'success');
+    } catch (err) {
+        const code = err.code || '';
+        const msg  = (code === 'functions/invalid-argument' || code === 'functions/deadline-exceeded' || code === 'functions/not-found')
+            ? err.message
+            : 'Reset failed. Please try again.';
+        fpShowAlert(msg);
+        if (code === 'functions/deadline-exceeded') fpGoBack(1);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Reset Password';
+    }
+}
+
+// Enter key on login fields
+['loginEmail','loginPassword'].forEach(id =>
+    document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+    }));
+
+// ── Register — step router ────────────────────────────────────────────────────
+function handleRegisterStep() {
+    if (!otpPending) {
+        sendOTP(false);
+    } else {
+        verifyAndCreate();
+    }
+}
+
+// ── Send OTP ──────────────────────────────────────────────────────────────────
+async function sendOTP(isResend) {
+    clearAlert('registerAlert');
+    const name     = document.getElementById('regName').value.trim();
+    const email    = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const confirm  = document.getElementById('regConfirm').value;
+
+    if (!name)     { showAlert('registerAlert', 'Please enter your full name.'); return; }
+    if (!email)    { showAlert('registerAlert', 'Please enter your email.'); return; }
+    if (!password) { showAlert('registerAlert', 'Please enter a password.'); return; }
+    if (password.length < 6) { showAlert('registerAlert', 'Password must be at least 6 characters.'); return; }
+    if (password !== confirm) { showAlert('registerAlert', 'Passwords do not match.'); return; }
+
+    // Check cooldown
+    if (Date.now() - lastSentAt < OTP_COOLDOWN) {
+        const wait = Math.ceil((OTP_COOLDOWN - (Date.now() - lastSentAt)) / 1000);
+        showAlert('registerAlert', `Please wait ${wait}s before requesting a new code.`, 'info');
+        return;
+    }
+
+    // Check if email already registered
+    try {
+        const methods = await auth.fetchSignInMethodsForEmail(email);
+        if (methods.length > 0) {
+            showAlert('registerAlert', 'An account with this email already exists. Please login.');
+            return;
+        }
+    } catch (_) {}
+
+    // Generate code
+    otpCode   = String(Math.floor(100000 + Math.random() * 900000));
+    otpExpiry = Date.now() + OTP_TTL;
+    lastSentAt = Date.now();
+
+    const btn = document.getElementById('registerBtn');
+    const resendBtn = document.getElementById('resendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Sending code…';
+
+    try {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+            to_name:           name,
+            to_email:          email,
+            email:             email,
+            recipient:         email,
+            to:                email,
+            from_name:         'Lost & Found - Baguio City',
+            verification_code: otpCode,
+            message:           `Your verification code is: ${otpCode}\n\nThis code expires in 5 minutes.`,
+        }, { publicKey: EMAILJS_PUBLIC_KEY });
+
+        otpPending = true;
+        document.getElementById('otpSection').style.display = 'block';
+        // Lock the fields so email can't change after code is sent
+        ['regName','regEmail','regPassword','regConfirm'].forEach(id =>
+            document.getElementById(id).disabled = true);
+        btn.textContent = 'Verify & Create Account';
+        btn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+        showAlert('registerAlert',
+            `A verification code was sent to ${email}. Check your inbox (and spam folder).`,
+            'success');
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Send Verification Code';
+        showAlert('registerAlert', 'Failed to send email. Please try again. ' + (err.text || err.message || ''));
+        console.error('EmailJS error:', err);
+    }
+}
+
+// ── Verify OTP and create account ─────────────────────────────────────────────
+async function verifyAndCreate() {
+    clearAlert('registerAlert');
+    const inputCode = String(document.getElementById('otpInput').value).trim();
+
+    if (!inputCode) { showAlert('registerAlert', 'Please enter the verification code.'); return; }
+    if (Date.now() > otpExpiry) {
+        showAlert('registerAlert', 'Verification code expired. Click Resend to get a new one.');
+        resetOTPState();
+        return;
+    }
+    if (inputCode !== otpCode) {
+        showAlert('registerAlert', 'Incorrect code. Please try again.');
+        return;
+    }
+
+    const name     = document.getElementById('regName').value.trim();
+    const email    = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const btn      = document.getElementById('registerBtn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Creating account…';
+
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        // Update display name
+        await cred.user.updateProfile({ displayName: name });
+        // Save profile to Firestore
+        await db.collection('users').doc(cred.user.uid).set({
+            name,
+            email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // onAuthStateChanged will redirect
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Verify & Create Account';
+        const msg = err.code === 'auth/email-already-in-use'
+            ? 'This email is already registered. Please login.'
+            : err.message;
+        showAlert('registerAlert', msg);
+    }
+}
+
+// ── Reset OTP state (so user can re-enter info) ────────────────────────────────
+function resetOTPState() {
+    otpPending = false;
+    otpCode    = null;
+    document.getElementById('otpSection').style.display = 'none';
+    document.getElementById('otpInput').value = '';
+    ['regName','regEmail','regPassword','regConfirm'].forEach(id =>
+        document.getElementById(id).disabled = false);
+    document.getElementById('registerBtn').textContent = 'Send Verification Code';
+}
+
+// Enter key on OTP input
+document.getElementById('otpInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') verifyAndCreate();
+});
+</script>
+</body>
+</html>
