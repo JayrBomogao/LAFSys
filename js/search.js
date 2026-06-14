@@ -26,6 +26,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Live search — filter on every keystroke
+    searchInput.addEventListener('input', function() {
+        performSearch();
+    });
+
     // Ensure refresh button resets the title and clears search state
     if (refreshButton) {
         refreshButton.addEventListener('click', function() {

@@ -258,3 +258,26 @@ exports.confirmPasswordResetOTP = functions.https.onCall(async (data) => {
 
   return { success: true };
 });
+
+// ── getUserDisplayName ─────────────────────────────────────────────────────────
+// Looks up a user's registered name by UID — tries Firestore first, then Auth.
+exports.getUserDisplayName = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
+
+  const uid = (data.uid || '').trim();
+  if (!uid) throw new functions.https.HttpsError('invalid-argument', 'uid is required.');
+
+  // Try Firestore users collection first
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (userDoc.exists && userDoc.data().name) {
+    return { name: userDoc.data().name };
+  }
+
+  // Fall back to Firebase Auth displayName
+  try {
+    const authUser = await admin.auth().getUser(uid);
+    return { name: authUser.displayName || authUser.email || 'Unknown User' };
+  } catch (_) {
+    return { name: 'Unknown User' };
+  }
+});

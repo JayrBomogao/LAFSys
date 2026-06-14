@@ -50,12 +50,9 @@ function setupItemSearch() {
         }
     });
     
-    // Clear button functionality (optional)
+    // Live search — filter on every keystroke
     searchInput.addEventListener('input', function() {
-        if (this.value === '') {
-            // If search input is cleared, show all items
-            resetItemsDisplay();
-        }
+        performSearch();
     });
 }
 

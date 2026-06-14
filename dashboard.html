@@ -73,10 +73,10 @@
         
         .items-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
         }
-        
+
         .item-card {
             background: white;
             border-radius: 0.5rem;
@@ -114,15 +114,15 @@
         /* Status badges */
         .status-badge {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            padding: 5px 10px;
+            top: 6px;
+            right: 6px;
+            padding: 2px 6px;
             border-radius: 4px;
-            font-size: 0.75rem;
+            font-size: 0.6rem;
             font-weight: 600;
             color: white;
             text-transform: uppercase;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
         }
         
         .status-active {
@@ -206,37 +206,43 @@
         }
         
         .item-content {
-            padding: 1.25rem;
+            padding: 1rem 1.1rem;
         }
-        
+
         .item-title {
             font-size: 1rem;
-            font-weight: 600;
-            margin: 0 0 0.5rem;
+            font-weight: 700;
+            margin: 0 0 0.35rem;
             color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        
+
         .item-category {
             display: inline-block;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
             background-color: #e0f2fe;
             color: #075985;
-            padding: 0.25rem 0.5rem;
+            padding: 0.15rem 0.4rem;
             border-radius: 0.25rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.3rem;
         }
         
         .item-details {
-            margin-top: 0.75rem;
-            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
             color: #64748b;
         }
-        
+
         .item-details div {
             display: flex;
             align-items: center;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.15rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .item-details i {
@@ -303,64 +309,31 @@
             align-items: center;
             gap: 0.75rem;
         }
-        
-        .refresh-label {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #3b82f6;
-            margin-left: -0.25rem;
-        }
-        
-        .btn-icon {
+
+        #refresh-items {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 9999px;
-            background-color: #f3f4f6;
-            border: none;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            background-color: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.15s, border-color 0.15s;
         }
-        
-        .btn-icon:hover {
-            background-color: #e5e7eb;
-        }
-        
-        /* Special styling for the refresh button */
-        #refresh-items {
-            background-color: #3b82f6;
-            color: white;
-            width: 3rem;
-            height: 3rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            border: 2px solid #60a5fa;
-            animation: pulse-subtle 2s infinite;
-            position: relative;
-        }
-        
-        /* Subtle pulse animation for the refresh button */
-        @keyframes pulse-subtle {
-            0% {
-                box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.7);
-            }
-            70% {
-                box-shadow: 0 0 0 6px rgba(96, 165, 250, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
-            }
-        }
-        
+
         #refresh-items:hover {
-            background-color: #2563eb;
-            transform: rotate(15deg);
+            background-color: #f3f4f6;
+            border-color: #9ca3af;
         }
-        
+
         #refresh-items i {
-            width: 1.25rem;
-            height: 1.25rem;
+            width: 1rem;
+            height: 1rem;
+            color: #6b7280;
         }
         
         @keyframes spin {
@@ -380,15 +353,21 @@
         }
         
         /* Responsive fixes */
-        @media (max-width: 768px) {
+        @media (max-width: 1200px) {
             .items-grid {
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                grid-template-columns: repeat(4, 1fr);
             }
         }
-        
+
+        @media (max-width: 768px) {
+            .items-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
         @media (max-width: 480px) {
             .items-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -480,10 +459,10 @@
                 <option value="active">Active Items</option>
                 <option value="soon">Disposal Soon</option>
             </select>
-            <button id="refresh-items" class="btn btn-icon" title="Refresh Items">
+            <button id="refresh-items" title="Refresh Items">
                 <i data-lucide="refresh-cw"></i>
+                Refresh
             </button>
-            <span class="refresh-label">Refresh</span>
         </div>
 
         <section class="items-section">
@@ -636,11 +615,14 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        
+
         // Make Firebase services available
         const db = firebase.firestore();
         const storage = firebase.storage();
         const auth = firebase.auth();
+
+        // Enable offline persistence — cached data loads instantly on repeat visits
+        db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
         
         // Fetch and display items from Firestore with real-time updates
         let unsubscribeSnapshot = null;
@@ -683,7 +665,10 @@
                 
                 // Listen for real-time updates from Firestore
                 console.log('Setting up real-time listener for Firestore');
-                unsubscribeSnapshot = db.collection('items').onSnapshot((querySnapshot) => {
+                unsubscribeSnapshot = db.collection('items')
+                    .orderBy('date', 'desc')
+                    .limit(60)
+                    .onSnapshot((querySnapshot) => {
                     console.log('Real-time update received, document count:', querySnapshot.size);
                 
                 if (querySnapshot.empty) {

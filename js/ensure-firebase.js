@@ -27,6 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Firebase is already initialized');
     }
     
+    // Enable offline persistence for faster repeat loads
+    if (firebase.firestore) {
+        firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    }
+
     // Verify Firestore is available
     if (firebase.firestore) {
         console.log('Firestore is available');

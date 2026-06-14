@@ -14,6 +14,9 @@ let activeChatId = null;
 let idleTimers = {};
 let currentChatUser = null;
 
+// Cache resolved display names to avoid repeated Cloud Function calls
+const resolvedNameCache = {};
+
 // Notification state
 let knownChatIds = new Set();
 let isFirstLoad = true;
@@ -407,7 +410,6 @@ function initializeChatInterface() {
   
   // Create the container directly with HTML
   inboxSection.innerHTML = `
-    <h2>Live Chat Support</h2>
     <div class="live-chat-container">
       <div class="active-chats-sidebar">
         <h3>Active Chats</h3>
@@ -583,7 +585,34 @@ function updateActiveChatsUI(hasChats) {
       <div class="chat-item-time">${timestamp}</div>
       ${chat.unreadCount ? `<span class="unread-badge">${chat.unreadCount}</span>` : ''}
     `;
-    
+
+    // Replace email with registered full name — Firestore first, then Cloud Function fallback
+    if (chat.userId) {
+      const uid = chat.userId;
+      if (resolvedNameCache[uid]) {
+        li.querySelector('.chat-item-user').textContent = resolvedNameCache[uid];
+      } else {
+        firebase.firestore().collection('users').doc(uid).get()
+          .then(u => {
+            const nameEl = li.querySelector('.chat-item-user');
+            if (!nameEl) return;
+            if (u.exists && u.data().name) {
+              resolvedNameCache[uid] = u.data().name;
+              nameEl.textContent = u.data().name;
+            } else {
+              firebase.functions().httpsCallable('getUserDisplayName')({ uid })
+                .then(result => {
+                  if (result.data && result.data.name) {
+                    resolvedNameCache[uid] = result.data.name;
+                    const el = li.querySelector('.chat-item-user');
+                    if (el) el.textContent = result.data.name;
+                  }
+                }).catch(() => {});
+            }
+          }).catch(() => {});
+      }
+    }
+
     // Add click handler for item inquiry link in sidebar
     const inquiryLink = li.querySelector('.chat-item-inquiry[data-item-id]');
     if (inquiryLink && inquiryLink.dataset.itemId) {
@@ -675,14 +704,41 @@ function loadChatMessages(chatId) {
         // Build initial chat header
         chatWindow.innerHTML = `
           <div class="chat-user-info">
-            <div class="chat-user-name">${chatData.userName || 'Unknown User'}</div>
+            <div class="chat-user-name" id="chatDisplayName">${chatData.userName || 'Unknown User'}</div>
             <div class="chat-user-email">${chatData.userEmail || 'No email provided'}</div>
             <div class="chat-start-time">Started: ${formatTimestamp(chatData.startTime)}</div>
             <div id="chatItemContext"></div>
           </div>
           <div id="messagesList" class="messages-list"></div>
         `;
-        
+
+        // Replace with registered full name — Firestore first, then Cloud Function fallback
+        if (chatData.userId) {
+          const uid = chatData.userId;
+          if (resolvedNameCache[uid]) {
+            const nameEl = document.getElementById('chatDisplayName');
+            if (nameEl) nameEl.textContent = resolvedNameCache[uid];
+          } else {
+            db.collection('users').doc(uid).get()
+              .then(u => {
+                if (u.exists && u.data().name) {
+                  resolvedNameCache[uid] = u.data().name;
+                  const nameEl = document.getElementById('chatDisplayName');
+                  if (nameEl) nameEl.textContent = u.data().name;
+                } else {
+                  firebase.functions().httpsCallable('getUserDisplayName')({ uid })
+                    .then(result => {
+                      if (result.data && result.data.name) {
+                        resolvedNameCache[uid] = result.data.name;
+                        const nameEl = document.getElementById('chatDisplayName');
+                        if (nameEl) nameEl.textContent = result.data.name;
+                      }
+                    }).catch(() => {});
+                }
+              }).catch(() => {});
+          }
+        }
+
         // If chat has item context, fetch item details from Firestore
         if (chatData.itemId) {
           const itemContextEl = document.getElementById('chatItemContext');

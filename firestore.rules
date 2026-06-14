@@ -35,9 +35,27 @@ service cloud.firestore {
       allow read, write: if true;
     }
     
-    // Allow all operations for development until December 2025
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Live chats collection and subcollections
+    match /liveChats/{chatId} {
+      allow read, write: if true;
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    // Password resets (server-side only, but allow reads for client OTP confirm)
+    match /passwordResets/{email} {
+      allow read, write: if true;
+    }
+
+    // Allow all other operations
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 12, 25);
+      allow read, write: if true;
     }
   }
 }

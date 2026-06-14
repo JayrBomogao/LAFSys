@@ -247,16 +247,26 @@ function startChatForUser(authUser) {
     return;
   }
 
-  const name  = authUser.displayName || authUser.email;
   const email = authUser.email;
   const uid   = authUser.uid;
-
-  userInfo = { name, email, uid };
-
+  userInfo = { name: authUser.displayName || email, email, uid };
   chatContent.innerHTML = '<div class="chat-loading">Starting chat…</div>';
 
   const db = firebase.firestore();
 
+  // Always resolve the registered name from Firestore first — displayName can lag after registration
+  db.collection('users').doc(uid).get()
+    .then(userDoc => {
+      const name = (userDoc.exists && userDoc.data().name)
+        ? userDoc.data().name
+        : (authUser.displayName || email);
+      userInfo.name = name;
+      return _doStartChat(db, uid, name, email);
+    })
+    .catch(() => _doStartChat(db, uid, authUser.displayName || email, email));
+}
+
+function _doStartChat(db, uid, name, email) {
   const chatBtn   = document.getElementById('chat-with-staff-btn');
   let itemId    = (chatBtn && chatBtn.dataset.itemId)    ? chatBtn.dataset.itemId    : null;
   let itemTitle = (chatBtn && chatBtn.dataset.itemTitle) ? chatBtn.dataset.itemTitle : '';
@@ -266,7 +276,7 @@ function startChatForUser(authUser) {
   }
 
   // Query only by userId (no composite index needed), then filter itemId in JS
-  db.collection(CHAT_COLLECTION).where('userId', '==', uid).get()
+  return db.collection(CHAT_COLLECTION).where('userId', '==', uid).get()
     .then(snapshot => {
       let existingChat = null;
       if (!snapshot.empty) {

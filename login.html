@@ -314,9 +314,12 @@ let lastSentAt    = 0;
 const OTP_TTL     = 5 * 60 * 1000;   // 5 min
 const OTP_COOLDOWN = 30 * 1000;       // 30 s
 
+// Flag to block auto-redirect while registration writes are in progress
+let isRegistering = false;
+
 // ── Redirect if already logged in ────────────────────────────────────────────
 auth.onAuthStateChanged(user => {
-    if (user) window.location.href = 'dashboard.html';
+    if (user && !isRegistering) window.location.href = 'dashboard.html';
 });
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
@@ -476,6 +479,12 @@ async function fpResetPassword() {
         if (e.key === 'Enter') doLogin();
     }));
 
+// Enter key on register fields
+['regName','regEmail','regPassword','regConfirm'].forEach(id =>
+    document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') handleRegisterStep();
+    }));
+
 // ── Register — step router ────────────────────────────────────────────────────
 function handleRegisterStep() {
     if (!otpPending) {
@@ -580,18 +589,20 @@ async function verifyAndCreate() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Creating account…';
 
+    isRegistering = true;
     try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
-        // Update display name
+        // Update display name and save to Firestore before redirecting
         await cred.user.updateProfile({ displayName: name });
-        // Save profile to Firestore
         await db.collection('users').doc(cred.user.uid).set({
             name,
             email,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        // onAuthStateChanged will redirect
+        // Both writes complete — now safe to redirect
+        window.location.href = 'dashboard.html';
     } catch (err) {
+        isRegistering = false;
         btn.disabled = false;
         btn.textContent = 'Verify & Create Account';
         const msg = err.code === 'auth/email-already-in-use'
