@@ -173,61 +173,33 @@ document.addEventListener('DOMContentLoaded', () => {
 function openItemDetails(item) {
     if (!item) return;
 
-    // Set item data in the modal
     document.getElementById('modalItemImage').src = item.image || 'https://via.placeholder.com/400x300?text=No+Image';
     document.getElementById('modalItemTitle').textContent = item.title || 'Untitled Item';
     document.getElementById('modalItemDescription').textContent = item.description || 'No description available.';
-    
-    // Hide status badge
-    const statusBadge = document.getElementById('modalItemStatus');
-    statusBadge.style.display = 'none';
-    
-    // Set item details
     document.getElementById('modalItemCategory').textContent = item.category || 'Not specified';
-    document.getElementById('modalItemLocation').textContent = item.location || 'Location not specified';
-    
-    // Format dates
-    const formatDate = (dateString) => {
-        if (!dateString) return 'Not specified';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-    
-    document.getElementById('modalItemDate').textContent = formatDate(item.date);
-    document.getElementById('modalItemDisposalDate').textContent = formatDate(item.disposalDate);
-    
-    // Set up Chat with Staff button
-    const claimBtn = document.getElementById('claimItemBtn');
-    if (item.status === 'claimed') {
-        claimBtn.textContent = 'This item has been claimed';
-        claimBtn.disabled = true;
-    } else {
-        claimBtn.textContent = 'Chat with Staff';
-        claimBtn.disabled = false;
-        claimBtn.onclick = (e) => {
-            e.stopPropagation();
-            // Redirect to item details page with chat
-            window.location.href = `item-details.html?id=${item.id}`;
-        };
+    document.getElementById('modalItemLocation').textContent = item.location || 'Not specified';
+    document.getElementById('modalItemStorageLocation').textContent = item.storageLocation || 'Not specified';
+    document.getElementById('modalItemFoundBy').textContent = item.foundBy || 'Unknown';
+
+    try {
+        document.getElementById('modalItemDate').textContent = item.date
+            ? new Date(item.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            : 'Not specified';
+    } catch (_) {
+        document.getElementById('modalItemDate').textContent = item.date || 'Not specified';
     }
-    
-    // Clear any existing chat messages
-    const chatMessages = document.querySelector('#chat-tab .chat-messages');
-    if (chatMessages) {
-        chatMessages.innerHTML = '';
-        // Add a welcome message
-        const welcomeMsg = document.createElement('div');
-        welcomeMsg.className = 'message staff';
-        welcomeMsg.textContent = 'Hello! How can I help you with this item?';
-        chatMessages.appendChild(welcomeMsg);
-    }
-    
-    // Open the modal
-    window.itemDetailsModal.open();
+
+    const statusBadge = document.getElementById('modalItemStatus');
+    const s = (item.status || 'active').toLowerCase();
+    statusBadge.className = 'idm-status-badge ' + (
+        s === 'claimed'  ? 'idm-status-claimed'  :
+        s === 'returned' ? 'idm-status-returned' :
+                           'idm-status-active'
+    );
+    statusBadge.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+
+    const itemModal = document.getElementById('itemDetailsModal');
+    itemModal.style.display = '';
+    itemModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }

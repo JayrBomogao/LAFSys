@@ -379,16 +379,15 @@ function openChat() {
             measurementId: "G-EJ2X0PTDNH"
         };
         
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        // Initialize Firebase (may already be initialized by firebase-messages.js)
+        if (!firebase.apps || !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
 
         // Make Firebase services available
         const db = firebase.firestore();
         const storage = firebase.storage();
 
-        // Enable offline persistence
-        db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-        
         // Initialize Lucide icons
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM loaded, initializing page');

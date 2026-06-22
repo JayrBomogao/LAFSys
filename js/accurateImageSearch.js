@@ -1,35 +1,50 @@
 function _rgbToColorName(r, g, b) {
-    const named = [
-        { name: 'Black',       r: 0,   g: 0,   b: 0   },
-        { name: 'White',       r: 255, g: 255, b: 255  },
-        { name: 'Gray',        r: 128, g: 128, b: 128  },
-        { name: 'Light Gray',  r: 211, g: 211, b: 211  },
-        { name: 'Dark Gray',   r: 64,  g: 64,  b: 64   },
-        { name: 'Red',         r: 220, g: 20,  b: 20   },
-        { name: 'Dark Red',    r: 139, g: 0,   b: 0    },
-        { name: 'Orange',      r: 255, g: 165, b: 0    },
-        { name: 'Yellow',      r: 255, g: 220, b: 0    },
-        { name: 'Green',       r: 0,   g: 160, b: 0    },
-        { name: 'Dark Green',  r: 0,   g: 100, b: 0    },
-        { name: 'Teal',        r: 0,   g: 128, b: 128  },
-        { name: 'Cyan',        r: 0,   g: 210, b: 210  },
-        { name: 'Blue',        r: 0,   g: 80,  b: 200  },
-        { name: 'Navy',        r: 0,   g: 0,   b: 128  },
-        { name: 'Purple',      r: 128, g: 0,   b: 128  },
-        { name: 'Violet',      r: 148, g: 0,   b: 211  },
-        { name: 'Pink',        r: 255, g: 105, b: 180  },
-        { name: 'Brown',       r: 139, g: 69,  b: 19   },
-        { name: 'Tan',         r: 210, g: 180, b: 140  },
-        { name: 'Beige',       r: 245, g: 245, b: 220  },
-        { name: 'Gold',        r: 218, g: 165, b: 32   },
-        { name: 'Silver',      r: 192, g: 192, b: 192  },
-    ];
-    let best = named[0], bestDist = Infinity;
-    for (const c of named) {
-        const d = (r - c.r) ** 2 + (g - c.g) ** 2 + (b - c.b) ** 2;
-        if (d < bestDist) { bestDist = d; best = c; }
+    // Convert to HSL for perceptually accurate naming
+    // (Euclidean RGB distance is unreliable — e.g. pinkish colours map to "Silver")
+    const rn = r / 255, gn = g / 255, bn = b / 255;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const delta = max - min;
+    const l = (max + min) / 2;
+
+    let h = 0, s = 0;
+    if (delta > 0.001) {
+        s = delta / (1 - Math.abs(2 * l - 1));
+        if (max === rn)      h = 60 * (((gn - bn) / delta) % 6);
+        else if (max === gn) h = 60 * ((bn - rn) / delta + 2);
+        else                 h = 60 * ((rn - gn) / delta + 4);
+        if (h < 0) h += 360;
     }
-    return best.name;
+
+    // Achromatic / near-achromatic — name by lightness only
+    if (s < 0.12) {
+        if (l < 0.12) return 'Black';
+        if (l < 0.30) return 'Dark Gray';
+        if (l < 0.55) return 'Gray';
+        if (l < 0.80) return 'Silver';
+        return 'White';
+    }
+
+    // Very dark chromatic colours
+    if (l < 0.18) {
+        if (h < 30 || h >= 330) return 'Dark Red';
+        if (h < 150) return 'Dark Green';
+        if (h < 265) return 'Navy';
+        return 'Purple';
+    }
+
+    // Chromatic colours — determined by hue, lightness, saturation
+    if (h < 15 || h >= 345) return l > 0.55 ? 'Pink'       : 'Red';
+    if (h < 35)  return s < 0.45 && l > 0.50 ? 'Tan'       : l < 0.35 ? 'Brown'  : 'Orange';
+    if (h < 65)  return l > 0.55              ? 'Yellow'    : 'Gold';
+    if (h < 80)  return s > 0.4               ? 'Yellow'    : 'Olive';
+    if (h < 150) return l < 0.30              ? 'Dark Green' : 'Green';
+    if (h < 175) return 'Teal';
+    if (h < 200) return 'Cyan';
+    if (h < 260) return l < 0.30              ? 'Navy'      : 'Blue';
+    if (h < 285) return 'Purple';
+    if (h < 345) return l > 0.55              ? 'Pink'      : 'Violet';
+    return 'Pink';
 }
 
 class AccurateImageSearch {
@@ -116,7 +131,50 @@ class AccurateImageSearch {
                     this.searchResults.innerHTML = '<p class="searching">Analyzing image...</p>';
                     const visionResults = await window.CloudVision.analyzeImage(this.selectedImage);
                     if (visionResults && visionResults.labelAnnotations && visionResults.labelAnnotations.length > 0) {
-                        analysisResults.labelAnnotations = visionResults.labelAnnotations;
+                        // Labels that identify environment/background or are non-object descriptors
+                        const BG_LABELS = new Set([
+                            // Scene / environment
+                            'pattern','textile','linens','linen','fabric','cloth','tablecloth',
+                            'bedding','furniture','table','desk','floor','flooring','wood',
+                            'concrete','surface','background','wall','ceiling','tile','carpet',
+                            'rug','mat','nature','sky','grass','ground','soil','road','pavement',
+                            'room','indoor','outdoor','interior','exterior','still life',
+                            'photography','stock photography','product photography','shadow',
+                            'light','lighting','darkness','monochrome','black and white',
+                            'diagonal','line','lines','stripe','stripes','plaid',
+                            // Pure color words — colors belong in the color swatches, not object labels
+                            'pink','red','blue','green','yellow','orange','purple','violet',
+                            'brown','beige','white','black','gray','grey','silver','gold',
+                            'cyan','magenta','teal','maroon','navy','turquoise','crimson',
+                            'ivory','lavender','peach','coral','mint','rose','scarlet',
+                            // Abstract descriptors
+                            'paint','color','colour','hue','shade','tone','tint','dye'
+                        ]);
+
+                        // Filter: remove background/color labels and require ≥ 0.6 confidence
+                        const filteredLabels = visionResults.labelAnnotations
+                            .filter(l => !BG_LABELS.has(l.description.toLowerCase()) && l.score >= 0.6);
+
+                        // Localized objects are item-specific — boost them to the front
+                        const localized = visionResults.localizedObjectAnnotations || [];
+                        const objLabels = localized.map(o => ({
+                            description: o.name,
+                            score: Math.min(0.99, (o.score || 0.8) + 0.15)
+                        }));
+
+                        // Merge: localized first, then filtered scene labels (deduped)
+                        const seenLower = new Set(objLabels.map(l => l.description.toLowerCase()));
+                        const mergedLabels = [
+                            ...objLabels,
+                            ...filteredLabels.filter(l => !seenLower.has(l.description.toLowerCase()))
+                        ];
+
+                        // Fall back gracefully: filtered → original
+                        analysisResults.labelAnnotations =
+                            mergedLabels.length  > 0 ? mergedLabels  :
+                            filteredLabels.length > 0 ? filteredLabels :
+                            visionResults.labelAnnotations;
+
                         analysisResults.visionWebEntities = (visionResults.webDetection && visionResults.webDetection.webEntities) || [];
                         analysisResults.textAnnotations = visionResults.textAnnotations || [];
 

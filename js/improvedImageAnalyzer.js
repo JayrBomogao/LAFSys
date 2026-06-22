@@ -15,12 +15,31 @@ class ImprovedImageAnalyzer {
     
     // Category keywords for better matching
     this.categoryKeywords = {
-      'electronics': ['phone', 'smartphone', 'iphone', 'android', 'laptop', 'computer', 'tablet', 'ipad', 'earbuds', 'headphones', 'watch', 'smart watch', 'camera', 'charger', 'cable'],
-      'accessories': ['wallet', 'purse', 'bag', 'backpack', 'jewelry', 'necklace', 'ring', 'watch', 'sunglasses', 'glasses', 'hat', 'cap', 'umbrella', 'keychain'],
-      'clothing': ['jacket', 'shirt', 'pants', 'jeans', 'dress', 'skirt', 'sweater', 'hoodie', 'coat', 'socks', 'shoes', 'boots', 'sneakers'],
-      'documents': ['id', 'card', 'passport', 'book', 'notebook', 'paper', 'document', 'folder', 'file'],
-      'personal': ['keys', 'bottle', 'water bottle', 'medicine', 'cosmetics', 'makeup', 'toy']
+      'electronics': ['phone', 'smartphone', 'iphone', 'android', 'laptop', 'computer', 'tablet', 'ipad', 'earbuds', 'headphones', 'watch', 'smart watch', 'camera', 'charger', 'cable', 'powerbank', 'speaker'],
+      'accessories': ['wallet', 'purse', 'bag', 'backpack', 'jewelry', 'necklace', 'ring', 'bracelet', 'watch', 'sunglasses', 'glasses', 'hat', 'cap', 'umbrella', 'keychain', 'belt'],
+      'clothing': ['jacket', 'shirt', 'pants', 'jeans', 'dress', 'skirt', 'sweater', 'hoodie', 'coat', 'socks', 'shoes', 'boots', 'sneakers', 'footwear', 'shoe'],
+      'stationery': ['pen', 'pencil', 'marker', 'ballpen', 'ballpoint', 'writing instrument', 'highlighter', 'notebook', 'eraser', 'ruler', 'scissors', 'stapler', 'tape', 'glue'],
+      'documents': ['id', 'card', 'passport', 'book', 'paper', 'document', 'folder', 'file', 'license'],
+      'personal': ['keys', 'key', 'bottle', 'water bottle', 'medicine', 'cosmetics', 'makeup', 'toy', 'fan', 'lunchbox']
     };
+
+    // Labels that indicate scene/background or are non-object descriptors
+    this.backgroundLabels = new Set([
+      // Scene / environment
+      'pattern','textile','linens','linen','fabric','cloth','tablecloth','bedding',
+      'furniture','table','desk','floor','flooring','wood','concrete','surface',
+      'background','wall','ceiling','tile','carpet','rug','mat','nature','sky',
+      'grass','ground','soil','road','pavement','room','indoor','outdoor',
+      'interior','exterior','still life','photography','shadow','light','lighting',
+      'stripe','stripes','plaid','diagonal','line','lines','monochrome',
+      // Pure color words — color matching is handled by histogram, not labels
+      'pink','red','blue','green','yellow','orange','purple','violet',
+      'brown','beige','white','black','gray','grey','silver','gold',
+      'cyan','magenta','teal','maroon','navy','turquoise','crimson',
+      'ivory','lavender','peach','coral','mint','rose','scarlet',
+      // Abstract descriptors
+      'paint','color','colour','hue','shade','tone','tint','dye'
+    ]);
   }
 
   /**
@@ -125,11 +144,10 @@ class ImprovedImageAnalyzer {
       const uploadedFingerprint = analysisResults.imageFingerprint || [];
       const uploadedColorHist = analysisResults._colorHistogram || this._lastColorHistogram || [];
 
-      // Keep annotated labels (with scores) for semantic Vision matching
-      const queryVisionLabels = (analysisResults.labelAnnotations || []).map(l => ({
-        description: l.description,
-        score: l.score || 0.5
-      }));
+      // Keep annotated labels for semantic Vision matching — filter background labels
+      const queryVisionLabels = (analysisResults.labelAnnotations || [])
+        .filter(l => !this.backgroundLabels.has(l.description.toLowerCase()))
+        .map(l => ({ description: l.description, score: l.score || 0.5 }));
 
       // Infer probable category from Vision labels before the item loop
       const inferredCategory = this._inferCategoryFromLabels(queryVisionLabels);
@@ -1430,8 +1448,9 @@ class ImprovedImageAnalyzer {
     if (!inferredCategory || !itemCategory) return true;
 
     const incompatible = {
-      'electronics': ['clothing', 'documents'],
-      'clothing':    ['electronics', 'documents'],
+      'electronics': ['clothing', 'stationery'],
+      'clothing':    ['electronics', 'stationery'],
+      'stationery':  ['electronics', 'clothing', 'accessories'],
       'documents':   ['electronics', 'clothing', 'personal'],
       'personal':    ['electronics', 'clothing', 'documents']
     };

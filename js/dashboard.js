@@ -206,43 +206,40 @@ function createItemCard(item) {
 
 // Open item details modal
 function openItemDetails(item) {
-    document.getElementById('modalItemTitle').textContent = item.title;
-    document.getElementById('modalItemDescription').textContent = item.description;
+    document.getElementById('modalItemTitle').textContent = item.title || 'Untitled Item';
+    document.getElementById('modalItemDescription').textContent = item.description || 'No description available';
     document.getElementById('modalItemCategory').textContent = item.category || 'Uncategorized';
-    document.getElementById('modalItemLocation').textContent = item.location;
-    document.getElementById('modalItemDate').textContent = new Date(item.date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    
-    // Set disposal date if available
-    const disposalEl = document.getElementById('modalItemDisposalDate');
-    if (item.disposalDate) {
-        disposalEl.textContent = new Date(item.disposalDate).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    } else {
-        disposalEl.textContent = 'Not scheduled';
+    document.getElementById('modalItemLocation').textContent = item.location || 'Unknown';
+    document.getElementById('modalItemStorageLocation').textContent = item.storageLocation || 'Not specified';
+    document.getElementById('modalItemFoundBy').textContent = item.foundBy || 'Unknown';
+
+    // Format date
+    try {
+        document.getElementById('modalItemDate').textContent = item.date
+            ? new Date(item.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            : 'Unknown';
+    } catch (_) {
+        document.getElementById('modalItemDate').textContent = item.date || 'Unknown';
     }
-    
+
+    // Set status badge
+    const statusBadge = document.getElementById('modalItemStatus');
+    const s = (item.status || 'active').toLowerCase();
+    statusBadge.className = 'idm-status-badge ' + (
+        s === 'claimed'  ? 'idm-status-claimed'  :
+        s === 'returned' ? 'idm-status-returned' :
+                           'idm-status-active'
+    );
+    statusBadge.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+
     // Set image
     document.getElementById('modalItemImage').src = item.image || 'https://via.placeholder.com/400x300?text=No+Image';
-    
-    // Hide status badge
-    const statusBadge = document.getElementById('modalItemStatus');
-    statusBadge.style.display = 'none';
-    
-    // Store item ID for claim form
-    document.getElementById('claimItemBtn').dataset.id = item.id;
-    
-    // Show the modal
-    document.getElementById('itemDetailsModal').style.display = 'block';
-    
-    // Reset to details tab
-    document.querySelector('.tab-button[data-tab="details"]').click();
+
+    // Show the modal (clear any stale inline style so .modal.active CSS takes effect)
+    const itemModal = document.getElementById('itemDetailsModal');
+    itemModal.style.display = '';
+    itemModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 // Set up refresh button functionality
@@ -298,51 +295,41 @@ function setupEventListeners() {
     
     // Claim button in modal
     const claimItemBtn = document.getElementById('claimItemBtn');
+    // "Chat with Staff" button in item details modal — close modal then open live chat
     if (claimItemBtn) {
         claimItemBtn.addEventListener('click', () => {
-            document.getElementById('claimModal').style.display = 'block';
-        });
-    }
-    
-    // Close buttons for modals
-    document.querySelectorAll('.modal .close').forEach(closeBtn => {
-        closeBtn.addEventListener('click', function() {
-            this.closest('.modal').style.display = 'none';
-        });
-    });
-    
-    // Claim form submission
-    if (claimForm) {
-        claimForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const itemId = document.getElementById('claimItemBtn').dataset.id;
-            const name = document.getElementById('claimantName').value;
-            const email = document.getElementById('claimantEmail').value;
-            const description = document.getElementById('claimDescription').value;
-            
-            try {
-                await submitClaim(itemId, name, email, description);
-                alert('Your claim has been submitted successfully!');
-                document.getElementById('claimModal').style.display = 'none';
-                claimForm.reset();
-            } catch (error) {
-                console.error('Error submitting claim:', error);
-                alert('There was an error submitting your claim. Please try again later.');
+            if (window.itemDetailsModal) {
+                window.itemDetailsModal.close();
+            } else {
+                document.getElementById('itemDetailsModal').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            if (typeof window.toggleChatWidget === 'function') {
+                window.toggleChatWidget();
             }
         });
     }
-    
-    // Tab switching in item details modal
-    document.querySelectorAll('.tab-button').forEach(tab => {
-        tab.addEventListener('click', function() {
-            // Remove active class from all tabs
-            document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-            
-            // Add active class to current tab
-            this.classList.add('active');
-            document.getElementById(`${this.dataset.tab}-tab`).classList.add('active');
+
+    // "Close" button in item details modal
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', () => {
+            if (window.itemDetailsModal) {
+                window.itemDetailsModal.close();
+            } else {
+                document.getElementById('itemDetailsModal').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    // Close buttons for modals (the × button)
+    document.querySelectorAll('.modal .close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', function() {
+            const m = this.closest('.modal');
+            m.style.display = '';
+            m.classList.remove('active');
+            document.body.style.overflow = '';
         });
     });
     
