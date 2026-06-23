@@ -204,6 +204,9 @@ class ImprovedImageAnalyzer {
           );
         }
 
+        // Vision-label → item-title score (works even when item has no stored Vision data)
+        const labelTitleScore = this._calculateLabelTitleScore(item, queryVisionLabels);
+
         let weightedScore;
         if (pixelScore > 0.9) {
           // Near-exact pixel match — same image
@@ -218,13 +221,13 @@ class ImprovedImageAnalyzer {
             titleScore        * 0.05
           );
         } else {
-          // Legacy scoring for items not yet enriched with Vision labels
+          // Label→title match is the primary signal; visual similarity is secondary
           weightedScore = (
-            visualScore       * 0.55 +
+            labelTitleScore   * 0.40 +
+            visualScore       * 0.30 +
             colorCompareScore * 0.15 +
-            titleScore        * 0.12 +
             categoryScore     * 0.10 +
-            descriptionScore  * 0.08
+            descriptionScore  * 0.05
           );
         }
 
@@ -234,12 +237,13 @@ class ImprovedImageAnalyzer {
           visualScore,
           colorCompareScore,
           visionLabelScore,
+          labelTitleScore,
           titleScore,
           categoryScore,
           descriptionScore
         };
 
-        console.log(`Item "${item.title}": vision=${(visionLabelScore*100).toFixed(1)}% hash=${(hashScore*100).toFixed(1)}% pixel=${(pixelScore*100).toFixed(1)}% color=${(colorCompareScore*100).toFixed(1)}% total=${(weightedScore*100).toFixed(1)}%`);
+        console.log(`Item "${item.title}": labelTitle=${(labelTitleScore*100).toFixed(1)}% vision=${(visionLabelScore*100).toFixed(1)}% pixel=${(pixelScore*100).toFixed(1)}% color=${(colorCompareScore*100).toFixed(1)}% total=${(weightedScore*100).toFixed(1)}%`);
         
         scoredItems.push({
           ...item,
@@ -250,9 +254,14 @@ class ImprovedImageAnalyzer {
       
       // Sort by score (highest first)
       scoredItems.sort((a, b) => b.score - a.score);
-      
-      // Return top 5 results
-      return scoredItems.slice(0, 5);
+
+      // Filter out low-confidence results — when we know the object type (inferredCategory),
+      // apply a stricter threshold so unrelated items don't pollute results.
+      const minThreshold = inferredCategory ? 0.28 : 0.18;
+      const meaningful = scoredItems.filter(item => item.score >= minThreshold);
+
+      // Return up to 5 results; if nothing clears the threshold, return the top 3 anyway
+      return (meaningful.length > 0 ? meaningful : scoredItems).slice(0, 5);
     } catch (error) {
       console.error('Error finding similar items:', error);
       throw new Error('Failed to find similar items');
@@ -853,37 +862,10 @@ class ImprovedImageAnalyzer {
       }
     });
     
-    // Start labels with actual color descriptions
-    const labels = [...identifiedColors];
-    
-    // Add broad category hints based on color combinations (not specific objects)
-    const colorCategoryHints = {
-      'black': ['bag', 'accessories'],
-      'white': ['clothing', 'electronics'],
-      'blue': ['clothing', 'bag'],
-      'navy': ['bag', 'clothing'],
-      'red': ['bag', 'clothing'],
-      'brown': ['bag', 'wallet', 'clothing'],
-      'tan': ['bag', 'clothing'],
-      'gray': ['electronics', 'bag'],
-      'silver': ['electronics', 'accessories'],
-      'pink': ['accessories', 'clothing'],
-      'green': ['bag', 'clothing'],
-      'yellow': ['accessories', 'clothing'],
-      'orange': ['bag', 'clothing'],
-      'purple': ['bag', 'clothing']
-    };
-    
-    // Only add 1-2 broad hints from the primary color
-    const primaryColor = identifiedColors[0];
-    if (primaryColor && colorCategoryHints[primaryColor]) {
-      const hints = colorCategoryHints[primaryColor];
-      hints.forEach(hint => {
-        if (!labels.includes(hint)) labels.push(hint);
-      });
-    }
-    
-    return labels.slice(0, 8);
+    // Return only the identified color names — no category hints based on color,
+    // as those cause false positives (e.g. "black" adding "bag" which matches bags
+    // even when searching for a pen).
+    return identifiedColors.slice(0, 8);
   }
   
   /**
@@ -1002,38 +984,20 @@ class ImprovedImageAnalyzer {
    * @private
    */
   _getLabelsFromShapes(shapes) {
+    // Only return geometric descriptors — never guess specific object types here.
+    // Object identification is handled exclusively by Cloud Vision API.
     const labels = [];
-    
-    if (shapes.rectangularity > 0.8) {
-      if (shapes.aspectRatio > 1.7) {
-        labels.push('rectangular', 'elongated');
-        if (shapes.aspectRatio > 3) {
-          labels.push('card', 'id card', 'ticket');
-        } else {
-          labels.push('phone', 'smartphone', 'wallet');
-        }
-      } else if (Math.abs(shapes.aspectRatio - 1.0) < 0.2) {
-        labels.push('square', 'compact');
-        labels.push('wallet', 'card holder', 'compact device');
-      } else {
-        labels.push('rectangular');
-        labels.push('book', 'notebook', 'tablet');
-      }
+
+    if (shapes.aspectRatio > 4) {
+      labels.push('elongated', 'narrow');
+    } else if (shapes.rectangularity > 0.8) {
+      labels.push(Math.abs(shapes.aspectRatio - 1.0) < 0.2 ? 'square' : 'rectangular');
     }
-    
+
     if (shapes.roundness > 0.8) {
-      labels.push('round', 'circular');
-      labels.push('watch', 'coin', 'ring', 'button');
+      labels.push('round');
     }
-    
-    if (shapes.complexity > 0.8) {
-      labels.push('complex', 'detailed');
-      labels.push('jewelry', 'electronic device', 'multi-part');
-    } else if (shapes.complexity < 0.3) {
-      labels.push('simple', 'minimalist');
-      labels.push('card', 'tag', 'paper');
-    }
-    
+
     return labels;
   }
   
@@ -1182,24 +1146,15 @@ class ImprovedImageAnalyzer {
    * @private
    */
   _getLabelsFromTexture(texture) {
+    // Only return generic texture descriptors — no specific material guesses.
     const labels = [];
-    
+
     if (texture.coarseness > 0.7) {
-      labels.push('textured', 'rough');
-      labels.push('fabric', 'textile', 'leather');
+      labels.push('textured');
     } else if (texture.coarseness < 0.3) {
-      labels.push('smooth', 'glossy');
-      labels.push('plastic', 'metal', 'glass');
+      labels.push('smooth');
     }
-    
-    if (texture.contrast > 0.7) {
-      labels.push('high contrast', 'patterned');
-    }
-    
-    if (texture.regularity > 0.7) {
-      labels.push('regular pattern', 'symmetrical');
-    }
-    
+
     return labels;
   }
   
@@ -1285,12 +1240,11 @@ class ImprovedImageAnalyzer {
     
     labels.forEach((label, i) => {
       if (title.includes(label)) {
-        // Earlier labels are more important
         matchCount += 1 / (i + 1);
       }
     });
-    
-    return Math.min(1, matchCount * 0.3);
+
+    return Math.min(1, matchCount);
   }
   
   /**
@@ -1338,6 +1292,43 @@ class ImprovedImageAnalyzer {
     return Math.min(1, matchCount * 0.2);
   }
   
+  /**
+   * Match query Vision labels directly against item title/description.
+   * Uses the Vision confidence score as the match weight, so a high-confidence
+   * "Pen" label strongly promotes items whose title contains "pen".
+   * @private
+   */
+  _calculateLabelTitleScore(item, queryVisionLabels) {
+    if (!queryVisionLabels || queryVisionLabels.length === 0) return 0;
+    const title = (item.title || '').toLowerCase();
+    const description = (item.description || '').toLowerCase();
+    let bestScore = 0;
+
+    for (const label of queryVisionLabels) {
+      const text = label.description.toLowerCase();
+      const weight = label.score || 0.5;
+
+      if (title.includes(text) || text.includes(title)) {
+        bestScore = Math.max(bestScore, weight);
+      } else {
+        // Word-level partial match (e.g. "pen" in "Ballpen")
+        for (const word of title.split(/\s+/)) {
+          if (word.length > 2 && (text.includes(word) || word.includes(text))) {
+            bestScore = Math.max(bestScore, weight * 0.75);
+            break;
+          }
+        }
+      }
+
+      // Description match — lower weight since description text is looser
+      if (description.includes(text) && bestScore < weight * 0.45) {
+        bestScore = Math.max(bestScore, weight * 0.45);
+      }
+    }
+
+    return bestScore;
+  }
+
   // Color, object, and feature scores are now handled by direct image comparison
   // in findSimilarItems via _compareFingerprints and _compareColorHistograms
 
@@ -1447,16 +1438,33 @@ class ImprovedImageAnalyzer {
   _categoriesAreCompatible(inferredCategory, itemCategory) {
     if (!inferredCategory || !itemCategory) return true;
 
+    // Map Firestore category values (e.g. "phone", "bag") to keyword-category keys
+    // so the incompatible check actually fires for stored items.
+    const categoryMap = {
+      'phone': 'electronics', 'smartphone': 'electronics', 'laptop': 'electronics',
+      'tablet': 'electronics', 'camera': 'electronics', 'headphones': 'electronics',
+      'earbuds': 'electronics', 'charger': 'electronics', 'powerbank': 'electronics',
+      'bag': 'accessories', 'wallet': 'accessories', 'jewelry': 'accessories',
+      'purse': 'accessories', 'backpack': 'accessories',
+      'shoes': 'clothing', 'shoe': 'clothing', 'footwear': 'clothing',
+      'jacket': 'clothing', 'shirt': 'clothing', 'pants': 'clothing',
+      'pen': 'stationery', 'pencil': 'stationery', 'marker': 'stationery',
+      'notebook': 'stationery', 'book': 'documents', 'id': 'documents', 'card': 'documents',
+      'keys': 'personal', 'bottle': 'personal',
+    };
+
+    const normalizedItem = categoryMap[itemCategory.toLowerCase()] || itemCategory.toLowerCase();
+
     const incompatible = {
-      'electronics': ['clothing', 'stationery'],
-      'clothing':    ['electronics', 'stationery'],
-      'stationery':  ['electronics', 'clothing', 'accessories'],
-      'documents':   ['electronics', 'clothing', 'personal'],
-      'personal':    ['electronics', 'clothing', 'documents']
+      'electronics': ['clothing', 'stationery', 'documents'],
+      'clothing':    ['electronics', 'stationery', 'documents'],
+      'stationery':  ['electronics', 'clothing', 'accessories', 'personal'],
+      'documents':   ['electronics', 'clothing', 'personal', 'accessories'],
+      'personal':    ['electronics', 'clothing', 'documents', 'stationery']
     };
 
     const blocklist = incompatible[inferredCategory] || [];
-    return !blocklist.includes(itemCategory.toLowerCase());
+    return !blocklist.includes(normalizedItem);
   }
 }
 

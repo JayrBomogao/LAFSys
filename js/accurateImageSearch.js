@@ -130,7 +130,11 @@ class AccurateImageSearch {
                 try {
                     this.searchResults.innerHTML = '<p class="searching">Analyzing image...</p>';
                     const visionResults = await window.CloudVision.analyzeImage(this.selectedImage);
-                    if (visionResults && visionResults.labelAnnotations && visionResults.labelAnnotations.length > 0) {
+                    // Accept the Vision result if it has labels OR localized objects —
+                    // product catalog images often return only localizedObjectAnnotations.
+                    const _hasLabels  = Array.isArray(visionResults && visionResults.labelAnnotations) && visionResults.labelAnnotations.length > 0;
+                    const _hasObjects = Array.isArray(visionResults && visionResults.localizedObjectAnnotations) && visionResults.localizedObjectAnnotations.length > 0;
+                    if (visionResults && (_hasLabels || _hasObjects)) {
                         // Labels that identify environment/background or are non-object descriptors
                         const BG_LABELS = new Set([
                             // Scene / environment
@@ -152,7 +156,7 @@ class AccurateImageSearch {
                         ]);
 
                         // Filter: remove background/color labels and require ≥ 0.6 confidence
-                        const filteredLabels = visionResults.labelAnnotations
+                        const filteredLabels = (visionResults.labelAnnotations || [])
                             .filter(l => !BG_LABELS.has(l.description.toLowerCase()) && l.score >= 0.6);
 
                         // Localized objects are item-specific — boost them to the front
@@ -212,12 +216,15 @@ class AccurateImageSearch {
                         if (!bboxApplied && visionResults.imagePropertiesAnnotation) {
                             analysisResults.imagePropertiesAnnotation = visionResults.imagePropertiesAnnotation;
                         }
-                        console.log('Cloud Vision labels merged:', visionResults.labelAnnotations.length, 'labels', bboxApplied ? '(bbox crop applied)' : '');
+                        analysisResults._visionLabelsAvailable = true;
+                        console.log('Cloud Vision labels merged:', (visionResults.labelAnnotations || []).length, 'labels +', (visionResults.localizedObjectAnnotations || []).length, 'objects', bboxApplied ? '(bbox crop applied)' : '');
                     } else {
                         console.warn('Cloud Vision returned empty labels:', visionResults);
+                        analysisResults._visionFailed = true;
                     }
                 } catch (visionErr) {
                     console.error('Cloud Vision failed:', visionErr.message);
+                    analysisResults._visionFailed = true;
                 }
             }
 
@@ -246,9 +253,10 @@ class AccurateImageSearch {
      * Display analysis results
      */
     displayAnalysisResults(analysisResults) {
-        // Extract labels
+        // Extract labels — only show Detected Objects when Cloud Vision provided them.
+        // Local shape/color labels are unreliable for object identification.
         let labelsHtml = '';
-        if (analysisResults.labelAnnotations && analysisResults.labelAnnotations.length > 0) {
+        if (analysisResults._visionLabelsAvailable && analysisResults.labelAnnotations && analysisResults.labelAnnotations.length > 0) {
             labelsHtml = `
                 <div class="analysis-section">
                     <h4>Detected Objects</h4>
@@ -257,6 +265,12 @@ class AccurateImageSearch {
                             <span class="label">${label.description}</span>
                         `).join('')}
                     </div>
+                </div>
+            `;
+        } else if (analysisResults._visionFailed || !analysisResults._visionLabelsAvailable) {
+            labelsHtml = `
+                <div class="analysis-section">
+                    <div class="vision-warning">Object detection unavailable — try a clearer photo with the item centered on a plain background. Results may be less accurate.</div>
                 </div>
             `;
         }

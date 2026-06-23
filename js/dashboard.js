@@ -283,6 +283,13 @@ function setupEventListeners() {
                 }
             }
         });
+
+        // When search input is cleared, go back to all items
+        searchInput.addEventListener('input', () => {
+            if (searchInput.value.trim() === '') {
+                loadItems(statusFilter ? statusFilter.value : 'all');
+            }
+        });
     }
     
     // Image search button

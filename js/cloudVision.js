@@ -124,11 +124,14 @@ class CloudVisionHelper {
 
     /**
      * Convert any supported image format to a raw base64 string (no data: prefix).
+     * Compresses Blobs/Files to ≤1200px and JPEG quality 0.85 before encoding
+     * so the payload stays well under the Vision API's ~10 MB limit.
      * @private
      */
     async _toBase64(imageData) {
         if (imageData instanceof Blob) {
-            return this._blobToBase64(imageData);
+            const compressed = await this._compressImage(imageData);
+            return this._blobToBase64(compressed);
         }
         if (typeof imageData === 'string') {
             if (imageData.startsWith('data:')) {
@@ -137,9 +140,44 @@ class CloudVisionHelper {
             // Storage URL or any HTTP URL — fetch first
             const res = await fetch(imageData);
             const blob = await res.blob();
-            return this._blobToBase64(blob);
+            const compressed = await this._compressImage(blob);
+            return this._blobToBase64(compressed);
         }
         throw new Error('Unsupported image format for Vision API');
+    }
+
+    /**
+     * Resize image to fit within MAX_PX on the longest edge, output as JPEG.
+     * Falls back to original blob if canvas is unavailable.
+     * @private
+     */
+    _compressImage(blob) {
+        const MAX_PX = 1200;
+        return new Promise((resolve) => {
+            const img = new Image();
+            const url = URL.createObjectURL(blob);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                let w = img.naturalWidth, h = img.naturalHeight;
+                if (w <= MAX_PX && h <= MAX_PX) {
+                    // Already small enough — just re-encode as JPEG to normalise format
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0);
+                    c.toBlob(b => resolve(b || blob), 'image/jpeg', 0.85);
+                } else {
+                    const ratio = Math.min(MAX_PX / w, MAX_PX / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    c.toBlob(b => resolve(b || blob), 'image/jpeg', 0.85);
+                }
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+            img.src = url;
+        });
     }
 
     /**
