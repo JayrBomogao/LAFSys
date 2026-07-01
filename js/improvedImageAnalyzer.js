@@ -32,6 +32,10 @@ class ImprovedImageAnalyzer {
       'grass','ground','soil','road','pavement','room','indoor','outdoor',
       'interior','exterior','still life','photography','shadow','light','lighting',
       'stripe','stripes','plaid','diagonal','line','lines','monochrome',
+      // Person / body parts — the person holding or standing near the item is not the item
+      'person','human','people','man','woman','boy','girl','adult','child',
+      'hand','finger','fingers','arm','leg','foot','face','head','hair','skin',
+      'body','human body','limb',
       // Pure color words — color matching is handled by histogram, not labels
       'pink','red','blue','green','yellow','orange','purple','violet',
       'brown','beige','white','black','gray','grey','silver','gold',
@@ -221,14 +225,18 @@ class ImprovedImageAnalyzer {
             titleScore        * 0.05
           );
         } else {
-          // Label→title match is the primary signal; visual similarity is secondary
-          weightedScore = (
-            labelTitleScore   * 0.40 +
-            visualScore       * 0.30 +
-            colorCompareScore * 0.15 +
-            categoryScore     * 0.10 +
-            descriptionScore  * 0.05
-          );
+          // Semantic label→title match is the primary gate (0–60%).
+          // Visual/color similarity refines within that gate (up to +40%).
+          // This means finding the same TYPE of item starts at ~60% and improves
+          // with image similarity — rather than being dragged down by different photos.
+          // colorCompareScore uses HSL histogram which is rotation-invariant.
+          // visualScore (dHash) is now orientation-aware (tries 4 rotations).
+          // Give color more weight so different angles still score well.
+          const visualBonus =
+            visualScore       * 0.40 +
+            colorCompareScore * 0.50 +
+            descriptionScore  * 0.10;
+          weightedScore = labelTitleScore * 0.60 + visualBonus * 0.40;
         }
 
         const diagnostics = {
@@ -257,7 +265,7 @@ class ImprovedImageAnalyzer {
 
       // Filter out low-confidence results — when we know the object type (inferredCategory),
       // apply a stricter threshold so unrelated items don't pollute results.
-      const minThreshold = inferredCategory ? 0.28 : 0.18;
+      const minThreshold = inferredCategory ? 0.38 : 0.22;
       const meaningful = scoredItems.filter(item => item.score >= minThreshold);
 
       // Return up to 5 results; if nothing clears the threshold, return the top 3 anyway
@@ -589,30 +597,56 @@ class ImprovedImageAnalyzer {
   }
   
   /**
-   * Compare two fingerprints using Hamming distance
-   * With 256-bit hash, we have much better discrimination
+   * Compare two fingerprints using Hamming distance.
+   * Tests all 4 orientations (normal, H-flip, V-flip, 180°) so that rotated or
+   * upside-down photos of the same item still score well.
    * @private
    */
   _compareFingerprints(fp1, fp2) {
     if (!fp1 || !fp2 || fp1.length === 0 || fp2.length === 0) return 0;
-    
+
     const len = Math.min(fp1.length, fp2.length);
     if (len === 0) return 0;
-    
-    let matches = 0;
-    for (let i = 0; i < len; i++) {
-      if (fp1[i] === fp2[i]) matches++;
+
+    const hamming = (a, b) => {
+      let m = 0;
+      for (let i = 0; i < len; i++) if (a[i] === b[i]) m++;
+      return m / len;
+    };
+
+    // Normal orientation
+    let best = hamming(fp1, fp2);
+
+    // Try all orientations when hash has the expected 256-bit (16-row × 16-col) structure.
+    // Each orientation is an O(256) array rearrangement — negligible cost.
+    if (len === 256) {
+      const ROWS = 16, COLS = 16;
+
+      // 180° rotation: reverse row order + reverse within row + invert bits
+      const rot180 = new Array(len);
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          rot180[r * COLS + c] = 1 - fp2[(ROWS - 1 - r) * COLS + (COLS - 1 - c)];
+      best = Math.max(best, hamming(fp1, rot180));
+
+      // Horizontal flip: reverse within each row + invert bits
+      const flipH = new Array(len);
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          flipH[r * COLS + c] = 1 - fp2[r * COLS + (COLS - 1 - c)];
+      best = Math.max(best, hamming(fp1, flipH));
+
+      // Vertical flip: reverse row order (bit values unchanged)
+      const flipV = new Array(len);
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          flipV[r * COLS + c] = fp2[(ROWS - 1 - r) * COLS + c];
+      best = Math.max(best, hamming(fp1, flipV));
     }
-    
-    // Hamming similarity (1 = identical, 0 = completely different)
-    const similarity = matches / len;
-    
-    // With 256-bit hash, random chance gives ~50% match
-    // Truly similar images should be >85%, identical >95%
-    // Scale so that 50% raw → ~0, 100% raw → 1.0
-    const adjusted = Math.max(0, (similarity - 0.50) / 0.50); // 0.5→0, 1.0→1.0
-    
-    // Apply curve to boost high matches
+
+    // Map: 50% raw (random) → 0, 100% raw → 1.0
+    const adjusted = Math.max(0, (best - 0.50) / 0.50);
+
     if (adjusted > 0.90) return 0.95 + (adjusted - 0.90) * 0.5;
     if (adjusted > 0.70) return 0.75 + (adjusted - 0.70) * 1.0;
     if (adjusted > 0.40) return 0.35 + (adjusted - 0.40) * 1.33;
@@ -1304,25 +1338,40 @@ class ImprovedImageAnalyzer {
     const description = (item.description || '').toLowerCase();
     let bestScore = 0;
 
+    // Generic material/attribute words that Vision often detects but that appear
+    // in many unrelated item titles (e.g. "leather" appears in both jacket AND shoes).
+    // These should not drive a high label-title match on their own.
+    const ATTRIBUTE_LABELS = new Set([
+      'leather', 'fabric', 'textile', 'material', 'plastic', 'metal', 'rubber',
+      'glass', 'wood', 'paper', 'cloth', 'cotton', 'polyester', 'nylon', 'suede',
+      'pocket', 'zipper', 'button', 'strap', 'handle', 'cord', 'wire', 'cable',
+      'sleeve', 'collar', 'lining', 'sole', 'clasp', 'buckle', 'lace', 'chain',
+      'fashion', 'style', 'design', 'pattern', 'product', 'object', 'item',
+      'apparel', 'clothing', 'wear', 'garment', 'accessory', 'hardware',
+      'surface', 'texture', 'smooth', 'glossy', 'matte',
+    ]);
+
     for (const label of queryVisionLabels) {
       const text = label.description.toLowerCase();
       const weight = label.score || 0.5;
+      // Material/attribute labels get a heavy penalty so they can't masquerade as object matches.
+      const attrMult = ATTRIBUTE_LABELS.has(text) ? 0.25 : 1.0;
 
       if (title.includes(text) || text.includes(title)) {
-        bestScore = Math.max(bestScore, weight);
+        bestScore = Math.max(bestScore, weight * attrMult);
       } else {
         // Word-level partial match (e.g. "pen" in "Ballpen")
         for (const word of title.split(/\s+/)) {
           if (word.length > 2 && (text.includes(word) || word.includes(text))) {
-            bestScore = Math.max(bestScore, weight * 0.75);
+            bestScore = Math.max(bestScore, weight * 0.75 * attrMult);
             break;
           }
         }
       }
 
       // Description match — lower weight since description text is looser
-      if (description.includes(text) && bestScore < weight * 0.45) {
-        bestScore = Math.max(bestScore, weight * 0.45);
+      if (description.includes(text) && bestScore < weight * 0.45 * attrMult) {
+        bestScore = Math.max(bestScore, weight * 0.45 * attrMult);
       }
     }
 
@@ -1407,18 +1456,36 @@ class ImprovedImageAnalyzer {
    */
   _inferCategoryFromLabels(labels) {
     if (!labels || labels.length === 0) return null;
-    const labelTexts = labels.map(l => l.description.toLowerCase());
 
+    // Category MUST be driven by the primary label (index 0) — the highest-confidence
+    // detected object. Letting secondary/background labels vote causes the category to
+    // reflect background items (e.g. background shoes when searching for a phone).
+    const primaryText = labels[0].description.toLowerCase();
+
+    for (const [category, keywords] of Object.entries(this.categoryKeywords)) {
+      if (keywords.some(kw => primaryText.includes(kw) || kw.includes(primaryText))) {
+        return category;
+      }
+    }
+
+    // If primary label alone doesn't match, try a weighted vote:
+    // primary counts 3x, all others combined count 1x — still primary-dominant.
+    const labelTexts = labels.map(l => l.description.toLowerCase());
     let bestCategory = null;
     let bestScore = 0;
 
     for (const [category, keywords] of Object.entries(this.categoryKeywords)) {
-      let matches = 0;
-      for (const kw of keywords) {
-        if (labelTexts.some(l => l.includes(kw) || kw.includes(l))) matches++;
+      let weightedMatches = 0;
+      const totalWeight = 3.0 + (labels.length - 1);
+      for (let i = 0; i < labels.length; i++) {
+        const w = i === 0 ? 3.0 : 1.0;
+        const lt = labelTexts[i];
+        if (keywords.some(kw => lt.includes(kw) || kw.includes(lt))) {
+          weightedMatches += w;
+        }
       }
-      const score = matches / keywords.length;
-      if (score > bestScore && score > 0.15) {
+      const score = weightedMatches / totalWeight;
+      if (score > bestScore && score > 0.20) {
         bestScore = score;
         bestCategory = category;
       }

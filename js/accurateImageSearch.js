@@ -159,9 +159,11 @@ class AccurateImageSearch {
                         const filteredLabels = (visionResults.labelAnnotations || [])
                             .filter(l => !BG_LABELS.has(l.description.toLowerCase()) && l.score >= 0.6);
 
-                        // Localized objects are item-specific — boost them to the front
+                        // Localized objects — ONLY use the top-1 (highest-confidence) detection.
+                        // Secondary detections are background items (shoes in the background
+                        // when searching for a phone, etc.) and must not contaminate scoring.
                         const localized = visionResults.localizedObjectAnnotations || [];
-                        const objLabels = localized.map(o => ({
+                        const objLabels = localized.slice(0, 1).map(o => ({
                             description: o.name,
                             score: Math.min(0.99, (o.score || 0.8) + 0.15)
                         }));
