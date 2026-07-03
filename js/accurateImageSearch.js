@@ -159,16 +159,39 @@ class AccurateImageSearch {
                         const filteredLabels = (visionResults.labelAnnotations || [])
                             .filter(l => !BG_LABELS.has(l.description.toLowerCase()) && l.score >= 0.6);
 
-                        // Localized objects — ONLY use the top-1 (highest-confidence) detection.
-                        // Secondary detections are background items (shoes in the background
-                        // when searching for a phone, etc.) and must not contaminate scoring.
-                        const localized = visionResults.localizedObjectAnnotations || [];
+                        // Sort localized objects so the one closest to the image center ranks
+                        // first. The item the user is searching for is almost always what they
+                        // centered in the frame; background clutter (shoes, people, etc.) sits
+                        // at the edges and must not override the primary subject.
+                        const _subjectScore = (obj) => {
+                            const verts = (obj.boundingPoly && obj.boundingPoly.normalizedVertices) || [];
+                            let cx = 0.5, cy = 0.5, area = 0;
+                            if (verts.length >= 2) {
+                                const xs = verts.map(v => v.x || 0);
+                                const ys = verts.map(v => v.y || 0);
+                                const minX = Math.min(...xs), maxX = Math.max(...xs);
+                                const minY = Math.min(...ys), maxY = Math.max(...ys);
+                                cx = (minX + maxX) / 2;
+                                cy = (minY + maxY) / 2;
+                                area = (maxX - minX) * (maxY - minY);
+                            }
+                            const dist = Math.sqrt((cx - 0.5) ** 2 + (cy - 0.5) ** 2);
+                            const centerProximity = Math.max(0, 1 - dist * 2.5);
+                            const areaScore = Math.min(1, area * 3);
+                            // 50% center, 30% vision confidence, 20% size
+                            return centerProximity * 0.50 + (obj.score || 0.5) * 0.30 + areaScore * 0.20;
+                        };
+
+                        const localized = (visionResults.localizedObjectAnnotations || [])
+                            .slice() // don't mutate the original
+                            .sort((a, b) => _subjectScore(b) - _subjectScore(a));
+
                         const objLabels = localized.slice(0, 1).map(o => ({
                             description: o.name,
                             score: Math.min(0.99, (o.score || 0.8) + 0.15)
                         }));
 
-                        // Merge: localized first, then filtered scene labels (deduped)
+                        // Merge: center-prioritized localized label first, then filtered scene labels (deduped)
                         const seenLower = new Set(objLabels.map(l => l.description.toLowerCase()));
                         const mergedLabels = [
                             ...objLabels,
@@ -184,9 +207,18 @@ class AccurateImageSearch {
                         analysisResults.visionWebEntities = (visionResults.webDetection && visionResults.webDetection.webEntities) || [];
                         analysisResults.textAnnotations = visionResults.textAnnotations || [];
 
-                        // Crop to the main object's bounding box so background doesn't
-                        // pollute the fingerprint, color histogram, or color display.
-                        const objects = visionResults.localizedObjectAnnotations || [];
+                        // Crop to the most-centered object's bounding box so background
+                        // distractions don't pollute the fingerprint or color display.
+                        // IMPORTANT: save the full-image fingerprint before cropping so that
+                        // findSimilarItems can compare BOTH the cropped and full fingerprints.
+                        // Stored item features are always computed from the full image, so
+                        // comparing only the cropped fingerprint causes exact-match images to
+                        // score poorly (cropped ≠ full even for the identical photo).
+                        analysisResults._fullImageFingerprint = analysisResults.imageFingerprint;
+                        analysisResults._fullColorHistogram   = analysisResults._colorHistogram;
+                        analysisResults._fullPixelData        = analysisResults._pixelData;
+
+                        const objects = localized; // already center-sorted above
                         let bboxApplied = false;
                         if (objects.length > 0) {
                             const verts = (objects[0].boundingPoly && objects[0].boundingPoly.normalizedVertices) || [];

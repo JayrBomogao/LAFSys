@@ -4,6 +4,42 @@
  * beyond just color analysis
  */
 
+// Shared across both label-to-title and label-to-label matching.
+// Vision API uses generic category names; these map them to the specific words
+// that appear in item titles AND in other Vision API responses.
+const VISION_LABEL_SYNONYMS = {
+  'writing implement': ['pen', 'pencil', 'marker', 'crayon', 'highlighter', 'ballpoint', 'ballpen', 'felt tip'],
+  'office supplies':   ['pen', 'pencil', 'stapler', 'scissors', 'calculator', 'ruler', 'eraser', 'tape'],
+  'stationery':        ['pen', 'pencil', 'notebook', 'pad', 'paper', 'envelope'],
+  'mobile phone':      ['phone', 'smartphone', 'cellphone', 'mobile', 'iphone', 'android'],
+  'smartphone':        ['phone', 'cellphone', 'mobile', 'iphone', 'android'],
+  'personal computer': ['laptop', 'computer', 'notebook', 'desktop', 'pc'],
+  'laptop':            ['laptop', 'notebook', 'computer', 'chromebook', 'macbook'],
+  'handbag':           ['bag', 'purse', 'tote', 'satchel'],
+  'fashion accessory': ['bag', 'purse', 'wallet', 'watch', 'belt', 'bracelet'],
+  'footwear':          ['shoe', 'shoes', 'sneaker', 'boot', 'sandal', 'slipper'],
+  'outerwear':         ['jacket', 'coat', 'hoodie', 'parka', 'vest', 'cardigan'],
+  'coin purse':        ['wallet', 'pouch', 'purse'],
+  'eyewear':           ['glasses', 'spectacles', 'sunglasses', 'goggles'],
+  'headphones':        ['headphones', 'earphones', 'earbuds', 'headset', 'earpiece'],
+  'wristwatch':        ['watch', 'timepiece'],
+  'backpack':          ['backpack', 'bag', 'knapsack', 'rucksack'],
+  'book':              ['book', 'notebook', 'journal', 'diary', 'planner'],
+  'umbrella':          ['umbrella', 'parasol'],
+  'musical instrument':['guitar', 'violin', 'piano', 'keyboard', 'drum', 'ukulele'],
+  'cosmetics':         ['makeup', 'lipstick', 'foundation', 'blush', 'eyeliner', 'concealer'],
+  'luggage':           ['luggage', 'suitcase', 'bag', 'trolley'],
+};
+
+// Build a reverse lookup: specific word → generic labels that cover it
+const VISION_LABEL_REVERSE = {};
+for (const [generic, specifics] of Object.entries(VISION_LABEL_SYNONYMS)) {
+  for (const s of specifics) {
+    if (!VISION_LABEL_REVERSE[s]) VISION_LABEL_REVERSE[s] = [];
+    VISION_LABEL_REVERSE[s].push(generic);
+  }
+}
+
 class ImprovedImageAnalyzer {
   constructor() {
     console.log('Improved Image Analyzer initialized');
@@ -126,8 +162,10 @@ class ImprovedImageAnalyzer {
     try {
       console.log('Finding similar items with improved method');
       
-      // Get all items from Firestore
-      const querySnapshot = await firebase.firestore().collection('items').get();
+      // Get only active items — claimed, returned, and disposed items should not appear in search results
+      const querySnapshot = await firebase.firestore().collection('items')
+        .where('status', '==', 'active')
+        .get();
       const allItems = [];
       querySnapshot.forEach(doc => {
         allItems.push({
@@ -145,8 +183,14 @@ class ImprovedImageAnalyzer {
       const colors = (analysisResults.imagePropertiesAnnotation?.dominantColors?.colors || []).map(c => c.color);
       const objectFeatures = analysisResults.objectFeatures || {};
       const shapeFeatures = analysisResults.shapeFeatures || {};
-      const uploadedFingerprint = analysisResults.imageFingerprint || [];
-      const uploadedColorHist = analysisResults._colorHistogram || this._lastColorHistogram || [];
+      const uploadedFingerprint     = analysisResults.imageFingerprint || [];
+      const uploadedColorHist       = analysisResults._colorHistogram || this._lastColorHistogram || [];
+      // Full-image (pre-bbox-crop) variants preserved for exact-match detection.
+      // Stored items always use full-image features, so comparing only the cropped
+      // fingerprint would score the exact same photo poorly.
+      const fullImageFingerprint    = analysisResults._fullImageFingerprint || uploadedFingerprint;
+      const fullColorHist           = analysisResults._fullColorHistogram   || uploadedColorHist;
+      const fullPixelData           = analysisResults._fullPixelData        || null;
 
       // Keep annotated labels for semantic Vision matching — filter background labels
       const queryVisionLabels = (analysisResults.labelAnnotations || [])
@@ -159,7 +203,7 @@ class ImprovedImageAnalyzer {
       
       // Compare uploaded image directly against each item's image
       const scoredItems = [];
-      const uploadedPixelData = analysisResults._pixelData || null;
+      const uploadedPixelData = analysisResults._pixelData || null; // cropped (used as fallback)
       
       for (const item of allItems) {
         // Pre-filter: skip items whose category is clearly incompatible with the query
@@ -171,23 +215,34 @@ class ImprovedImageAnalyzer {
         let hashScore = 0;
         let colorCompareScore = 0;
         let pixelScore = 0;
-        
+
         // Direct image comparison if item has an image
         if (item.image) {
           try {
             const itemFeatures = await this._getItemImageFeatures(item.image);
-            hashScore = this._compareFingerprints(uploadedFingerprint, itemFeatures.fingerprint);
-            colorCompareScore = this._compareColorHistograms(uploadedColorHist, itemFeatures.colorHistogram);
-            
-            // Direct pixel-level comparison for exact/near-exact match detection
-            if (uploadedPixelData && itemFeatures.pixelData) {
-              pixelScore = this._comparePixels(uploadedPixelData, itemFeatures.pixelData);
+
+            // Compare BOTH the cropped (background-stripped) fingerprint and the full-image
+            // fingerprint, then take the higher score. Stored items always use full-image
+            // features, so comparing only the cropped fingerprint causes exact-match photos
+            // to score poorly (71% instead of 92%+).
+            const croppedHash = this._compareFingerprints(uploadedFingerprint, itemFeatures.fingerprint);
+            const fullHash    = this._compareFingerprints(fullImageFingerprint, itemFeatures.fingerprint);
+            hashScore = Math.max(croppedHash, fullHash);
+
+            const croppedColor = this._compareColorHistograms(uploadedColorHist, itemFeatures.colorHistogram);
+            const fullColor    = this._compareColorHistograms(fullColorHist,     itemFeatures.colorHistogram);
+            colorCompareScore  = Math.max(croppedColor, fullColor);
+
+            // Pixel comparison — try full-image data first (higher precision for exact match)
+            const pixelSrc = fullPixelData || uploadedPixelData;
+            if (pixelSrc && itemFeatures.pixelData) {
+              pixelScore = this._comparePixels(pixelSrc, itemFeatures.pixelData);
             }
           } catch (e) {
             console.log('Could not compare image for item:', item.title, e.message);
           }
         }
-        
+
         // Use the BEST visual score between hash and pixel comparison
         const visualScore = Math.max(hashScore, pixelScore);
         
@@ -212,17 +267,22 @@ class ImprovedImageAnalyzer {
         const labelTitleScore = this._calculateLabelTitleScore(item, queryVisionLabels);
 
         let weightedScore;
-        if (pixelScore > 0.9) {
-          // Near-exact pixel match — same image
-          weightedScore = 0.92 + (pixelScore - 0.9) * 0.7;
+        if (visualScore > 0.85) {
+          // Near-exact visual match — same or near-identical image.
+          // dHash (inside visualScore) is used instead of raw pixelScore because
+          // Firebase Storage compresses images to JPEG, creating pixel-level differences
+          // that prevent pixelScore from reaching 0.9 even for the exact same upload.
+          weightedScore = 0.92 + (visualScore - 0.85) * 0.53;
         } else if (hasStoredVision) {
-          // Semantic-first scoring when Vision data is available
+          // When stored Vision labels exist, use label-to-label Jaccard similarity as one
+          // semantic signal, but also keep labelTitleScore (which has synonym expansion)
+          // as a fallback for vocabulary mismatches ("writing implement" vs "pen" title).
+          const semanticScore = Math.max(visionLabelScore, labelTitleScore);
           weightedScore = (
-            visionLabelScore  * 0.40 +
+            semanticScore     * 0.50 +
             colorCompareScore * 0.25 +
-            categoryScore     * 0.15 +
             visualScore       * 0.15 +
-            titleScore        * 0.05
+            categoryScore     * 0.10
           );
         } else {
           // Semantic label→title match is the primary gate (0–60%).
@@ -268,8 +328,14 @@ class ImprovedImageAnalyzer {
       const minThreshold = inferredCategory ? 0.38 : 0.22;
       const meaningful = scoredItems.filter(item => item.score >= minThreshold);
 
-      // Return up to 5 results; if nothing clears the threshold, return the top 3 anyway
-      return (meaningful.length > 0 ? meaningful : scoredItems).slice(0, 5);
+      if (meaningful.length > 0) return meaningful.slice(0, 5);
+
+      // No items cleared the threshold.
+      // When no category was inferred (no Vision data), return top 3 as a best-effort guess.
+      // When a category WAS inferred, do NOT fall back — showing a bag, laptop, or shoe for
+      // a pen search is more confusing than showing "no results found".
+      if (!inferredCategory) return scoredItems.slice(0, 3);
+      return [];
     } catch (error) {
       console.error('Error finding similar items:', error);
       throw new Error('Failed to find similar items');
@@ -1342,13 +1408,19 @@ class ImprovedImageAnalyzer {
     // in many unrelated item titles (e.g. "leather" appears in both jacket AND shoes).
     // These should not drive a high label-title match on their own.
     const ATTRIBUTE_LABELS = new Set([
+      // Materials / construction
       'leather', 'fabric', 'textile', 'material', 'plastic', 'metal', 'rubber',
       'glass', 'wood', 'paper', 'cloth', 'cotton', 'polyester', 'nylon', 'suede',
+      // Parts / hardware
       'pocket', 'zipper', 'button', 'strap', 'handle', 'cord', 'wire', 'cable',
       'sleeve', 'collar', 'lining', 'sole', 'clasp', 'buckle', 'lace', 'chain',
+      // Generic / aesthetic
       'fashion', 'style', 'design', 'pattern', 'product', 'object', 'item',
       'apparel', 'clothing', 'wear', 'garment', 'accessory', 'hardware',
       'surface', 'texture', 'smooth', 'glossy', 'matte',
+      // Broad category words — these are too generic to uniquely identify an item type.
+      // "Bag" appearing in a wallet query would otherwise match "Louis Vuitton Bag" at full weight.
+      'bag', 'case', 'container', 'pouch', 'device', 'equipment', 'tool', 'gear',
     ]);
 
     for (const label of queryVisionLabels) {
@@ -1365,6 +1437,24 @@ class ImprovedImageAnalyzer {
           if (word.length > 2 && (text.includes(word) || word.includes(text))) {
             bestScore = Math.max(bestScore, weight * 0.75 * attrMult);
             break;
+          }
+        }
+      }
+
+      // Synonym expansion: Vision uses generic category labels ("writing implement") that
+      // won't match specific item titles ("Black Pen") without this bridge.
+      if (bestScore < weight * attrMult) {
+        const synonyms = VISION_LABEL_SYNONYMS[text] || [];
+        for (const syn of synonyms) {
+          if (title.includes(syn) || syn.includes(title)) {
+            bestScore = Math.max(bestScore, weight * 0.80 * attrMult);
+            break;
+          }
+          for (const word of title.split(/\s+/)) {
+            if (word.length > 2 && (syn.includes(word) || word.includes(syn))) {
+              bestScore = Math.max(bestScore, weight * 0.60 * attrMult);
+              break;
+            }
           }
         }
       }
@@ -1421,12 +1511,28 @@ class ImprovedImageAnalyzer {
         intersectionSum += Math.min(qWeight, sMap.get(label));
       } else {
         // Partial credit for substring containment (e.g. "phone" ↔ "smartphone")
+        let partialCredit = 0;
         for (const [sLabel, sWeight] of sMap) {
           if (sLabel.includes(label) || label.includes(sLabel)) {
-            intersectionSum += Math.min(qWeight, sWeight) * 0.5;
-            break;
+            partialCredit = Math.max(partialCredit, Math.min(qWeight, sWeight) * 0.5);
           }
         }
+        // Synonym credit: "writing implement" query ↔ stored "pen" label
+        // Uses the shared VISION_LABEL_SYNONYMS / reverse map defined at module level.
+        const fwdSynonyms = VISION_LABEL_SYNONYMS[label] || [];
+        for (const syn of fwdSynonyms) {
+          if (sMap.has(syn)) {
+            partialCredit = Math.max(partialCredit, Math.min(qWeight, sMap.get(syn)) * 0.7);
+          }
+        }
+        // Also check reverse: stored label "writing instrument" ↔ query "pen"
+        for (const [sLabel, sWeight] of sMap) {
+          const revSynonyms = VISION_LABEL_SYNONYMS[sLabel] || [];
+          if (revSynonyms.includes(label)) {
+            partialCredit = Math.max(partialCredit, Math.min(qWeight, sWeight) * 0.7);
+          }
+        }
+        intersectionSum += partialCredit;
       }
     }
 
