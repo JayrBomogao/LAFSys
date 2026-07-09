@@ -305,14 +305,23 @@ function setupEventListeners() {
     // "Chat with Staff" button in item details modal — close modal then open live chat
     if (claimItemBtn) {
         claimItemBtn.addEventListener('click', () => {
+            // Prevent Modal.close() from re-opening the image search modal.
+            // _returnToImageSearch is set when the user navigated here from search results;
+            // clearing it before close() stops the 100ms setTimeout in modal.js from firing.
+            window._returnToImageSearch = false;
+
             if (window.itemDetailsModal) {
                 window.itemDetailsModal.close();
             } else {
                 document.getElementById('itemDetailsModal').classList.remove('active');
                 document.body.style.overflow = '';
             }
+            // toggleChatWidget is defined in user-live-chat.js (not loaded on dashboard).
+            // Fall back to showChatAuthModal from chat-auth-fix.js which IS loaded here.
             if (typeof window.toggleChatWidget === 'function') {
                 window.toggleChatWidget();
+            } else if (typeof window.showChatAuthModal === 'function') {
+                window.showChatAuthModal();
             }
         });
     }
