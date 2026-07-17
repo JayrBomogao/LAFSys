@@ -5,6 +5,7 @@ const itemsContainer = document.getElementById('items-container');
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
 const statusFilter = document.getElementById('statusFilter');
+const categoryFilter = document.getElementById('categoryFilter');
 const claimModal = document.getElementById('claimModal');
 const closeModal = document.querySelector('.close');
 const claimForm = document.getElementById('claimForm');
@@ -37,13 +38,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadItems(filter = 'all') {
     try {
         let items;
-        
+
         if (filter === 'all') {
             items = await getItems();
         } else {
             items = await getItemsByStatus(filter);
         }
-        
+
+        // Apply category filter client-side
+        const selectedCategory = categoryFilter ? categoryFilter.value : 'all';
+        if (selectedCategory !== 'all') {
+            items = items.filter(item => (item.category || '').toLowerCase() === selectedCategory);
+        }
+
         displayItems(items);
     } catch (error) {
         console.error('Error loading items:', error);
@@ -206,6 +213,9 @@ function createItemCard(item) {
 
 // Open item details modal
 function openItemDetails(item) {
+    // Store context so Chat with Staff can pass item info to the chat widget
+    window._currentItemForChat = { id: item.id, title: item.title };
+
     document.getElementById('modalItemTitle').textContent = item.title || 'Untitled Item';
     document.getElementById('modalItemDescription').textContent = item.description || 'No description available';
     document.getElementById('modalItemCategory').textContent = item.category || 'Uncategorized';
@@ -264,6 +274,13 @@ function setupEventListeners() {
             loadItems(statusFilter.value);
         });
     }
+
+    // Category filter change
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', () => {
+            loadItems(statusFilter ? statusFilter.value : 'all');
+        });
+    }
     
     // Search button click
     if (searchButton && searchInput) {
@@ -300,28 +317,17 @@ function setupEventListeners() {
         });
     }
     
-    // Claim button in modal
+    // "Chat with Staff" button in item details modal
     const claimItemBtn = document.getElementById('claimItemBtn');
-    // "Chat with Staff" button in item details modal — close modal then open live chat
     if (claimItemBtn) {
-        claimItemBtn.addEventListener('click', () => {
-            // Prevent Modal.close() from re-opening the image search modal.
-            // _returnToImageSearch is set when the user navigated here from search results;
-            // clearing it before close() stops the 100ms setTimeout in modal.js from firing.
+        claimItemBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             window._returnToImageSearch = false;
 
-            if (window.itemDetailsModal) {
-                window.itemDetailsModal.close();
-            } else {
-                document.getElementById('itemDetailsModal').classList.remove('active');
-                document.body.style.overflow = '';
-            }
-            // toggleChatWidget is defined in user-live-chat.js (not loaded on dashboard).
-            // Fall back to showChatAuthModal from chat-auth-fix.js which IS loaded here.
-            if (typeof window.toggleChatWidget === 'function') {
-                window.toggleChatWidget();
-            } else if (typeof window.showChatAuthModal === 'function') {
-                window.showChatAuthModal();
+            // Navigate to the item's own page where the full chat system lives
+            const ctx = window._currentItemForChat || {};
+            if (ctx.id) {
+                window.location.href = `item-details.html?id=${ctx.id}`;
             }
         });
     }

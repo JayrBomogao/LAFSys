@@ -985,7 +985,7 @@ function addChatStyles() {
   style.textContent = `
     .live-chat-container {
       display: flex;
-      height: calc(100vh - 220px);
+      height: calc(100vh - 140px);
       min-height: 500px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
@@ -1109,7 +1109,6 @@ function addChatStyles() {
       background-color: #f9fafb;
       display: flex !important;
       flex-direction: column !important;
-      max-height: calc(100vh - 300px) !important;
       height: 100% !important;
     }
     
@@ -1119,9 +1118,8 @@ function addChatStyles() {
       gap: 0.75rem !important;
       flex: 1 !important;
       overflow-y: scroll !important; /* Force scroll always */
-      height: calc(100% - 80px) !important;
-      min-height: 300px !important;
-      max-height: 500px !important;
+      flex: 1 1 0 !important;
+      min-height: 0 !important;
       padding-bottom: 60px !important; /* Extra padding at bottom */
       scroll-behavior: smooth !important;
       position: relative !important;

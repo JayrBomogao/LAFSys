@@ -75,6 +75,11 @@
             width: 100%;
             max-width: 100%;
         }
+
+        /* Remove bottom padding when inbox is visible so chat fills the screen */
+        .main-content:has(#section-inbox:not([style*="display:none"]):not([style*="display: none"])) {
+            padding-bottom: 0;
+        }
         
         .admin-header {
             display: flex;

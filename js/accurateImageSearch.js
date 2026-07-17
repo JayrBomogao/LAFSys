@@ -453,7 +453,25 @@ class AccurateImageSearch {
                         // Close search modal and open item details
                         window.imageSearchModal.close();
                         openItemDetails(itemData);
-                        
+
+                        // Wire up Chat with Staff button for this specific item.
+                        // Clone the button to strip any stale listeners, then attach a fresh one.
+                        const chatBtn = document.getElementById('claimItemBtn');
+                        if (chatBtn) {
+                            const freshBtn = chatBtn.cloneNode(true);
+                            chatBtn.parentNode.replaceChild(freshBtn, chatBtn);
+                            freshBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                window._returnToImageSearch = false;
+                                // Open the floating chat widget with item context (modal stays open)
+                                if (typeof window.openUserChat === 'function') {
+                                    window.openUserChat(itemData.id, itemData.title);
+                                } else {
+                                    window.location.href = `item-details.html?id=${itemData.id}`;
+                                }
+                            });
+                        }
+
                         // When item details modal closes, re-open search modal
                         window._returnToImageSearch = true;
                     } else {

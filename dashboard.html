@@ -412,7 +412,7 @@
             font-size: 0.875rem;
         }
         .user-nav .user-name {
-            color: #374151;
+            color: #ffffff;
             font-weight: 500;
             max-width: 160px;
             overflow: hidden;
@@ -422,11 +422,11 @@
         .btn-logout {
             padding: 0.4rem 0.9rem;
             background: none;
-            border: 1.5px solid #d1d5db;
+            border: 1.5px solid #ef4444;
             border-radius: 6px;
             font-size: 0.8rem;
             font-weight: 600;
-            color: #6b7280;
+            color: #ef4444;
             cursor: pointer;
             transition: border-color 0.2s, color 0.2s;
         }
@@ -546,6 +546,18 @@
                 <option value="all">All Items</option>
                 <option value="active">Active Items</option>
                 <option value="soon">Disposal Soon</option>
+            </select>
+            <select id="categoryFilter" class="filter-select">
+                <option value="all">All Categories</option>
+                <option value="wallet">Wallet / Purse</option>
+                <option value="phone">Mobile Phone</option>
+                <option value="laptop">Laptop / Tablet</option>
+                <option value="keys">Keys</option>
+                <option value="bag">Bag / Backpack</option>
+                <option value="clothing">Clothing</option>
+                <option value="jewelry">Jewelry</option>
+                <option value="documents">Documents</option>
+                <option value="other">Other</option>
             </select>
             <button id="refresh-items" title="Refresh Items">
                 <i data-lucide="refresh-cw"></i>
@@ -713,6 +725,8 @@
                 }
                 const statusFilterSelect = document.getElementById('statusFilter');
                 const selectedFilter = statusFilterSelect ? statusFilterSelect.value : 'all';
+                const categoryFilterSelect = document.getElementById('categoryFilter');
+                const selectedCategory = categoryFilterSelect ? categoryFilterSelect.value : 'all';
                 
                 const itemsTitleEl = document.querySelector('.items-title');
                 if (itemsTitleEl) {
@@ -773,6 +787,11 @@
                     if (selectedFilter === 'soon' && itemStatus !== 'soon') {
                         return;
                     } else if (selectedFilter === 'active' && itemStatus !== 'active') {
+                        return;
+                    }
+
+                    // Handle category filter
+                    if (selectedCategory !== 'all' && (data.category || '').toLowerCase() !== selectedCategory) {
                         return;
                     }
                     
@@ -887,7 +906,13 @@
             const statusFilter = document.getElementById('statusFilter');
             if (statusFilter) {
                 statusFilter.addEventListener('change', () => {
-                    console.log('Filter changed to:', statusFilter.value);
+                    fetchAndDisplayItems();
+                });
+            }
+
+            const categoryFilterEl = document.getElementById('categoryFilter');
+            if (categoryFilterEl) {
+                categoryFilterEl.addEventListener('change', () => {
                     fetchAndDisplayItems();
                 });
             }
@@ -896,19 +921,20 @@
     
     <!-- Data and UI scripts -->
     <script src="js/firebase-data.js"></script>
-    <script src="js/dashboard.js"></script>
+    <script src="js/dashboard.js?v=3.0"></script>
     <script src="js/debug-dashboard.js"></script>
     <script src="js/modal.js"></script>
     
+    <!-- Live chat widget (used by Chat with Staff button in item modals) -->
+    <script src="js/user-live-chat.js?v=2.4"></script>
+    <script src="js/chat-input-fix.js"></script>
+
     <!-- Improved image analysis and search -->
     <script src="js/improvedImageAnalyzer.js?v=5.0"></script>
     <script src="js/cloudVision.js?v=4.0"></script>
     <script src="js/accurateImageSearch.js?v=5.0"></script>
-    
-    <!-- User Authentication for Chat -->
-    <script src="js/user-chat-auth.js"></script>
-    <script src="js/chat-auth-fix.js"></script><!-- Emergency fix for chat auth modal -->
-    
+
+
     <!-- Core app script loaded above -->
 </body>
 </html>

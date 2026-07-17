@@ -342,14 +342,20 @@ function clearAlert(id) { document.getElementById(id).innerHTML = ''; }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 async function doLogin() {
-    const email    = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
+    let email    = document.getElementById('loginEmail').value.trim();
+    let password = document.getElementById('loginPassword').value;
     const btn      = document.getElementById('loginBtn');
     clearAlert('loginAlert');
 
     if (!email || !password) {
         showAlert('loginAlert', 'Please enter your email and password.');
         return;
+    }
+
+    // Shorthand for the demo user account
+    if (email === 'user' && password === 'user') {
+        email    = 'user@user.com';
+        password = 'useruser';
     }
 
     btn.disabled = true;
