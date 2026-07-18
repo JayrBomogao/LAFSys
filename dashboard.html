@@ -370,6 +370,42 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* Floating Chat with Staff button */
+        #floatingChatBtn {
+            position: fixed;
+            bottom: 1.75rem;
+            right: 1.75rem;
+            z-index: 9998;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+
+        #floatingChatBtn:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+        }
+
+        #floatingChatBtn:active {
+            transform: translateY(0);
+        }
+
+        #floatingChatBtn .fcb-icon {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
     </style>
 </head>
 <body>
@@ -934,6 +970,19 @@
     <script src="js/cloudVision.js?v=4.0"></script>
     <script src="js/accurateImageSearch.js?v=5.0"></script>
 
+
+    <!-- Floating Chat with Staff button -->
+    <button id="floatingChatBtn" title="Chat with Staff">
+        <span class="fcb-icon">💬</span>
+        <span>Chat with Staff</span>
+    </button>
+    <script>
+        document.getElementById('floatingChatBtn').addEventListener('click', function() {
+            if (typeof window.toggleChatWidget === 'function') {
+                window.toggleChatWidget();
+            }
+        });
+    </script>
 
     <!-- Core app script loaded above -->
 </body>

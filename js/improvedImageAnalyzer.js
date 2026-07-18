@@ -78,7 +78,14 @@ class ImprovedImageAnalyzer {
       'cyan','magenta','teal','maroon','navy','turquoise','crimson',
       'ivory','lavender','peach','coral','mint','rose','scarlet',
       // Abstract descriptors
-      'paint','color','colour','hue','shade','tone','tint','dye'
+      'paint','color','colour','hue','shade','tone','tint','dye',
+      // Broad umbrella category labels — these are shared across too many different item types
+      // (a laptop AND a pen are both "office supplies") and cause false cross-type matches.
+      // Specific object labels ("laptop", "pen") do the real work; these add noise.
+      'office supplies','office equipment','office','multimedia','technology',
+      'consumer electronics','electronic','electronics','equipment','computing',
+      'gadget','hardware','appliance','instrument','tool','device','machine',
+      'supplies','goods','product','material','object','item'
     ]);
   }
 
@@ -278,25 +285,33 @@ class ImprovedImageAnalyzer {
           // semantic signal, but also keep labelTitleScore (which has synonym expansion)
           // as a fallback for vocabulary mismatches ("writing implement" vs "pen" title).
           const semanticScore = Math.max(visionLabelScore, labelTitleScore);
+          // Color weight is kept very low — a laptop with a red wallpaper has the same
+          // color histogram as a red pen, so color alone must not drive relevance.
           weightedScore = (
-            semanticScore     * 0.50 +
-            colorCompareScore * 0.25 +
-            visualScore       * 0.15 +
-            categoryScore     * 0.10
+            semanticScore     * 0.65 +
+            colorCompareScore * 0.10 +
+            visualScore       * 0.20 +
+            categoryScore     * 0.05
           );
+          // Semantic gate: if we can identify the query object type but this item has no
+          // meaningful label overlap at all, suppress it below the filtering threshold so
+          // color similarity alone cannot surface unrelated items.
+          if (inferredCategory && semanticScore < 0.20) {
+            weightedScore = Math.min(weightedScore, 0.30);
+          }
         } else {
           // Semantic label→title match is the primary gate (0–60%).
-          // Visual/color similarity refines within that gate (up to +40%).
-          // This means finding the same TYPE of item starts at ~60% and improves
-          // with image similarity — rather than being dragged down by different photos.
-          // colorCompareScore uses HSL histogram which is rotation-invariant.
-          // visualScore (dHash) is now orientation-aware (tries 4 rotations).
-          // Give color more weight so different angles still score well.
+          // Visual similarity refines within that gate. Color is a weak tiebreaker only —
+          // it is far too unreliable on its own (a red-screen laptop matches a red pen).
           const visualBonus =
-            visualScore       * 0.40 +
-            colorCompareScore * 0.50 +
-            descriptionScore  * 0.10;
+            visualScore       * 0.60 +
+            colorCompareScore * 0.20 +
+            descriptionScore  * 0.20;
           weightedScore = labelTitleScore * 0.60 + visualBonus * 0.40;
+          // Same semantic gate for the no-Vision fallback path
+          if (inferredCategory && labelTitleScore < 0.20) {
+            weightedScore = Math.min(weightedScore, 0.30);
+          }
         }
 
         const diagnostics = {
