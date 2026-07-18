@@ -14,6 +14,10 @@ let activeChatId = null;
 let idleTimers = {};
 let currentChatUser = null;
 
+// User presence listener state
+let userPresenceUnsubscribe = null;
+let userPresenceTickInterval = null;
+
 // Cache resolved display names to avoid repeated Cloud Function calls
 const resolvedNameCache = {};
 
@@ -31,29 +35,63 @@ let chatWindow;
 let messagesList;
 let chatForm;
 
+// ==================== ADMIN PRESENCE ====================
+
+let presenceHeartbeat = null;
+
+function setAdminPresence(online) {
+  if (!window.firebase?.firestore) return;
+  firebase.firestore().collection('adminPresence').doc('status').set({
+    online: online,
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(() => {});
+}
+
+function startPresenceHeartbeat() {
+  if (presenceHeartbeat) return; // already running
+  setAdminPresence(true);
+  // Refresh lastSeen every 30 seconds so the user side can detect stale sessions
+  presenceHeartbeat = setInterval(() => setAdminPresence(true), 30000);
+}
+
+function stopPresenceHeartbeat() {
+  clearInterval(presenceHeartbeat);
+  presenceHeartbeat = null;
+  setAdminPresence(false);
+}
+
+// ==================== NOTIFICATION SYSTEM ====================
+
 // Initialize live chat system
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Initializing Admin Live Chat system');
-  
+
   // Add chat styles
   addChatStyles();
-  
+
   // Add notification styles
   addNotificationStyles();
-  
+
+  window.addEventListener('beforeunload', stopPresenceHeartbeat);
+
   // Start background listener for new chat notifications (runs on ALL sections)
   startNotificationListener();
-  
-  // Initialize UI components when switching to inbox section
+
+  // Wire up nav links: go online when inbox is active, offline when leaving it
   document.querySelectorAll('.nav-link[data-section]').forEach(link => {
     if (link.getAttribute('data-section') === 'inbox') {
       link.addEventListener('click', function() {
         clearInboxNotification();
         initializeChatInterface();
+        _goOnlineWhenReady();
+      });
+    } else {
+      link.addEventListener('click', function() {
+        stopPresenceHeartbeat();
       });
     }
   });
-  
+
   // IMPORTANT: If page loads with inbox section active, initialize the chat interface immediately
   const lastActiveSection = localStorage.getItem('adminActiveSection');
   if (lastActiveSection === 'inbox') {
@@ -61,9 +99,24 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
       clearInboxNotification();
       initializeChatInterface();
+      _goOnlineWhenReady();
     }, 100);
   }
 });
+
+// Wait for Firebase then go online — safe to call multiple times
+function _goOnlineWhenReady() {
+  if (window.firebase?.firestore) {
+    startPresenceHeartbeat();
+    return;
+  }
+  const wait = setInterval(() => {
+    if (window.firebase?.firestore) {
+      clearInterval(wait);
+      startPresenceHeartbeat();
+    }
+  }, 500);
+}
 
 // ==================== NOTIFICATION SYSTEM ====================
 
@@ -568,9 +621,16 @@ function updateActiveChatsUI(hasChats) {
   
   // Clear current list
   activeChatsList.innerHTML = '';
-  
+
+  // Sort: most recently active first (lastTimestamp, falling back to startTime)
+  const getSeconds = (ts) => (ts && ts.seconds) ? ts.seconds : 0;
+  const sorted = [...currentChats].sort((a, b) =>
+    (getSeconds(b.lastTimestamp) || getSeconds(b.startTime)) -
+    (getSeconds(a.lastTimestamp) || getSeconds(a.startTime))
+  );
+
   // Add each chat to the list
-  currentChats.forEach(chat => {
+  sorted.forEach(chat => {
     const li = document.createElement('li');
     li.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
     li.dataset.chatId = chat.id;
@@ -579,6 +639,7 @@ function updateActiveChatsUI(hasChats) {
     const timestamp = chat.lastTimestamp ? formatTimestamp(chat.lastTimestamp) : '';
     
     li.innerHTML = `
+      <button class="chat-delete-btn" title="Remove from inbox" data-chat-id="${chat.id}">×</button>
       <div class="chat-item-user">${chat.userName || 'Unknown User'}</div>
       ${chat.itemTitle ? `<div class="chat-item-inquiry chat-item-clickable" data-item-id="${chat.itemId || ''}">📦 ${chat.itemTitle}</div>` : ''}
       <div class="chat-item-preview">${lastMessage}</div>
@@ -624,11 +685,107 @@ function updateActiveChatsUI(hasChats) {
       });
     }
     
+    // Delete button — hides chat from inbox without deleting data
+    const deleteBtn = li.querySelector('.chat-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        archiveChat(chat.id);
+      });
+    }
+
     // Add click handler to select this chat
     li.addEventListener('click', () => selectChat(chat.id));
     
     activeChatsList.appendChild(li);
   });
+}
+
+// Archive a chat (hide from inbox; reappears automatically when user sends next message)
+function archiveChat(chatId) {
+  if (!window.firebase?.firestore) return;
+  firebase.firestore().collection(CHAT_COLLECTION).doc(chatId).update({
+    isNewSession: false
+  }).catch(() => {});
+
+  // Remove from known IDs so the notification fires again when user messages
+  knownChatIds.delete(chatId);
+
+  // If this was the open chat, clear the main view
+  if (activeChatId === chatId) {
+    activeChatId = null;
+    stopUserPresenceListener();
+    chatControls.style.display = 'none';
+    chatWindow.innerHTML = `
+      <div class="chat-welcome-message">
+        <h3>Welcome to Admin Chat Support</h3>
+        <p>Select an active chat from the sidebar or wait for new chat requests.</p>
+      </div>`;
+  }
+}
+
+// ==================== USER PRESENCE (admin view) ====================
+
+function _adminRelativeTime(date) {
+  if (!date) return 'a while ago';
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+let _userPresenceLastSeen = null;
+let _userPresenceIsOnline = false;
+
+function _updateUserPresenceUI() {
+  const el = document.getElementById('userPresenceIndicator');
+  if (!el) return;
+  if (_userPresenceIsOnline) {
+    el.innerHTML = '<span class="user-presence-dot online"></span><span class="user-presence-label">Online</span>';
+  } else {
+    const ago = _adminRelativeTime(_userPresenceLastSeen);
+    el.innerHTML = `<span class="user-presence-dot offline"></span><span class="user-presence-label">Last seen ${ago}</span>`;
+  }
+}
+
+function startUserPresenceListener(userId) {
+  stopUserPresenceListener();
+  if (!userId || !window.firebase?.firestore) return;
+
+  userPresenceUnsubscribe = firebase.firestore()
+    .collection('userPresence').doc(userId)
+    .onSnapshot((doc) => {
+      if (!doc.exists) {
+        _userPresenceIsOnline = false;
+        _userPresenceLastSeen = null;
+      } else {
+        const data = doc.data();
+        _userPresenceLastSeen = data.lastSeen ? data.lastSeen.toDate() : null;
+        const stale = _userPresenceLastSeen ? (Date.now() - _userPresenceLastSeen.getTime() > 90000) : true;
+        _userPresenceIsOnline = data.online === true && !stale;
+      }
+      _updateUserPresenceUI();
+      clearInterval(userPresenceTickInterval);
+      if (!_userPresenceIsOnline) {
+        userPresenceTickInterval = setInterval(_updateUserPresenceUI, 60000);
+      }
+    }, () => {
+      _userPresenceIsOnline = false;
+      _updateUserPresenceUI();
+    });
+}
+
+function stopUserPresenceListener() {
+  if (userPresenceUnsubscribe) {
+    userPresenceUnsubscribe();
+    userPresenceUnsubscribe = null;
+  }
+  clearInterval(userPresenceTickInterval);
+  userPresenceTickInterval = null;
 }
 
 // Select a chat to display
@@ -704,13 +861,21 @@ function loadChatMessages(chatId) {
         // Build initial chat header
         chatWindow.innerHTML = `
           <div class="chat-user-info">
-            <div class="chat-user-name" id="chatDisplayName">${chatData.userName || 'Unknown User'}</div>
+            <div class="chat-user-name-row">
+              <div class="chat-user-name" id="chatDisplayName">${chatData.userName || 'Unknown User'}</div>
+              <div id="userPresenceIndicator" class="user-presence-indicator">
+                <span class="user-presence-dot offline"></span><span class="user-presence-label">Checking…</span>
+              </div>
+            </div>
             <div class="chat-user-email">${chatData.userEmail || 'No email provided'}</div>
             <div class="chat-start-time">Started: ${formatTimestamp(chatData.startTime)}</div>
             <div id="chatItemContext"></div>
           </div>
           <div id="messagesList" class="messages-list"></div>
         `;
+
+        // Start listening to user presence
+        startUserPresenceListener(chatData.userId);
 
         // Replace with registered full name — Firestore first, then Cloud Function fallback
         if (chatData.userId) {
@@ -1163,13 +1328,50 @@ function addChatStyles() {
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
     
+    .chat-user-name-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+
     .chat-user-name {
       font-weight: 700;
       font-size: 1.25rem;
       color: #1e40af;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0;
     }
-    
+
+    .user-presence-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .user-presence-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .user-presence-dot.online {
+      background-color: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+    }
+
+    .user-presence-dot.offline {
+      background-color: #9ca3af;
+    }
+
+    .user-presence-label {
+      font-size: 0.75rem;
+      color: #3b82f6;
+      font-weight: 500;
+    }
+
     .chat-user-email {
       color: #3b82f6;
       margin-bottom: 0.75rem;
@@ -1429,6 +1631,35 @@ function addChatStyles() {
       height: 1.5rem;
       border-radius: 50%;
       padding: 0 0.25rem;
+    }
+
+    .chat-delete-btn {
+      position: absolute;
+      top: 0.35rem;
+      right: 0.35rem;
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: none;
+      z-index: 2;
+    }
+
+    .chat-item:hover .chat-delete-btn {
+      display: block;
+    }
+
+    .chat-item:hover .unread-badge {
+      display: none;
+    }
+
+    .chat-delete-btn:hover {
+      background-color: #fee2e2;
+      color: #ef4444;
     }
     
     .chat-loading {

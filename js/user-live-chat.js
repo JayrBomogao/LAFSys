@@ -72,23 +72,34 @@ function createChatWidget() {
   // Create the chat header
   const header = document.createElement('div');
   header.className = 'chat-header';
-  
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'chat-title-wrap';
+
   const title = document.createElement('div');
   title.className = 'chat-title';
   title.textContent = 'Live Support';
-  
+
+  const statusLine = document.createElement('div');
+  statusLine.className = 'admin-presence';
+  statusLine.id = 'adminPresenceIndicator';
+  statusLine.innerHTML = '<span class="presence-dot offline"></span><span class="presence-label">Checking…</span>';
+
+  titleWrap.appendChild(title);
+  titleWrap.appendChild(statusLine);
+
   const controls = document.createElement('div');
   controls.className = 'chat-controls';
-  
+
   // Removed minimize button - only keeping close button
   const closeButton = document.createElement('button');
   closeButton.id = 'closeChat';
   closeButton.className = 'chat-control-btn close-btn';
   closeButton.textContent = '×';
-  
+
   // Only append the close button
   controls.appendChild(closeButton);
-  header.appendChild(title);
+  header.appendChild(titleWrap);
   header.appendChild(controls);
   widget.appendChild(header);
   
@@ -167,13 +178,117 @@ function setupEventListeners() {
   });
 }
 
+// ==================== ADMIN PRESENCE LISTENER ====================
+
+let presenceUnsubscribe = null;
+
+let _presenceLastSeen = null;
+let _presenceIsOnline = false;
+let _presenceTickInterval = null;
+
+function _relativeTime(date) {
+  if (!date) return 'a while ago';
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function _updatePresenceIndicator() {
+  const indicator = document.getElementById('adminPresenceIndicator');
+  if (!indicator) return;
+  if (_presenceIsOnline) {
+    indicator.innerHTML = '<span class="presence-dot online"></span><span class="presence-label">Online</span>';
+  } else {
+    const ago = _relativeTime(_presenceLastSeen);
+    indicator.innerHTML = `<span class="presence-dot offline"></span><span class="presence-label">Last seen ${ago}</span>`;
+  }
+}
+
+function startPresenceListener() {
+  if (!window.firebase?.firestore) return;
+  if (presenceUnsubscribe) return; // already listening
+
+  presenceUnsubscribe = firebase.firestore()
+    .collection('adminPresence').doc('status')
+    .onSnapshot((doc) => {
+      const indicator = document.getElementById('adminPresenceIndicator');
+      if (!indicator) return;
+
+      if (!doc.exists) {
+        _presenceIsOnline = false;
+        _presenceLastSeen = null;
+        _updatePresenceIndicator();
+        return;
+      }
+
+      const data = doc.data();
+      _presenceLastSeen = data.lastSeen ? data.lastSeen.toDate() : null;
+      const stale = _presenceLastSeen ? (Date.now() - _presenceLastSeen.getTime() > 90000) : true;
+      _presenceIsOnline = data.online === true && !stale;
+
+      _updatePresenceIndicator();
+
+      // Tick every minute to keep "X minutes ago" current
+      clearInterval(_presenceTickInterval);
+      if (!_presenceIsOnline) {
+        _presenceTickInterval = setInterval(_updatePresenceIndicator, 60000);
+      }
+    }, () => {
+      _presenceIsOnline = false;
+      _updatePresenceIndicator();
+    });
+}
+
+function stopPresenceListener() {
+  if (presenceUnsubscribe) {
+    presenceUnsubscribe();
+    presenceUnsubscribe = null;
+  }
+  clearInterval(_presenceTickInterval);
+  _presenceTickInterval = null;
+}
+
+// ==================== USER PRESENCE (visible to admin) ====================
+
+let _userPresenceHeartbeat = null;
+let _userPresenceUid = null;
+
+function _setUserPresence(online) {
+  if (!_userPresenceUid || !window.firebase?.firestore) return;
+  firebase.firestore().collection('userPresence').doc(_userPresenceUid).set({
+    online: online,
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(() => {});
+}
+
+function _startUserPresenceHeartbeat(uid) {
+  _userPresenceUid = uid;
+  if (_userPresenceHeartbeat) return; // already running
+  _setUserPresence(true);
+  _userPresenceHeartbeat = setInterval(() => _setUserPresence(true), 30000);
+}
+
+function _stopUserPresenceHeartbeat() {
+  clearInterval(_userPresenceHeartbeat);
+  _userPresenceHeartbeat = null;
+  _setUserPresence(false);
+}
+
 // Toggle chat widget visibility — auto-starts using the logged-in Firebase Auth user
 function toggleChatWidget() {
   if (chatWidget.style.display === 'none') {
     chatWidget.style.display = 'flex';
+    startPresenceListener();
 
     if (userChatId && messagesList) {
-      // Chat already open — just scroll to bottom
+      // Chat session already running — restart presence heartbeat (may have been
+      // stopped when widget was previously closed) and scroll to bottom
+      if (userInfo && userInfo.uid) _startUserPresenceHeartbeat(userInfo.uid);
       scrollToBottom();
       return;
     }
@@ -232,12 +347,14 @@ window.openUserChat = function(itemId, itemTitle) {
 // Minimize chat widget
 function minimizeChatWidget() {
   chatWidget.style.display = 'none';
-  // chatButton reference removed
+  stopPresenceListener();
+  _stopUserPresenceHeartbeat();
 }
 
 // Close chat widget — just hides it, chat session stays open in Firestore
 function closeChatWidget() {
   chatWidget.style.display = 'none';
+  _stopUserPresenceHeartbeat();
 }
 
 // Start chat using a Firebase Auth user object — looks up existing chat by userId + itemId
@@ -250,6 +367,7 @@ function startChatForUser(authUser) {
   const email = authUser.email;
   const uid   = authUser.uid;
   userInfo = { name: authUser.displayName || email, email, uid };
+  _startUserPresenceHeartbeat(uid);
   chatContent.innerHTML = '<div class="chat-loading">Starting chat…</div>';
 
   const db = firebase.firestore();
@@ -317,7 +435,7 @@ function _doStartChat(db, uid, name, email) {
           active: true,
           unreadCount: 0,
           uniqueSessionId: uniqueChatId,
-          isNewSession: true,
+          isNewSession: false,
           itemId: itemId || null
         };
 
@@ -780,7 +898,8 @@ function sendMessage(messageText, imageUrl) {
         lastMessage: imageUrl ? (messageText || '📷 Image') : messageText,
         lastTimestamp: timestamp,
         lastSender: 'user',
-        unreadCount: firebase.firestore.FieldValue.increment(1)
+        unreadCount: firebase.firestore.FieldValue.increment(1),
+        isNewSession: true  // make chat visible to admin only after first message
       });
     })
     .catch(error => {
@@ -1402,11 +1521,47 @@ function addChatStyles() {
       align-items: center;
     }
     
+    .chat-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
     .chat-title {
       font-weight: 600;
       font-size: 1rem;
+      line-height: 1.2;
     }
-    
+
+    .admin-presence {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .presence-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .presence-dot.online {
+      background-color: #4ade80;
+      box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
+    }
+
+    .presence-dot.offline {
+      background-color: #9ca3af;
+    }
+
+    .presence-label {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 400;
+    }
+
     .chat-controls {
       display: flex;
       gap: 0.5rem;
