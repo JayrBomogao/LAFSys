@@ -22,6 +22,7 @@ const CODE_COOLDOWN_MS = 30 * 1000; // 30 seconds between sends
 
 // Chat state
 let userChatId = null;
+let currentChatItemId = null; // itemId of the currently active chat session
 let userInfo = null;
 let idleTimer = null;
 let messagesUnsubscribe = null;
@@ -157,25 +158,173 @@ function createChatWidget() {
 function setupEventListeners() {
   // Chat button has been removed
   // Only the dedicated buttons on item pages will open the chat
-  
+
   // Close button for the chat widget
   document.getElementById('closeChat').addEventListener('click', closeChatWidget);
-  
+
   // Chat message form submission
   chatForm.addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
     const messageText = messageInput.value.trim();
     if (messageText && userChatId) {
       sendMessage(messageText);
       messageInput.value = '';
     }
   });
-  
+
   // Track user activity for idle timeout
   ['click', 'keypress', 'mousemove', 'touchstart'].forEach(eventType => {
     document.addEventListener(eventType, resetIdleTimer);
   });
+
+  _makeChatWidgetInteractive();
+}
+
+// Make the chat widget draggable (header) and resizable from all edges/corners
+function _makeChatWidgetInteractive() {
+  const widget = chatWidget;
+  if (!widget) return;
+  const header = widget.querySelector('.chat-header');
+  if (!header) return;
+
+  const EDGE   = 6;   // px from widget border that counts as an edge hit
+  const MIN_W  = 280;
+  const MIN_H  = 320;
+  const CURSOR = { n:'n-resize', s:'s-resize', e:'e-resize', w:'w-resize',
+                   ne:'ne-resize', nw:'nw-resize', se:'se-resize', sw:'sw-resize' };
+
+  let _drag   = null;
+  let _resize = null;
+
+  // Override cursor on the widget AND all its children via a style tag —
+  // needed so edge cursor wins over e.g. the text-input's cursor.
+  function _setCursor(c) {
+    let s = document.getElementById('_cw_cur');
+    if (!s) { s = document.createElement('style'); s.id = '_cw_cur'; document.head.appendChild(s); }
+    s.textContent = c ? `#chatWidget,#chatWidget *{cursor:${c}!important}` : '';
+  }
+
+  function _edge(cx, cy) {
+    const r  = widget.getBoundingClientRect();
+    const x  = cx - r.left;
+    const y  = cy - r.top;
+    const onN = y <= EDGE;
+    const onS = y >= r.height - EDGE;
+    const onW = x <= EDGE;
+    const onE = x >= r.width  - EDGE;
+    if (onN && onW) return 'nw';
+    if (onN && onE) return 'ne';
+    if (onS && onW) return 'sw';
+    if (onS && onE) return 'se';
+    if (onN) return 'n';
+    if (onS) return 's';
+    if (onW) return 'w';
+    if (onE) return 'e';
+    return null;
+  }
+
+  function _inside(cx, cy) {
+    const r = widget.getBoundingClientRect();
+    return cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom;
+  }
+
+  function _lockPosition() {
+    const r = widget.getBoundingClientRect();
+    widget.style.transform = 'none';
+    widget.style.left = r.left + 'px';
+    widget.style.top  = r.top  + 'px';
+    return r;
+  }
+
+  // ── Drag via header ──
+  header.style.cursor = 'move';
+
+  header.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    // If the click is on a corner/edge, let the resize handler take it
+    if (_edge(e.clientX, e.clientY)) return;
+    const r = _lockPosition();
+    _drag = { sx: e.clientX, sy: e.clientY, sl: r.left, st: r.top };
+    _setCursor('move');
+    e.preventDefault();
+  });
+
+  // Touch drag
+  header.addEventListener('touchstart', e => {
+    if (e.target.closest('button')) return;
+    const t = e.touches[0];
+    const r = _lockPosition();
+    _drag = { sx: t.clientX, sy: t.clientY, sl: r.left, st: r.top };
+  }, { passive: true });
+
+  // ── Edge resize (mousedown on document so it catches events on child elements) ──
+  // Note: no header exclusion here — top corners overlap the header and must resize
+  document.addEventListener('mousedown', e => {
+    if (_drag) return;
+    if (!_inside(e.clientX, e.clientY)) return;
+    const dir = _edge(e.clientX, e.clientY);
+    if (!dir) return;
+    const r = _lockPosition();
+    _resize = { dir, sx: e.clientX, sy: e.clientY,
+                sl: r.left, st: r.top, sw: r.width, sh: r.height };
+    _setCursor(CURSOR[dir]);
+    e.preventDefault();
+  });
+
+  // ── Shared move ──
+  document.addEventListener('mousemove', e => {
+    if (_drag) {
+      let left = _drag.sl + (e.clientX - _drag.sx);
+      let top  = _drag.st + (e.clientY - _drag.sy);
+      left = Math.max(0, Math.min(left, window.innerWidth  - widget.offsetWidth));
+      top  = Math.max(0, Math.min(top,  window.innerHeight - 40));
+      widget.style.left = left + 'px';
+      widget.style.top  = top  + 'px';
+      return;
+    }
+    if (_resize) {
+      const dx  = e.clientX - _resize.sx;
+      const dy  = e.clientY - _resize.sy;
+      const dir = _resize.dir;
+      let w = _resize.sw, h = _resize.sh, l = _resize.sl, t = _resize.st;
+
+      if (dir.includes('e')) w = Math.max(MIN_W, _resize.sw + dx);
+      if (dir.includes('s')) h = Math.max(MIN_H, _resize.sh + dy);
+      if (dir.includes('w')) { w = Math.max(MIN_W, _resize.sw - dx); l = _resize.sl + (_resize.sw - w); }
+      if (dir.includes('n')) { h = Math.max(MIN_H, _resize.sh - dy); t = _resize.st + (_resize.sh - h); }
+
+      widget.style.width  = w + 'px';
+      widget.style.height = h + 'px';
+      widget.style.left   = l + 'px';
+      widget.style.top    = t + 'px';
+      return;
+    }
+
+    // Hover: show edge cursor when near border, clear when not
+    if (_inside(e.clientX, e.clientY)) {
+      const dir = _edge(e.clientX, e.clientY);
+      _setCursor(dir ? CURSOR[dir] : null);
+    } else {
+      _setCursor(null);
+    }
+  });
+
+  // Touch move (drag only)
+  document.addEventListener('touchmove', e => {
+    if (!_drag) return;
+    const t = e.touches[0];
+    let left = _drag.sl + (t.clientX - _drag.sx);
+    let top  = _drag.st + (t.clientY - _drag.sy);
+    left = Math.max(0, Math.min(left, window.innerWidth  - widget.offsetWidth));
+    top  = Math.max(0, Math.min(top,  window.innerHeight - 40));
+    widget.style.left = left + 'px';
+    widget.style.top  = top  + 'px';
+  }, { passive: true });
+
+  // ── Release ──
+  document.addEventListener('mouseup',  () => { _drag = null; _resize = null; _setCursor(null); });
+  document.addEventListener('touchend', () => { _drag = null; _setCursor(null); });
 }
 
 // ==================== ADMIN PRESENCE LISTENER ====================
@@ -283,6 +432,18 @@ function _stopUserPresenceHeartbeat() {
 function toggleChatWidget() {
   if (chatWidget.style.display === 'none') {
     chatWidget.style.display = 'flex';
+
+    // Clear unread badge
+    const badge = document.getElementById('fcbUnreadBadge');
+    if (badge) badge.style.display = 'none';
+
+    // Stamp userLastOpenedAt so unread detection works across page reloads
+    if (userChatId && window.firebase?.firestore) {
+      firebase.firestore().collection(CHAT_COLLECTION).doc(userChatId).update({
+        userLastOpenedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    }
+
     startPresenceListener();
 
     if (userChatId && messagesList) {
@@ -293,14 +454,19 @@ function toggleChatWidget() {
       return;
     }
 
-    // Show connecting state while waiting for auth to initialize
+    // Fast path: userInfo is already cached from a previous session this page load —
+    // skip the onAuthStateChanged + user-doc round-trips and go straight to _doStartChat.
+    if (userInfo && userInfo.uid && window.firebase?.firestore) {
+      _startUserPresenceHeartbeat(userInfo.uid);
+      _doStartChat(firebase.firestore(), userInfo.uid, userInfo.name, userInfo.email);
+      return;
+    }
+
+    // First open: wait for Firebase Auth to resolve, then fetch user doc.
     if (chatContent) {
       chatContent.innerHTML = '<div class="chat-loading">Connecting…</div>';
     }
 
-    // Use onAuthStateChanged with immediate unsubscribe so we wait for
-    // Firebase Auth to finish loading before checking login state.
-    // firebase.auth().currentUser is null on first load even when logged in.
     if (!window.firebase || !firebase.auth) {
       chatWidget.style.display = 'none';
       window.location.href = 'login.html';
@@ -326,7 +492,7 @@ window.toggleChatWidget = toggleChatWidget;
 
 // Called externally (e.g. item Inquire button) to open chat for a specific item
 window.openUserChat = function(itemId, itemTitle) {
-  // Set context on the invisible sentinel button so startChatForCurrentUser() can read it
+  // Set context on the invisible sentinel button so _doStartChat() can read it
   let btn = document.getElementById('chat-with-staff-btn');
   if (!btn) {
     btn = document.createElement('button');
@@ -341,8 +507,33 @@ window.openUserChat = function(itemId, itemTitle) {
   const titleEl = document.getElementById('item-title');
   if (titleEl && itemTitle) titleEl.textContent = itemTitle;
 
+  // If the user is switching to a DIFFERENT item's chat, tear down the current session
+  // so toggleChatWidget proceeds to startChatForUser instead of returning early
+  const requestedItemId = itemId || null;
+  if (userChatId && currentChatItemId !== requestedItemId) {
+    _teardownChatSession();
+  }
+
   toggleChatWidget();
 };
+
+// Stops active listeners and clears session state so the next toggleChatWidget
+// call starts a fresh chat for whatever item is now on the sentinel button.
+function _teardownChatSession() {
+  if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
+  if (statusUnsubscribe)   { statusUnsubscribe();   statusUnsubscribe   = null; }
+  _stopUserPresenceHeartbeat();
+  document.getElementById('chatInquiryCard')?.remove();
+  userChatId        = null;
+  currentChatItemId = null;
+  messagesList      = null;
+  // Show loading skeleton immediately — openUserChat already updated button data so
+  // _insertInquiryCard can render the new item's card right away (instant UX).
+  if (chatContent) chatContent.innerHTML = '<div class="chat-loading">Loading messages…</div>';
+  _insertInquiryCard();
+  // Hide the widget so the next toggleChatWidget() call opens fresh instead of closing
+  if (chatWidget) chatWidget.style.display = 'none';
+}
 
 // Minimize chat widget
 function minimizeChatWidget() {
@@ -409,15 +600,15 @@ function _doStartChat(db, uid, name, email) {
       if (existingChat) {
         // RESUME EXISTING CHAT
         console.log('Restoring existing chat:', existingChat.id);
-        userChatId = existingChat.id;
+        userChatId        = existingChat.id;
+        currentChatItemId = itemId || null;
         
-        // Update chat status to active
+        // Update chat status to active; clear userHidden so it reappears in inbox
         return db.collection(CHAT_COLLECTION).doc(userChatId).update({
           active: true,
-          // Don't overwrite original start time, maybe add lastResumedTime?
           lastResumedTime: firebase.firestore.FieldValue.serverTimestamp(),
-          // Reset endedBy flags
-          endedBy: firebase.firestore.FieldValue.delete() 
+          endedBy: firebase.firestore.FieldValue.delete(),
+          userHidden: firebase.firestore.FieldValue.delete()
         }).then(() => {
           return 'restored';
         });
@@ -425,7 +616,8 @@ function _doStartChat(db, uid, name, email) {
         // CREATE NEW CHAT
         // Create a unique chat ID with timestamp to ensure uniqueness regardless of email
         const uniqueChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        userChatId = uniqueChatId;
+        userChatId        = uniqueChatId;
+        currentChatItemId = itemId || null;
         
         const chatData = {
           userId: uid,
@@ -529,16 +721,18 @@ function createChatInput() {
               color: #6b7280 !important;
               padding: 0 !important;">📷</button>
             <input type="text" id="messageInput" placeholder="Type your message here..." style="
-              flex: 1 !important;
+              flex: 1 1 0% !important;
+              min-width: 0 !important;
               padding: 10px !important;
               border: 2px solid #2563eb !important;
               border-radius: 4px !important;
               font-size: 14px !important;
               height: 36px !important;
+              width: auto !important;
               background-color: white !important;
               color: black !important;
               box-sizing: border-box !important;
-              display: inline-block !important;
+              display: block !important;
               visibility: visible !important;
               opacity: 1 !important;">
             <button type="submit" style="
@@ -550,7 +744,10 @@ function createChatInput() {
               font-weight: bold !important;
               cursor: pointer !important;
               height: 36px !important;
+              width: auto !important;
               min-width: 55px !important;
+              max-width: 80px !important;
+              flex: 0 0 auto !important;
               text-align: center !important;">Send</button>
         </form>
     </div>
@@ -707,9 +904,203 @@ function createChatInput() {
 let isSubmitting = false;
 let hasKeydownHandler = false;
 
+// Show an item details popup matching the admin modal style exactly
+function _showItemDetailsPopup(itemId) {
+  if (!itemId || !window.firebase?.firestore) return;
+
+  // Inject styles once — mirrors admin-modal.js rules exactly
+  if (!document.getElementById('_uidp-styles')) {
+    const s = document.createElement('style');
+    s.id = '_uidp-styles';
+    s.textContent = `
+      ._uidp-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 10001; display: flex; align-items: center; justify-content: center;
+      }
+      ._uidp-box {
+        position: relative; z-index: 2;
+        background: #fff; border-radius: 8px; overflow: hidden;
+        width: 80%; max-width: 1100px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      }
+      ._uidp-x {
+        position: absolute; top: 15px; right: 15px;
+        width: 30px; height: 30px; background: #fff; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 3;
+        border: none; color: #374151;
+      }
+      ._uidp-x:hover { background: #f1f5f9; }
+      ._uidp-body { display: flex; min-height: 400px; }
+      ._uidp-img-col {
+        width: 40%; background: #f8fafc; padding: 1rem;
+        display: flex; align-items: center; justify-content: center;
+      }
+      ._uidp-img-col img { max-width: 100%; max-height: 400px; object-fit: contain; }
+      ._uidp-details-col { width: 60%; padding: 2rem 3rem 2rem 2rem; }
+      ._uidp-hd { margin-bottom: 1.5rem; }
+      ._uidp-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; color: #0f172a; }
+      ._uidp-badge {
+        display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px;
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      }
+      ._uidp-badge.active  { background: #dcfce7; color: #166534; }
+      ._uidp-badge.claimed { background: #dbeafe; color: #1e40af; }
+      ._uidp-badge.soon    { background: #fef3c7; color: #92400e; }
+      ._uidp-desc { margin-bottom: 1.5rem; }
+      ._uidp-desc h3 { font-size: 1rem; font-weight: 600; color: #334155; margin: 0 0 0.5rem; }
+      ._uidp-desc p  { margin: 0; line-height: 1.5; color: #334155; }
+      ._uidp-rows { margin-bottom: 2rem; }
+      ._uidp-row  { display: flex; margin-bottom: 0.75rem; }
+      ._uidp-lbl  { font-weight: 600; color: #64748b; width: 140px; flex-shrink: 0; }
+      ._uidp-val  { color: #334155; }
+      ._uidp-actions { display: flex; justify-content: flex-end; }
+      ._uidp-close-btn {
+        padding: 0.5rem 1.5rem; background: #f1f5f9; color: #334155;
+        border: none; border-radius: 0.375rem; font-weight: 500;
+        cursor: pointer; transition: background 0.2s;
+      }
+      ._uidp-close-btn:hover { background: #e2e8f0; }
+      @media (max-width: 768px) {
+        ._uidp-body { flex-direction: column; }
+        ._uidp-img-col, ._uidp-details-col { width: 100%; }
+        ._uidp-details-col { padding: 1.5rem; }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // Show loading overlay immediately
+  const overlay = document.createElement('div');
+  overlay.className = '_uidp-overlay';
+  overlay.innerHTML = `<div class="_uidp-box" style="display:flex;align-items:center;justify-content:center;min-height:200px;">
+    <div style="color:#6b7280;font-size:0.95rem;">Loading…</div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  const _close = () => { if (overlay.parentElement) overlay.parentElement.removeChild(overlay); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) _close(); });
+  document.addEventListener('keydown', function _esc(e) {
+    if (e.key === 'Escape') { _close(); document.removeEventListener('keydown', _esc); }
+  });
+
+  firebase.firestore().collection('items').doc(itemId).get().then(doc => {
+    if (!doc.exists) { _close(); return; }
+    const d = doc.data();
+
+    let dateStr = 'Unknown';
+    if (d.date) { try { dateStr = new Date(d.date).toLocaleDateString(); } catch(e) {} }
+
+    const statusKey   = d.status === 'claimed' ? 'claimed' : d.status === 'soon' ? 'soon' : 'active';
+    const statusLabel = statusKey === 'claimed' ? 'Claimed' : statusKey === 'soon' ? 'For Disposal' : 'Active';
+
+    overlay.innerHTML = `
+      <div class="_uidp-box">
+        <button class="_uidp-x" title="Close">×</button>
+        <div class="_uidp-body">
+          <div class="_uidp-img-col">
+            <img src="${d.image || 'https://via.placeholder.com/400x300?text=No+Image'}"
+                 alt="${d.title || ''}"
+                 onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+          </div>
+          <div class="_uidp-details-col">
+            <div class="_uidp-hd">
+              <h2 class="_uidp-title">${d.title || 'Item Details'}</h2>
+              <span class="_uidp-badge ${statusKey}">${statusLabel}</span>
+            </div>
+            <div class="_uidp-desc">
+              <h3>Description</h3>
+              <p>${d.description || 'No description provided.'}</p>
+            </div>
+            <div class="_uidp-rows">
+              <div class="_uidp-row"><span class="_uidp-lbl">Category:</span><span class="_uidp-val">${d.category || '—'}</span></div>
+              <div class="_uidp-row"><span class="_uidp-lbl">Found Location:</span><span class="_uidp-val">${d.location || 'Unknown'}</span></div>
+              <div class="_uidp-row"><span class="_uidp-lbl">Date Found:</span><span class="_uidp-val">${dateStr}</span></div>
+              <div class="_uidp-row"><span class="_uidp-lbl">Storage Location:</span><span class="_uidp-val">${d.storageLocation || 'Not specified'}</span></div>
+              <div class="_uidp-row"><span class="_uidp-lbl">Found By:</span><span class="_uidp-val">${d.foundBy || 'Unknown'}</span></div>
+            </div>
+            <div class="_uidp-actions">
+              <button class="_uidp-close-btn">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    overlay.querySelector('._uidp-x').addEventListener('click', _close);
+    overlay.querySelector('._uidp-close-btn').addEventListener('click', _close);
+  }).catch(_close);
+}
+
+// Insert (or refresh) the "Inquiring About" card between the header and chat content
+function _insertInquiryCard() {
+  // Remove any existing card first
+  document.getElementById('chatInquiryCard')?.remove();
+
+  const chatBtn  = document.getElementById('chat-with-staff-btn');
+  const itemId   = chatBtn?.dataset.itemId   || null;
+  const itemTitle = chatBtn?.dataset.itemTitle || '';
+  if (!itemId || !itemTitle) return;
+
+  const card = document.createElement('div');
+  card.id = 'chatInquiryCard';
+  card.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.85rem;
+    background: #eff6ff;
+    border-bottom: 1px solid #bfdbfe;
+    flex-shrink: 0;
+    cursor: pointer;
+  `;
+  card.title = 'Click to view item details';
+
+  card.innerHTML = `
+    <div id="chatInquiryThumb" style="
+      width: 44px; height: 44px; border-radius: 6px;
+      background: #dbeafe; flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">?</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:0.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">Inquiring About:</div>
+      <div style="font-size:0.83rem;font-weight:600;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemTitle}</div>
+      <div style="font-size:0.68rem;color:#3b82f6;">Click to view details →</div>
+    </div>
+  `;
+
+  card.addEventListener('click', () => {
+    _showItemDetailsPopup(itemId);
+  });
+
+  // Place between header and chatContent (not inside chatContent so it doesn't scroll)
+  chatWidget.insertBefore(card, chatContent);
+
+  // Fetch and show item image asynchronously
+  if (window.firebase?.firestore) {
+    firebase.firestore().collection('items').doc(itemId).get().then(doc => {
+      if (!doc.exists) return;
+      const imgUrl = doc.data().image;
+      if (!imgUrl) return;
+      const thumb = document.getElementById('chatInquiryThumb');
+      if (thumb) {
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.style.cssText = 'width:44px;height:44px;object-fit:cover;';
+        img.onerror = () => { thumb.textContent = '?'; };
+        thumb.innerHTML = '';
+        thumb.appendChild(img);
+      }
+    }).catch(() => {});
+  }
+}
+
 // Initialize the chat interface after starting a chat
 function initChatInterface() {
   console.log('Initializing chat interface');
+
+  // Show item context card above the messages
+  _insertInquiryCard();
 
   // Create messages container with specific height - leave room for input field
   chatContent.innerHTML = '<div id="messagesList" class="messages-list"></div>';
@@ -811,15 +1202,21 @@ function initChatInterface() {
 // Handle updates to messages
 function handleMessagesUpdate(snapshot) {
   let newMessages = false;
-  
+
   snapshot.docChanges().forEach(change => {
     if (change.type === 'added') {
       const message = change.doc.data();
       addMessageToUI(message);
       newMessages = true;
+
+      // Show unread badge on floating button when widget is hidden and admin replies
+      if (message.sender === 'admin' && chatWidget && chatWidget.style.display === 'none') {
+        const badge = document.getElementById('fcbUnreadBadge');
+        if (badge) badge.style.display = 'flex';
+      }
     }
   });
-  
+
   if (newMessages) {
     scrollToBottom();
     resetIdleTimer();
@@ -1056,8 +1453,10 @@ function resetChat() {
   }
 
   // Clear current chat state
-  userChatId = null;
-  userInfo = null;
+  document.getElementById('chatInquiryCard')?.remove();
+  userChatId        = null;
+  currentChatItemId = null;
+  userInfo          = null;
 
   // Clear idle timer
   clearTimeout(idleTimer);

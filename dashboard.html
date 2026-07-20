@@ -375,9 +375,9 @@
         #floatingChatBtn {
             position: fixed;
             bottom: 1.75rem;
-            right: 1.75rem;
+            left: 1.75rem;
             z-index: 9998;
-            display: flex;
+            display: none; /* shown by auth handler */
             align-items: center;
             gap: 0.5rem;
             padding: 0.75rem 1.25rem;
@@ -406,6 +406,172 @@
             font-size: 1.2rem;
             line-height: 1;
         }
+
+        #fcbUnreadBadge {
+            display: none;
+            background: #ef4444;
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            margin-left: 2px;
+            animation: fcb-pulse 1.5s infinite;
+        }
+
+        @keyframes fcb-pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.6; }
+        }
+
+        /* ── Chat Inbox Panel (Roblox-style) ── */
+        #userChatInbox {
+            position: fixed;
+            bottom: 0;
+            right: 1.25rem;
+            width: 272px;
+            z-index: 9997;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.13);
+            display: none;
+            flex-direction: column;
+        }
+        #chatInboxHeader {
+            background: #1e293b;
+            color: #fff;
+            padding: 0.55rem 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+        #chatInboxHeader .cih-left {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        #chatInboxHeaderBadge {
+            display: none;
+            background: #ef4444;
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.62rem;
+            font-weight: 700;
+            min-width: 16px;
+            height: 16px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        #chatInboxToggleBtn {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.8rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: transform 0.2s;
+        }
+        #chatInboxBody {
+            background: #fff;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .cib-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .cib-item:hover { background: #f8fafc; }
+        .cib-thumb {
+            width: 42px;
+            height: 42px;
+            border-radius: 7px;
+            object-fit: cover;
+            background: #e2e8f0;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: #94a3b8;
+        }
+        .cib-thumb img {
+            width: 42px;
+            height: 42px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .cib-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .cib-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cib-last {
+            font-size: 0.72rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .cib-last.unread { color: #1e293b; font-weight: 600; }
+        .cib-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .cib-time {
+            font-size: 0.68rem;
+            color: #94a3b8;
+        }
+        .cib-dot {
+            width: 8px;
+            height: 8px;
+            background: #3b82f6;
+            border-radius: 50%;
+        }
+        .cib-del {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            font-size: 0.8rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.15s, color 0.15s;
+        }
+        .cib-item:hover .cib-del { opacity: 1; }
+        .cib-del:hover { color: #ef4444 !important; }
+        #chatInboxEmpty {
+            padding: 1.25rem;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.82rem;
+        }
     </style>
 </head>
 <body>
@@ -414,19 +580,47 @@
     <!-- Auth guard: redirect to login if not signed in -->
     <script>
     (function() {
+        let _unreadListener = null;
+
         function waitForAuth(retries) {
             if (typeof firebase === 'undefined' || !firebase.auth) {
                 if (retries > 0) setTimeout(() => waitForAuth(retries - 1), 100);
                 return;
             }
             firebase.auth().onAuthStateChanged(function(user) {
-                if (!user) {
-                    window.location.href = 'login.html';
-                } else {
-                    // Show user info in header once auth is confirmed
+                const floatingBtn = document.getElementById('floatingChatBtn');
+                if (user) {
                     const nameEl = document.getElementById('userDisplayName');
                     if (nameEl) nameEl.textContent = user.displayName || user.email;
                     document.getElementById('userNav').style.display = 'flex';
+                    document.getElementById('guestNav').style.display = 'none';
+                    if (floatingBtn) floatingBtn.style.display = 'flex';
+
+                    // Watch for unread admin replies across page loads
+                    if (_unreadListener) _unreadListener();
+                    _unreadListener = firebase.firestore()
+                        .collection('liveChats')
+                        .where('userId', '==', user.uid)
+                        .onSnapshot((snap) => {
+                            const widget = document.getElementById('chatWidget');
+                            if (widget && widget.style.display !== 'none') return;
+                            let hasUnread = false;
+                            snap.forEach(doc => {
+                                const data = doc.data();
+                                if (data.lastSender === 'admin') {
+                                    const lastTs     = data.lastTimestamp?.toMillis?.()     || 0;
+                                    const lastOpened = data.userLastOpenedAt?.toMillis?.() || 0;
+                                    if (lastTs > lastOpened) hasUnread = true;
+                                }
+                            });
+                            const badge = document.getElementById('fcbUnreadBadge');
+                            if (badge) badge.style.display = hasUnread ? 'flex' : 'none';
+                        }, () => {});
+                } else {
+                    document.getElementById('userNav').style.display = 'none';
+                    document.getElementById('guestNav').style.display = 'flex';
+                    if (floatingBtn) floatingBtn.style.display = 'none';
+                    if (_unreadListener) { _unreadListener(); _unreadListener = null; }
                 }
             });
         }
@@ -435,7 +629,7 @@
 
     function doLogout() {
         firebase.auth().signOut().then(() => {
-            window.location.href = 'login.html';
+            window.location.reload();
         });
     }
     </script>
@@ -447,6 +641,23 @@
             gap: 0.6rem;
             font-size: 0.875rem;
         }
+        .guest-nav {
+            display: none;
+            align-items: center;
+        }
+        .btn-login {
+            padding: 0.5rem 1.25rem;
+            background: #2563eb;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-login:hover { background: #1d4ed8; }
         .user-nav .user-name {
             color: #ffffff;
             font-weight: 500;
@@ -574,24 +785,26 @@
             <span class="user-name" id="userDisplayName"></span>
             <button class="btn-logout" onclick="doLogout()">Logout</button>
         </div>
+        <div class="guest-nav" id="guestNav">
+            <a href="login.html" class="btn-login">Login / Register</a>
+        </div>
     </header>
 
     <main class="container">
         <div class="filters">
-            <select id="statusFilter" class="filter-select">
-                <option value="all">All Items</option>
-                <option value="active">Active Items</option>
-                <option value="soon">Disposal Soon</option>
-            </select>
             <select id="categoryFilter" class="filter-select">
                 <option value="all">All Categories</option>
-                <option value="wallet">Wallet / Purse</option>
-                <option value="phone">Mobile Phone</option>
-                <option value="laptop">Laptop / Tablet</option>
-                <option value="keys">Keys</option>
-                <option value="bag">Bag / Backpack</option>
-                <option value="clothing">Clothing</option>
-                <option value="jewelry">Jewelry</option>
+                <option value="gadgets">Gadgets</option>
+                <option value="bags-wallets">Bags & Wallets</option>
+                <option value="accessories">Accessories</option>
+                <option value="garments">Garments</option>
+                <option value="eyewear">Eyewear</option>
+                <option value="cosmetics">Cosmetics & Personal Care</option>
+                <option value="supplies">School / Office Supplies</option>
+                <option value="umbrella">Umbrella</option>
+                <option value="toys">Toys & Collectibles</option>
+                <option value="food-containers">Food Containers</option>
+                <option value="cash-cards">Cash & Cards</option>
                 <option value="documents">Documents</option>
                 <option value="other">Other</option>
             </select>
@@ -759,25 +972,12 @@
                     console.error('Items container not found');
                     return;
                 }
-                const statusFilterSelect = document.getElementById('statusFilter');
-                const selectedFilter = statusFilterSelect ? statusFilterSelect.value : 'all';
                 const categoryFilterSelect = document.getElementById('categoryFilter');
                 const selectedCategory = categoryFilterSelect ? categoryFilterSelect.value : 'all';
-                
+
                 const itemsTitleEl = document.querySelector('.items-title');
                 if (itemsTitleEl) {
-                    // Update title based on filter
-                    switch(selectedFilter) {
-                        case 'active':
-                            itemsTitleEl.textContent = 'Active Items';
-                            break;
-                        case 'soon':
-                            itemsTitleEl.textContent = 'Items For Disposal Soon';
-                            break;
-                        default:
-                            itemsTitleEl.textContent = 'All Recently Found Items';
-                            break;
-                    }
+                    itemsTitleEl.textContent = 'All Recently Found Items';
                 }
                 
                 // Clear the container with loading message
@@ -819,16 +1019,25 @@
                         return;
                     }
                     
-                    // Handle filter selections
-                    if (selectedFilter === 'soon' && itemStatus !== 'soon') {
-                        return;
-                    } else if (selectedFilter === 'active' && itemStatus !== 'active') {
-                        return;
-                    }
-
-                    // Handle category filter
-                    if (selectedCategory !== 'all' && (data.category || '').toLowerCase() !== selectedCategory) {
-                        return;
+                    // Handle category filter (grouped)
+                    if (selectedCategory !== 'all') {
+                        const categoryGroups = {
+                            'gadgets':         ['phone', 'laptop', 'gadgets'],
+                            'bags-wallets':    ['wallet', 'bag', 'bags-wallets'],
+                            'accessories':     ['keys', 'jewelry', 'accessories'],
+                            'garments':        ['clothing', 'garments'],
+                            'eyewear':         ['eyewear'],
+                            'cosmetics':       ['cosmetics'],
+                            'supplies':        ['supplies'],
+                            'umbrella':        ['umbrella'],
+                            'toys':            ['toys'],
+                            'food-containers': ['food-containers'],
+                            'cash-cards':      ['cash-cards'],
+                            'documents':       ['documents'],
+                            'other':           ['other']
+                        };
+                        const allowed = categoryGroups[selectedCategory] || [selectedCategory];
+                        if (!allowed.includes((data.category || '').toLowerCase())) return;
                     }
                     
                     // Format date
@@ -938,14 +1147,6 @@
                 });
             }
             
-            // Add filter functionality
-            const statusFilter = document.getElementById('statusFilter');
-            if (statusFilter) {
-                statusFilter.addEventListener('change', () => {
-                    fetchAndDisplayItems();
-                });
-            }
-
             const categoryFilterEl = document.getElementById('categoryFilter');
             if (categoryFilterEl) {
                 categoryFilterEl.addEventListener('change', () => {
@@ -971,10 +1172,26 @@
     <script src="js/accurateImageSearch.js?v=5.0"></script>
 
 
+    <!-- Chat Inbox Panel -->
+    <div id="userChatInbox">
+        <div id="chatInboxHeader">
+            <div class="cih-left">
+                <span>💬</span>
+                <span>Chat</span>
+                <span id="chatInboxHeaderBadge"></span>
+            </div>
+            <button id="chatInboxToggleBtn">▼</button>
+        </div>
+        <div id="chatInboxBody">
+            <div id="chatInboxList"></div>
+        </div>
+    </div>
+
     <!-- Floating Chat with Staff button -->
     <button id="floatingChatBtn" title="Chat with Staff">
         <span class="fcb-icon">💬</span>
         <span>Chat with Staff</span>
+        <span id="fcbUnreadBadge">!</span>
     </button>
     <script>
         document.getElementById('floatingChatBtn').addEventListener('click', function() {
@@ -982,6 +1199,207 @@
                 window.toggleChatWidget();
             }
         });
+    </script>
+
+    <!-- Chat Inbox Panel Logic -->
+    <script>
+    (function() {
+        let _inboxUnsub = null;
+        let _inboxOpen  = true;
+        const _imgCache = {};
+
+        function _fmtTime(date) {
+            if (!date) return '';
+            const diff = Date.now() - date.getTime();
+            const m = Math.floor(diff / 60000);
+            if (m < 1)  return 'now';
+            if (m < 60) return m + 'm';
+            const h = Math.floor(m / 60);
+            if (h < 24) return h + 'h';
+            return Math.floor(h / 24) + 'd';
+        }
+
+        async function _getItemImg(itemId) {
+            if (!itemId) return '';
+            if (_imgCache[itemId] !== undefined) return _imgCache[itemId];
+            try {
+                const doc = await firebase.firestore().collection('items').doc(itemId).get();
+                const url = (doc.exists && doc.data().image) ? doc.data().image : '';
+                _imgCache[itemId] = url;
+                return url;
+            } catch(e) { return ''; }
+        }
+
+        function _render(snap) {
+            const list  = document.getElementById('chatInboxList');
+            const badge = document.getElementById('chatInboxHeaderBadge');
+            if (!list) return;
+
+            if (snap.empty) {
+                list.innerHTML = '<div id="chatInboxEmpty">No item inquiries yet.</div>';
+                if (badge) badge.style.display = 'none';
+                return;
+            }
+
+            // Sort newest first (client-side to avoid composite index); skip user-hidden chats
+            const docs = snap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(d => !d.userHidden)
+                .sort((a, b) => {
+                    const ta = a.lastTimestamp?.toMillis?.() || a.startTime?.toMillis?.() || 0;
+                    const tb = b.lastTimestamp?.toMillis?.() || b.startTime?.toMillis?.() || 0;
+                    return tb - ta;
+                });
+
+            if (docs.length === 0) {
+                list.innerHTML = '<div id="chatInboxEmpty">No item inquiries yet.</div>';
+                if (badge) badge.style.display = 'none';
+                return;
+            }
+
+            list.innerHTML = '';
+            let unreadTotal = 0;
+
+            // Render all rows synchronously first (instant) with ? placeholder thumbnails,
+            // then fetch images in parallel and swap them in — no blocking loop.
+            const thumbEls = [];
+
+            for (const data of docs) {
+                const itemId     = data.itemId    || null;
+                const itemTitle  = data.itemTitle || 'Inquiry';
+                const lastMsg    = data.lastMessage  || '';
+                const lastSender = data.lastSender   || '';
+                const lastTs     = data.lastTimestamp;
+                const lastOpened = data.userLastOpenedAt;
+
+                const lastTsMs   = lastTs?.toMillis?.()     || 0;
+                const lastOpenMs = lastOpened?.toMillis?.() || 0;
+                const isUnread   = lastSender === 'admin' && lastTsMs > lastOpenMs;
+                if (isUnread) unreadTotal++;
+
+                const timeStr = lastTs ? _fmtTime(lastTs.toDate ? lastTs.toDate() : new Date(lastTs.seconds * 1000)) : '';
+
+                const row = document.createElement('div');
+                row.className = 'cib-item';
+
+                const thumbEl = document.createElement('div');
+                thumbEl.className = 'cib-thumb';
+                thumbEl.textContent = '?';
+
+                const infoEl = document.createElement('div');
+                infoEl.className = 'cib-info';
+                infoEl.innerHTML = `
+                    <div class="cib-title">${itemTitle}</div>
+                    <div class="cib-last ${isUnread ? 'unread' : ''}">${
+                        lastMsg
+                            ? (lastSender === 'admin' ? 'Staff: ' : 'You: ') + lastMsg
+                            : '<em>No messages yet</em>'
+                    }</div>
+                `;
+
+                const rightEl = document.createElement('div');
+                rightEl.className = 'cib-right';
+                rightEl.innerHTML = `
+                    <span class="cib-time">${timeStr}</span>
+                    ${isUnread ? '<div class="cib-dot"></div>' : ''}
+                `;
+
+                // Delete button — hides chat from inbox; history is preserved and reappears on next chat
+                const delBtn = document.createElement('button');
+                delBtn.className = 'cib-del';
+                delBtn.title = 'Remove from inbox (history preserved)';
+                delBtn.textContent = '✕';
+                const _chatDocId = data.id;
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    firebase.firestore().collection('liveChats').doc(_chatDocId).update({
+                        userHidden: true
+                    }).catch(() => {});
+                });
+                rightEl.appendChild(delBtn);
+
+                row.appendChild(thumbEl);
+                row.appendChild(infoEl);
+                row.appendChild(rightEl);
+
+                row.addEventListener('click', () => {
+                    if (typeof window.openUserChat === 'function') {
+                        window.openUserChat(itemId || '', itemTitle);
+                    } else if (typeof window.toggleChatWidget === 'function') {
+                        window.toggleChatWidget();
+                    }
+                });
+
+                list.appendChild(row);
+                thumbEls.push({ thumbEl, itemId, itemTitle });
+            }
+
+            // Update header badge immediately
+            if (badge) {
+                badge.textContent = unreadTotal || '';
+                badge.style.display = unreadTotal ? 'flex' : 'none';
+            }
+
+            // Fetch all images in parallel — updates thumbnails as they arrive
+            thumbEls.forEach(({ thumbEl, itemId, itemTitle }) => {
+                if (!itemId) return;
+                _getItemImg(itemId).then(imgUrl => {
+                    if (!imgUrl || !thumbEl.isConnected) return;
+                    const img = document.createElement('img');
+                    img.src = imgUrl;
+                    img.alt = itemTitle;
+                    img.onerror = () => { thumbEl.textContent = '?'; };
+                    thumbEl.innerHTML = '';
+                    thumbEl.appendChild(img);
+                });
+            });
+        }
+
+        function _initInbox(uid) {
+            const panel  = document.getElementById('userChatInbox');
+            const header = document.getElementById('chatInboxHeader');
+            const body   = document.getElementById('chatInboxBody');
+            const toggleBtn = document.getElementById('chatInboxToggleBtn');
+            if (!panel) return;
+
+            panel.style.display = 'flex';
+
+            // Toggle collapse
+            header.addEventListener('click', () => {
+                _inboxOpen = !_inboxOpen;
+                body.style.display    = _inboxOpen ? 'block' : 'none';
+                toggleBtn.textContent = _inboxOpen ? '▼' : '▲';
+            });
+
+            // Real-time listener
+            if (_inboxUnsub) _inboxUnsub();
+            _inboxUnsub = firebase.firestore()
+                .collection('liveChats')
+                .where('userId', '==', uid)
+                .onSnapshot(_render, () => {});
+        }
+
+        function _destroyInbox() {
+            if (_inboxUnsub) { _inboxUnsub(); _inboxUnsub = null; }
+            const panel = document.getElementById('userChatInbox');
+            if (panel) panel.style.display = 'none';
+            const list = document.getElementById('chatInboxList');
+            if (list) list.innerHTML = '';
+        }
+
+        // Hook into auth state — wait for firebase to be ready
+        function _waitAndBind(retries) {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                if (retries > 0) setTimeout(() => _waitAndBind(retries - 1), 150);
+                return;
+            }
+            firebase.auth().onAuthStateChanged(user => {
+                if (user) _initInbox(user.uid);
+                else _destroyInbox();
+            });
+        }
+        _waitAndBind(30);
+    })();
     </script>
 
     <!-- Core app script loaded above -->

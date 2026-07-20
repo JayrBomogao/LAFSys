@@ -167,7 +167,13 @@
 </head>
 <body>
 
-<div class="card">
+<div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:420px;">
+
+<a href="#" onclick="history.back();return false;" style="display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:1rem;margin-left:-2rem;font-size:1.1rem;font-weight:600;color:rgba(255,255,255,0.85);text-decoration:none;cursor:pointer;transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.85)'">
+    ← Go Back
+</a>
+
+<div class="card" style="width:100%;">
     <div class="card-header">
         <h1>Lost &amp; Found – Baguio City</h1>
         <p>Sign in to browse and inquire about items</p>
@@ -277,6 +283,8 @@
         <button class="btn btn-primary" id="registerBtn" onclick="handleRegisterStep()">Send Verification Code</button>
     </div>
 </div>
+
+</div><!-- end wrapper -->
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>

@@ -328,7 +328,7 @@ function openChat() {
                 <div class="actions">
                     <a href="javascript:void(0);" id="chat-with-staff-btn" class="btn btn-primary" onclick="javascript:if(window.toggleChatWidget){window.toggleChatWidget();}else{openChat();}return false;">
                         <i data-lucide="message-circle"></i>
-                        Chat with Staff
+                        <span id="chatBtnLabel">Chat with Staff</span>
                     </a>
                 </div>
             </div>
@@ -388,10 +388,25 @@ function openChat() {
         const db = firebase.firestore();
         const storage = firebase.storage();
 
+        // Update Chat with Staff button label based on auth state
+        function _updateChatBtnLabel(user) {
+            const label = document.getElementById('chatBtnLabel');
+            if (!label) return;
+            label.textContent = user ? 'Chat with Staff' : 'Login to Chat with Staff';
+        }
+
         // Initialize Lucide icons
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM loaded, initializing page');
             lucide.createIcons();
+
+            // Listen for auth state to update button label
+            const _waitAuth = setInterval(() => {
+                if (window.firebase && firebase.auth) {
+                    clearInterval(_waitAuth);
+                    firebase.auth().onAuthStateChanged(_updateChatBtnLabel);
+                }
+            }, 200);
             
             // Get item ID from URL
             const urlParams = new URLSearchParams(window.location.search);
