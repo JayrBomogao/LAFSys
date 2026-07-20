@@ -1195,7 +1195,10 @@
     </button>
     <script>
         document.getElementById('floatingChatBtn').addEventListener('click', function() {
-            if (typeof window.toggleChatWidget === 'function') {
+            // openUserChat with empty args clears any item context and opens a general inquiry
+            if (typeof window.openUserChat === 'function') {
+                window.openUserChat('', '');
+            } else if (typeof window.toggleChatWidget === 'function') {
                 window.toggleChatWidget();
             }
         });

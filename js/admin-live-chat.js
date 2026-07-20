@@ -18,6 +18,9 @@ let currentChatUser = null;
 let userPresenceUnsubscribe = null;
 let userPresenceTickInterval = null;
 
+// Messages listener — kept so we can unsubscribe before opening a new chat
+let _messagesUnsubscribe = null;
+
 // Cache resolved display names to avoid repeated Cloud Function calls
 const resolvedNameCache = {};
 
@@ -973,8 +976,15 @@ function loadChatMessages(chatId) {
           console.log('MutationObserver attached to messages list');
         }
         
+        // Tear down any previous messages listener before opening a new one —
+        // without this, re-selecting the same chat stacks listeners and doubles every message.
+        if (_messagesUnsubscribe) {
+          _messagesUnsubscribe();
+          _messagesUnsubscribe = null;
+        }
+
         // Set up real-time listener for messages
-        db.collection(CHAT_COLLECTION).doc(chatId)
+        _messagesUnsubscribe = db.collection(CHAT_COLLECTION).doc(chatId)
           .collection(CHAT_MESSAGES_COLLECTION)
           .orderBy('timestamp', 'asc')
           .onSnapshot((snapshot) => {
@@ -1027,7 +1037,7 @@ function addMessageToUI(message) {
   
   let contentHTML = '';
   if (message.imageUrl) {
-    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" onclick="window.open(this.src,'_blank')">`;
+    contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="cursor:zoom-in;" onclick="_showChatImageLightbox(this.src)">`;
   }
   if (message.text) {
     contentHTML += `<div class="message-content">${message.text}</div>`;
@@ -1043,6 +1053,31 @@ function addMessageToUI(message) {
   
   messagesList.appendChild(messageDiv);
   // Scrolling is handled by handleMessagesUpdate (respects user's scroll position)
+}
+
+// Lightbox for chat images — shows image in an overlay instead of opening a new tab
+function _showChatImageLightbox(src) {
+  if (!src) return;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.85);z-index:99999;
+    display:flex;align-items:center;justify-content:center;cursor:zoom-out;
+  `;
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = `
+    max-width:90vw;max-height:90vh;object-fit:contain;
+    border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    cursor:default;
+  `;
+  img.addEventListener('click', e => e.stopPropagation());
+  overlay.appendChild(img);
+  overlay.addEventListener('click', () => overlay.remove());
+  document.addEventListener('keydown', function _esc(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', _esc); }
+  });
+  document.body.appendChild(overlay);
 }
 
 // Send a message

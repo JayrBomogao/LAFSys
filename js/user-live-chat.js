@@ -1223,6 +1223,31 @@ function handleMessagesUpdate(snapshot) {
   }
 }
 
+// Lightbox for chat images — shows image in an overlay instead of opening a new tab
+function _showChatImageLightbox(src) {
+  if (!src) return;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.85);z-index:99999;
+    display:flex;align-items:center;justify-content:center;cursor:zoom-out;
+  `;
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = `
+    max-width:90vw;max-height:90vh;object-fit:contain;
+    border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    cursor:default;
+  `;
+  img.addEventListener('click', e => e.stopPropagation());
+  overlay.appendChild(img);
+  overlay.addEventListener('click', () => overlay.remove());
+  document.addEventListener('keydown', function _esc(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', _esc); }
+  });
+  document.body.appendChild(overlay);
+}
+
 // Add a message to the UI
 function addMessageToUI(message) {
   if (!messagesList) return;
@@ -1237,7 +1262,7 @@ function addMessageToUI(message) {
   } else {
     let contentHTML = '';
     if (message.imageUrl) {
-      contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:200px; border-radius:8px; margin-bottom:4px; cursor:pointer; display:block;" onclick="window.open(this.src,'_blank')">`;
+      contentHTML += `<img src="${message.imageUrl}" alt="Shared image" style="max-width:100%; max-height:200px; border-radius:8px; margin-bottom:4px; cursor:zoom-in; display:block;" onclick="_showChatImageLightbox(this.src)">`;
     }
     if (message.text) {
       contentHTML += `<div class="message-content">${message.text}</div>`;
@@ -1900,8 +1925,8 @@ function addChatStyles() {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 400px;
-      height: 550px;
+      width: 700px;
+      height: 560px;
       background-color: white;
       border-radius: 12px;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
