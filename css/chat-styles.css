@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modern Chat UI Styles
  * Inspired by popular chat applications like Messenger, Twitter DMs, etc.
  */
@@ -54,7 +54,7 @@
 
 .chat-sidebar-search input:focus {
   outline: none;
-  border-color: #60a5fa;
+  border-color: #fb923c;
   background-color: #fff;
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
@@ -80,12 +80,12 @@
 }
 
 .conversation-item.active {
-  background-color: #eff6ff;
-  border-left-color: #3b82f6;
+  background-color: #fff7ed;
+  border-left-color: #f07316;
 }
 
 .conversation-item.unread {
-  background-color: #f0f9ff;
+  background-color: #fff7ed;
 }
 
 .conversation-avatar {
@@ -141,7 +141,7 @@
 .conversation-badge {
   width: 8px;
   height: 8px;
-  background-color: #3b82f6;
+  background-color: #f07316;
   border-radius: 50%;
   margin-left: 6px;
 }
@@ -289,7 +289,7 @@
 }
 
 .message.outgoing .message-content {
-  background-color: #3b82f6;
+  background-color: #f07316;
   color: white;
 }
 
@@ -313,7 +313,7 @@
   bottom: 8px;
   width: 12px;
   height: 12px;
-  background-color: #3b82f6;
+  background-color: #f07316;
   transform: rotate(45deg);
   z-index: -1;
 }
@@ -445,7 +445,7 @@
 }
 
 .composer-input-area:focus-within {
-  border-color: #60a5fa;
+  border-color: #fb923c;
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
   background-color: #fff;
 }
@@ -500,7 +500,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #3b82f6;
+  background-color: #f07316;
   color: white;
   border: none;
   cursor: pointer;
@@ -508,11 +508,11 @@
 }
 
 .send-btn:hover {
-  background-color: #2563eb;
+  background-color: #1a2e6b;
 }
 
 .send-btn:disabled {
-  background-color: #93c5fd;
+  background-color: #fed7aa;
   cursor: not-allowed;
 }
 
@@ -594,7 +594,7 @@
   font-weight: 600;
   padding: 0.25rem 0.5rem;
   border-radius: 9999px;
-  background-color: #3b82f6;
+  background-color: #f07316;
   color: white;
   min-width: 1.25rem;
 }

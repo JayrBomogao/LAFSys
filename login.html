@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
 
         body {
             min-height: 100vh;
-            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            background: linear-gradient(135deg, #1e3a5f 0%, #1a2e6b 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -56,8 +56,8 @@
         }
 
         .tab-btn.active {
-            color: #2563eb;
-            border-bottom-color: #2563eb;
+            color: #1a2e6b;
+            border-bottom-color: #1a2e6b;
         }
 
         .tab-panel { display: none; padding: 1.75rem 2rem 2rem; }
@@ -87,7 +87,7 @@
             outline: none;
         }
 
-        input:focus { border-color: #2563eb; }
+        input:focus { border-color: #1a2e6b; }
 
         .btn {
             width: 100%;
@@ -100,18 +100,18 @@
             transition: background 0.2s, opacity 0.2s;
         }
 
-        .btn-primary { background: #2563eb; color: #fff; }
-        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary { background: #1a2e6b; color: #fff; }
+        .btn-primary:hover { background: #1a2e6b; }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .btn-outline {
             background: none;
-            border: 1.5px solid #2563eb;
-            color: #2563eb;
+            border: 1.5px solid #1a2e6b;
+            color: #1a2e6b;
             margin-top: 0.5rem;
         }
 
-        .btn-outline:hover { background: #eff6ff; }
+        .btn-outline:hover { background: #fff7ed; }
         .btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .otp-row {
@@ -142,7 +142,7 @@
 
         .alert-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
         .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-        .alert-info    { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .alert-info    { background: #fff7ed; color: #1a2e6b; border: 1px solid #fed7aa; }
 
         .divider {
             text-align: center;
@@ -198,7 +198,7 @@
                 <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password">
             </div>
             <div style="text-align:right;margin:-0.25rem 0 0.75rem 0;">
-                <a href="#" onclick="showForgotPanel();return false;" style="font-size:0.85rem;color:#2563eb;text-decoration:none;">Forgot password?</a>
+                <a href="#" onclick="showForgotPanel();return false;" style="font-size:0.85rem;color:#1a2e6b;text-decoration:none;">Forgot password?</a>
             </div>
             <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Login</button>
         </div>

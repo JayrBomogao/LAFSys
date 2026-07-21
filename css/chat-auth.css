@@ -74,8 +74,8 @@
 
 #chat-auth-modal input:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #f07316;
+    box-shadow: 0 0 0 3px rgba(240, 115, 22, 0.1);
 }
 
 #chat-auth-modal .form-actions {
@@ -100,13 +100,13 @@
     border-radius: 0.375rem;
     cursor: pointer;
     transition: all 0.15s ease-in-out;
-    background-color: #3b82f6;
+    background-color: #f07316;
     color: white;
     border: none;
 }
 
 #chat-auth-modal .btn-primary:hover {
-    background-color: #2563eb;
+    background-color: #d4640e;
 }
 
 #chat-auth-modal .close {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -44,12 +44,12 @@
         
         .filter-select:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            border-color: #f07316;
+            box-shadow: 0 0 0 3px rgba(240, 115, 22, 0.2);
         }
         
         .filter-select:hover {
-            border-color: #3b82f6;
+            border-color: #f07316;
         }
         
         .items-header {
@@ -90,7 +90,7 @@
         .item-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            border: 1px solid #3b82f6; /* Blue border on hover */
+            border: 1px solid #f07316; /* Blue border on hover */
         }
         
         .item-card:active {
@@ -134,7 +134,7 @@
         }
         
         .status-returned {
-            background-color: #3b82f6; /* Blue */
+            background-color: #f07316; /* Blue */
         }
         
         .status-disposed {
@@ -169,12 +169,12 @@
         
         #searchInput:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            border-color: #f07316;
+            box-shadow: 0 0 0 3px rgba(240, 115, 22, 0.2);
         }
         
         #searchButton {
-            background-color: #3b82f6;
+            background-color: #f07316;
             color: white;
             border: none;
             padding: 12px 15px;
@@ -184,7 +184,7 @@
         }
         
         #searchButton:hover {
-            background-color: #2563eb;
+            background-color: #1a2e6b;
         }
         
         #imageSearchBtn {
@@ -193,9 +193,9 @@
             gap: 8px;
             padding: 10px 15px;
             background-color: white;
-            border: 2px solid #3b82f6;
+            border: 2px solid #f07316;
             border-radius: 8px;
-            color: #3b82f6;
+            color: #f07316;
             margin-left: 0;
             cursor: pointer;
             transition: all 0.3s;
@@ -268,12 +268,12 @@
         }
         
         .btn-primary {
-            background-color: #2563eb;
+            background-color: #1a2e6b;
             color: white;
         }
         
         .btn-primary:hover {
-            background-color: #1d4ed8;
+            background-color: #1a2e6b;
         }
         
         .btn i {
@@ -443,7 +443,7 @@
         .usb-item.active {
             background: rgba(255,255,255,0.1);
             color: #fff;
-            border-left-color: #3b82f6;
+            border-left-color: #f07316;
         }
         .usb-icon { font-size: 1.15rem; line-height: 1; flex-shrink: 0; }
         .usb-badge {
@@ -501,21 +501,21 @@
             align-items: center;
             gap: 0.5rem;
             padding: 0.75rem 1.25rem;
-            background: #2563eb;
+            background: #1a2e6b;
             color: #fff;
             border: none;
             border-radius: 999px;
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+            box-shadow: 0 4px 16px rgba(26, 46, 107, 0.4);
             transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
         }
 
         #floatingChatBtn:hover {
-            background: #1d4ed8;
+            background: #1a2e6b;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+            box-shadow: 0 6px 20px rgba(26, 46, 107, 0.5);
         }
 
         #floatingChatBtn:active {
@@ -683,7 +683,7 @@
         .cib-dot {
             width: 8px;
             height: 8px;
-            background: #3b82f6;
+            background: #f07316;
             border-radius: 50%;
         }
         .cib-del {
@@ -739,9 +739,11 @@
                             let hasUnread = false;
                             snap.forEach(doc => {
                                 const data = doc.data();
-                                // Only badge the floating button for general inquiries (no itemId)
+                                // Only badge the floating button for general inquiries (no itemId/lostItemId)
                                 // Item-specific chat notifications belong in the inbox instead
-                                if (data.itemId) return;
+                                if (data.itemId || data.lostItemId) return;
+                                // Don't badge if admin hasn't sent a real message yet (admin-initiated empty chat)
+                                if (!data.lastMessage) return;
                                 if (data.lastSender === 'admin') {
                                     const lastTs     = data.lastTimestamp?.toMillis?.()     || 0;
                                     const lastOpened = data.userLastOpenedAt?.toMillis?.() || 0;
@@ -781,7 +783,7 @@
         }
         .btn-login {
             padding: 0.5rem 1.25rem;
-            background: #2563eb;
+            background: #1a2e6b;
             border: none;
             border-radius: 6px;
             font-size: 1.1rem;
@@ -791,7 +793,7 @@
             text-decoration: none;
             transition: background 0.2s;
         }
-        .btn-login:hover { background: #1d4ed8; }
+        .btn-login:hover { background: #1a2e6b; }
         .user-nav .user-name {
             color: #ffffff;
             font-weight: 500;
@@ -836,7 +838,7 @@
             letter-spacing: 0.05em;
         }
         .idm-status-active  { background: #dcfce7; color: #166534; }
-        .idm-status-claimed { background: #dbeafe; color: #1e40af; }
+        .idm-status-claimed { background: #ffedd5; color: #2a4599; }
         .idm-status-returned { background: #ede9fe; color: #5b21b6; }
         .idm-description-section {
             margin-bottom: 1.25rem;
@@ -883,12 +885,12 @@
             width: 100%;
             justify-content: center;
             padding: 0.75rem;
-            background: #2563eb;
+            background: #1a2e6b;
             color: white;
             font-size: 1rem;
             border-radius: 0.5rem;
         }
-        .idm-chat-btn:hover { background: #1d4ed8; }
+        .idm-chat-btn:hover { background: #1a2e6b; }
         .idm-close-btn {
             width: 100%;
             justify-content: center;
@@ -918,7 +920,8 @@
             background: #ef4444;
             color: white;
             border: none;
-            padding: 0.5rem 1.1rem;
+            padding: 0.65rem 1.5rem;
+            font-size: 0.95rem;
             border-radius: 0.375rem;
             font-weight: 500;
             cursor: pointer;
@@ -1019,7 +1022,7 @@
             font-size: 0.95rem; box-sizing: border-box;
             transition: border-color 0.2s;
         }
-        .plm-input:focus { outline: none; border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(147,197,253,0.2); }
+        .plm-input:focus { outline: none; border-color: #fed7aa; box-shadow: 0 0 0 3px rgba(147,197,253,0.2); }
         textarea.plm-input { min-height: 90px; resize: vertical; }
         .plm-img-drop {
             width: 100%; height: 140px;
@@ -1029,7 +1032,7 @@
             background: #f8fafc; transition: all 0.2s;
             overflow: hidden; position: relative;
         }
-        .plm-img-drop:hover { border-color: #93c5fd; background: #f0f9ff; }
+        .plm-img-drop:hover { border-color: #fed7aa; background: #fff7ed; }
         .plm-img-drop img { max-width:100%; max-height:100%; object-fit:contain; }
         .plm-img-drop-text { text-align:center; color:#64748b; font-size:0.85rem; }
         .plm-submit {
@@ -1052,10 +1055,10 @@
             align-items: center; justify-content: center;
         }
         .ldm-box {
-            max-width: 860px; width: 94%; margin: 0;
-            background: white; border-radius: 8px;
+            max-width: 1100px; width: 94%; margin: 0;
+            background: white; border-radius: 10px;
             overflow: hidden; position: relative;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
         .ldm-close {
             position: absolute; top: 1rem; right: 1rem; z-index: 2;
@@ -1065,36 +1068,36 @@
             justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
             color: #374151;
         }
-        .ldm-body { display: flex; min-height: 380px; }
+        .ldm-body { display: flex; flex-wrap: wrap; min-height: 460px; }
         .ldm-img-col {
-            width: 40%; background: #fef2f2; padding: 1rem;
+            flex: 0 0 45%; min-width: 320px; background: #f8fafc; padding: 1.75rem;
             display: flex; align-items: center; justify-content: center;
         }
-        .ldm-img-col img { max-width:100%; max-height:360px; object-fit:contain; }
-        .ldm-img-placeholder { font-size: 4rem; }
-        .ldm-details-col { width: 60%; padding: 2rem 2.5rem 2rem 1.5rem; }
+        .ldm-img-col img { max-width:100%; max-height:480px; object-fit:contain; border-radius: 6px; }
+        .ldm-img-placeholder { font-size: 5rem; }
+        .ldm-details-col { flex: 1; padding: 2rem 2.5rem 1.5rem 1.75rem; display: flex; flex-direction: column; }
         .ldm-badge {
-            display: inline-block; padding: 0.2rem 0.7rem; border-radius: 999px;
-            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+            display: inline-block; padding: 0.25rem 0.9rem; border-radius: 999px;
+            font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em;
             text-transform: uppercase; background: #fee2e2; color: #991b1b;
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem; align-self: flex-start;
         }
-        .ldm-title { font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0 0 0.5rem; }
-        .ldm-desc { color: #6b7280; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
-        .ldm-rows { margin-bottom: 1.5rem; }
-        .ldm-row { display: flex; margin-bottom: 0.6rem; font-size: 0.9rem; }
-        .ldm-lbl { font-weight: 600; color: #64748b; width: 130px; flex-shrink: 0; }
+        .ldm-title { font-size: 1.75rem; font-weight: 700; color: #0f172a; margin: 0 0 0.6rem; }
+        .ldm-desc { color: #475569; margin-bottom: 1.5rem; font-size: 1rem; line-height: 1.65; }
+        .ldm-rows { margin-bottom: 1.75rem; }
+        .ldm-row { display: flex; margin-bottom: 0.75rem; font-size: 1rem; }
+        .ldm-lbl { font-weight: 600; color: #64748b; width: 160px; flex-shrink: 0; }
         .ldm-val { color: #334155; }
-        .ldm-actions { display: flex; justify-content: flex-end; }
+        .ldm-actions { display: flex; justify-content: flex-end; margin-top: auto; }
         .ldm-close-btn {
-            padding: 0.5rem 1.5rem; background: #f1f5f9;
-            border: none; border-radius: 0.375rem;
-            color: #334155; font-weight: 500; cursor: pointer;
+            padding: 0.75rem 1.75rem; background: #f1f5f9;
+            border: none; border-radius: 6px;
+            color: #334155; font-weight: 500; cursor: pointer; font-size: 1rem;
         }
         .ldm-close-btn:hover { background: #e2e8f0; }
         @media (max-width: 640px) {
             .ldm-body { flex-direction: column; }
-            .ldm-img-col, .ldm-details-col { width: 100%; }
+            .ldm-img-col, .ldm-details-col { width: 100%; min-width: unset; flex: unset; }
         }
     </style>
 
@@ -1546,7 +1549,7 @@
                     
                     // Build HTML for this item
                     allItemsHTML += `
-                        <div class="item-card" data-item-id="${id}" onclick="window.location.href='item-details.html?id=${id}'">
+                        <div class="item-card" data-item-id="${id}" onclick="_showFoundItemModal('${id}')" style="cursor:pointer;">
                             <div class="item-image">
                                 <img src="${imageUrl}" alt="${data.title || 'Unknown item'}" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Error'">
                                 ${statusBadge}
@@ -1586,12 +1589,145 @@
             }
         }
         
-        // View item details function (now used via onclick in HTML)
-        function viewItemDetails(itemId) {
-            console.log('Viewing item:', itemId);
-            window.location.href = `item-details.html?id=${itemId}`;
+        // ── Found Item Detail Modal ──────────────────────────────────────────
+        function _showFoundItemModal(itemId) {
+            if (!window.firebase?.firestore) return;
+            firebase.firestore().collection('items').doc(itemId).get().then(doc => {
+                if (!doc.exists) return;
+                const item = { id: itemId, ...doc.data() };
+
+                // Format date
+                let dateStr = 'Unknown';
+                if (item.date) {
+                    const d = typeof item.date.toDate === 'function' ? item.date.toDate() : new Date(item.date);
+                    dateStr = d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+                }
+
+                const statusClass = item.status === 'claimed' ? 'fim-badge-claimed'
+                                  : item.status === 'soon'    ? 'fim-badge-soon'
+                                  : 'fim-badge-active';
+                const statusText  = item.status === 'claimed' ? 'Claimed'
+                                  : item.status === 'soon'    ? 'Disposal Soon'
+                                  : 'Active';
+
+                const overlay = document.createElement('div');
+                overlay.id = 'foundItemModal';
+                overlay.style.cssText = `
+                    position:fixed;inset:0;background:rgba(0,0,0,.5);
+                    z-index:9998;display:flex;align-items:center;
+                    justify-content:center;padding:1rem;`;
+
+                overlay.innerHTML = `
+                  <div style="
+                      background:#fff;border-radius:10px;overflow:hidden;
+                      width:100%;max-width:1100px;max-height:90vh;overflow-y:auto;
+                      position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);
+                      display:flex;flex-direction:column;">
+                    <!-- Close X -->
+                    <button id="fimCloseX" style="
+                        position:absolute;top:12px;right:14px;
+                        background:white;border:none;border-radius:50%;
+                        width:30px;height:30px;font-size:1.2rem;
+                        cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);
+                        display:flex;align-items:center;justify-content:center;
+                        z-index:2;color:#374151;">×</button>
+
+                    <!-- Body -->
+                    <div style="display:flex;flex-wrap:wrap;min-height:460px;">
+                      <!-- Image column -->
+                      <div style="
+                          flex:0 0 45%;min-width:320px;background:#f8fafc;
+                          display:flex;align-items:center;justify-content:center;padding:1.75rem;">
+                        <img src="${item.image || 'https://via.placeholder.com/400x300?text=No+Image'}"
+                             alt="${item.title || 'Item'}"
+                             style="max-width:100%;max-height:480px;object-fit:contain;border-radius:6px;"
+                             onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                      </div>
+
+                      <!-- Details column -->
+                      <div style="flex:1;padding:2rem 2rem 1.5rem;display:flex;flex-direction:column;gap:0;">
+                        <!-- Title + badge -->
+                        <div style="margin-bottom:1.5rem;">
+                          <h2 style="font-size:1.75rem;font-weight:700;color:#0f172a;margin:0 0 .6rem;">${item.title || 'Unnamed Item'}</h2>
+                          <span class="${statusClass}" style="
+                              display:inline-block;padding:.25rem .9rem;border-radius:9999px;
+                              font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
+                            ${statusText}
+                          </span>
+                        </div>
+
+                        <!-- Description -->
+                        <div style="margin-bottom:1.5rem;">
+                          <div style="font-size:1rem;font-weight:600;color:#334155;margin-bottom:.4rem;">Description</div>
+                          <p style="margin:0;color:#475569;line-height:1.65;font-size:1rem;">${item.description || 'No description provided.'}</p>
+                        </div>
+
+                        <!-- Detail rows -->
+                        <div style="display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.75rem;">
+                          ${[
+                            ['Category',         item.category        || 'Other'],
+                            ['Found Location',   item.location        || 'Unknown'],
+                            ['Date Found',       dateStr],
+                            ['Storage Location', item.storageLocation || 'Not specified'],
+                            ['Found By',         item.foundBy         || 'Unknown'],
+                          ].map(([label, value]) => `
+                            <div style="display:flex;gap:.5rem;">
+                              <span style="font-weight:600;color:#64748b;min-width:160px;font-size:1rem;">${label}:</span>
+                              <span style="color:#334155;font-size:1rem;">${value}</span>
+                            </div>`).join('')}
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:auto;">
+                          <button id="fimChatBtn" style="
+                              flex:1;padding:.75rem 1.5rem;
+                              background:#f07316;color:white;
+                              border:none;border-radius:6px;font-weight:600;
+                              cursor:pointer;font-size:1rem;
+                              display:flex;align-items:center;justify-content:center;gap:.4rem;">
+                            💬 Chat with Staff
+                          </button>
+                          <button id="fimCloseBtn" style="
+                              padding:.75rem 1.75rem;
+                              background:#f1f5f9;color:#334155;
+                              border:none;border-radius:6px;font-weight:500;
+                              cursor:pointer;font-size:1rem;">
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>`;
+
+                // Add status badge colors via <style> once
+                if (!document.getElementById('fimBadgeStyles')) {
+                    const s = document.createElement('style');
+                    s.id = 'fimBadgeStyles';
+                    s.textContent = `
+                        .fim-badge-active  { background:#dcfce7;color:#166534; }
+                        .fim-badge-soon    { background:#fef3c7;color:#92400e; }
+                        .fim-badge-claimed { background:#ffedd5;color:#9a3412; }`;
+                    document.head.appendChild(s);
+                }
+
+                document.body.appendChild(overlay);
+
+                const close = () => overlay.remove();
+                overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+                document.getElementById('fimCloseX').addEventListener('click', close);
+                document.getElementById('fimCloseBtn').addEventListener('click', close);
+                document.getElementById('fimChatBtn').addEventListener('click', () => {
+                    close();
+                    if (typeof window.openUserChat === 'function') {
+                        window.openUserChat(itemId, item.title || 'Item');
+                    }
+                });
+                document.addEventListener('keydown', function onEsc(e) {
+                    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+                });
+            }).catch(() => {});
         }
-        
+
         // Additional helper functions
         // No longer needed - moved to dashboard.js
         
@@ -1671,8 +1807,13 @@
             }
             const docs = snap.docs
                 .map(d => ({ id: d.id, ...d.data() }))
+                .filter(d => (d.status || 'active') !== 'resolved')
                 .sort((a, b) => ((b.postedAt && b.postedAt.seconds) || 0) - ((a.postedAt && a.postedAt.seconds) || 0));
 
+            if (docs.length === 0) {
+                grid.innerHTML = '<div class="lost-empty" style="grid-column:1/-1">No lost items reported yet.</div>';
+                return;
+            }
             grid.innerHTML = '';
             docs.forEach(data => {
                 const card = document.createElement('div');
@@ -1824,7 +1965,7 @@
             if (imgDrop)   imgDrop.addEventListener('click', () => fileInput && fileInput.click());
             if (fileInput) fileInput.addEventListener('change', e => _setPlmImage(e.target.files[0]));
             if (imgDrop) {
-                imgDrop.addEventListener('dragover', e => { e.preventDefault(); imgDrop.style.borderColor = '#93c5fd'; });
+                imgDrop.addEventListener('dragover', e => { e.preventDefault(); imgDrop.style.borderColor = '#fed7aa'; });
                 imgDrop.addEventListener('dragleave', () => { imgDrop.style.borderColor = ''; });
                 imgDrop.addEventListener('drop', e => {
                     e.preventDefault(); imgDrop.style.borderColor = '';
@@ -2104,7 +2245,7 @@
                     if (!d.userHidden) return true;
                     const hiddenAt = d.userHiddenAt?.toMillis?.() || 0;
                     const lastTs   = d.lastTimestamp?.toMillis?.() || 0;
-                    return d.lastSender === 'admin' && lastTs > hiddenAt;
+                    return d.lastSender === 'admin' && lastTs > hiddenAt && !!d.lastMessage;
                 })
                 .sort((a, b) => {
                     const ta = a.lastTimestamp?.toMillis?.() || a.startTime?.toMillis?.() || 0;
@@ -2126,8 +2267,10 @@
             const thumbEls = [];
 
             for (const data of docs) {
-                const itemId     = data.itemId    || null;
-                const itemTitle  = data.itemTitle || 'Inquiry';
+                const itemId       = data.itemId       || null;
+                const lostItemId   = data.lostItemId   || null;
+                const lostItemTitle = data.lostItemTitle || '';
+                const itemTitle    = data.itemTitle || (lostItemTitle ? `Lost: ${lostItemTitle}` : 'Inquiry');
                 const lastMsg    = data.lastMessage  || '';
                 const lastSender = data.lastSender   || '';
                 const lastTs     = data.lastTimestamp;
@@ -2189,14 +2332,14 @@
 
                 row.addEventListener('click', () => {
                     if (typeof window.openUserChat === 'function') {
-                        window.openUserChat(itemId || '', itemTitle);
+                        window.openUserChat(itemId || '', itemTitle, lostItemId || '', lostItemTitle);
                     } else if (typeof window.toggleChatWidget === 'function') {
                         window.toggleChatWidget();
                     }
                 });
 
                 list.appendChild(row);
-                thumbEls.push({ thumbEl, itemId, itemTitle });
+                thumbEls.push({ thumbEl, itemId, lostItemId, itemTitle, lostItemTitle });
             }
 
             // Update header badge immediately
@@ -2206,17 +2349,25 @@
             }
 
             // Fetch all images in parallel — updates thumbnails as they arrive
-            thumbEls.forEach(({ thumbEl, itemId, itemTitle }) => {
-                if (!itemId) return;
-                _getItemImg(itemId).then(imgUrl => {
-                    if (!imgUrl || !thumbEl.isConnected) return;
-                    const img = document.createElement('img');
-                    img.src = imgUrl;
-                    img.alt = itemTitle;
-                    img.onerror = () => { thumbEl.textContent = '?'; };
-                    thumbEl.innerHTML = '';
-                    thumbEl.appendChild(img);
-                });
+            thumbEls.forEach(({ thumbEl, itemId, lostItemId, itemTitle, lostItemTitle }) => {
+                if (itemId) {
+                    _getItemImg(itemId).then(imgUrl => {
+                        if (!imgUrl || !thumbEl.isConnected) return;
+                        const img = document.createElement('img');
+                        img.src = imgUrl; img.alt = itemTitle;
+                        img.onerror = () => { thumbEl.textContent = '?'; };
+                        thumbEl.innerHTML = ''; thumbEl.appendChild(img);
+                    });
+                } else if (lostItemId) {
+                    thumbEl.textContent = '🔍';
+                    firebase.firestore().collection('lostItems').doc(lostItemId).get().then(doc => {
+                        if (!doc.exists || !doc.data().image || !thumbEl.isConnected) return;
+                        const img = document.createElement('img');
+                        img.src = doc.data().image; img.alt = lostItemTitle;
+                        img.onerror = () => { thumbEl.textContent = '🔍'; };
+                        thumbEl.innerHTML = ''; thumbEl.appendChild(img);
+                    }).catch(() => {});
+                }
             });
         }
 

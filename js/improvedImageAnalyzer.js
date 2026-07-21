@@ -124,10 +124,16 @@ class ImprovedImageAnalyzer {
       // CRITICAL: Create the comparison fingerprint using the SAME path as item images
       // This ensures identical images produce identical fingerprints
       const uploadedFeatures = await this._getItemImageFeatures_fromImg(img);
-      
+
+      // Compute rotated fingerprints so a physically rotated photo of the same item
+      // still scores as a near-exact match. dHash encodes horizontal differences, so
+      // a 90° rotation changes the hash structure — we must re-draw then re-hash.
+      const rot90Fingerprint  = await this._computeRotatedFingerprint(img,  90);
+      const rot270Fingerprint = await this._computeRotatedFingerprint(img, 270);
+
       // Extract features for label/color/shape analysis
       const features = await this._extractFeatures(img);
-      
+
       // Return analysis results
       return {
         labelAnnotations: features.labels.map((label, i) => ({
@@ -152,7 +158,9 @@ class ImprovedImageAnalyzer {
         shapeFeatures: features.shapeFeatures,
         imageFingerprint: uploadedFeatures.fingerprint,
         _colorHistogram: uploadedFeatures.colorHistogram,
-        _pixelData: uploadedFeatures.pixelData
+        _pixelData: uploadedFeatures.pixelData,
+        _rot90Fingerprint:  rot90Fingerprint,
+        _rot270Fingerprint: rot270Fingerprint
       };
     } catch (error) {
       console.error('Error in improved image analysis:', error);
@@ -198,6 +206,9 @@ class ImprovedImageAnalyzer {
       const fullImageFingerprint    = analysisResults._fullImageFingerprint || uploadedFingerprint;
       const fullColorHist           = analysisResults._fullColorHistogram   || uploadedColorHist;
       const fullPixelData           = analysisResults._fullPixelData        || null;
+      // Rotation fingerprints — computed once at upload time, used for every item comparison
+      const rot90Fingerprint        = analysisResults._rot90Fingerprint     || null;
+      const rot270Fingerprint       = analysisResults._rot270Fingerprint    || null;
 
       // Keep annotated labels for semantic Vision matching — filter background labels
       const queryVisionLabels = (analysisResults.labelAnnotations || [])
@@ -228,13 +239,14 @@ class ImprovedImageAnalyzer {
           try {
             const itemFeatures = await this._getItemImageFeatures(item.image);
 
-            // Compare BOTH the cropped (background-stripped) fingerprint and the full-image
-            // fingerprint, then take the higher score. Stored items always use full-image
-            // features, so comparing only the cropped fingerprint causes exact-match photos
-            // to score poorly (71% instead of 92%+).
-            const croppedHash = this._compareFingerprints(uploadedFingerprint, itemFeatures.fingerprint);
-            const fullHash    = this._compareFingerprints(fullImageFingerprint, itemFeatures.fingerprint);
-            hashScore = Math.max(croppedHash, fullHash);
+            // Compare ALL available fingerprints (normal, full-image, 90°, 270°) and take
+            // the highest score. This makes physically rotated photos of the same item score
+            // as near-exact matches. Stored items always use full-image features, so we
+            // include the full-image fingerprint to avoid penalising identical uploads.
+            const candidates = [uploadedFingerprint, fullImageFingerprint, rot90Fingerprint, rot270Fingerprint]
+              .filter(Boolean)
+              .map(fp => this._compareFingerprints(fp, itemFeatures.fingerprint));
+            hashScore = Math.max(...candidates);
 
             const croppedColor = this._compareColorHistograms(uploadedColorHist, itemFeatures.colorHistogram);
             const fullColor    = this._compareColorHistograms(fullColorHist,     itemFeatures.colorHistogram);
@@ -340,7 +352,7 @@ class ImprovedImageAnalyzer {
 
       // Filter out low-confidence results — when we know the object type (inferredCategory),
       // apply a stricter threshold so unrelated items don't pollute results.
-      const minThreshold = inferredCategory ? 0.38 : 0.22;
+      const minThreshold = inferredCategory ? 0.45 : 0.25;
       const meaningful = scoredItems.filter(item => item.score >= minThreshold);
 
       if (meaningful.length > 0) return meaningful.slice(0, 5);
@@ -677,6 +689,37 @@ class ImprovedImageAnalyzer {
     return histogram;
   }
   
+  /**
+   * Draw the source image rotated by `degrees` (90 or 270) on a fresh canvas,
+   * scale it to 64×64, then return the dHash fingerprint.
+   * This is the only reliable way to make dHash rotation-invariant — dHash encodes
+   * horizontal brightness gradients, so rearranging the bit array doesn't work.
+   * @private
+   */
+  async _computeRotatedFingerprint(img, degrees) {
+    try {
+      const iw = img.naturalWidth  || img.width;
+      const ih = img.naturalHeight || img.height;
+      // For 90/270° the axes swap; canvas size reflects the rotated dimensions
+      const cw = (degrees === 90 || degrees === 270) ? ih : iw;
+      const ch = (degrees === 90 || degrees === 270) ? iw : ih;
+
+      const rotCanvas = document.createElement('canvas');
+      rotCanvas.width = cw; rotCanvas.height = ch;
+      const rotCtx = rotCanvas.getContext('2d');
+      rotCtx.translate(cw / 2, ch / 2);
+      rotCtx.rotate((degrees * Math.PI) / 180);
+      rotCtx.drawImage(img, -iw / 2, -ih / 2);
+
+      const small = document.createElement('canvas');
+      small.width = 64; small.height = 64;
+      small.getContext('2d').drawImage(rotCanvas, 0, 0, 64, 64);
+      return this._createDHash(small.getContext('2d').getImageData(0, 0, 64, 64));
+    } catch (e) {
+      return null;
+    }
+  }
+
   /**
    * Compare two fingerprints using Hamming distance.
    * Tests all 4 orientations (normal, H-flip, V-flip, 180°) so that rotated or
@@ -1644,10 +1687,11 @@ class ImprovedImageAnalyzer {
     const normalizedItem = categoryMap[itemCategory.toLowerCase()] || itemCategory.toLowerCase();
 
     const incompatible = {
-      'electronics': ['clothing', 'stationery', 'documents'],
-      'clothing':    ['electronics', 'stationery', 'documents'],
+      'electronics': ['clothing', 'stationery', 'documents', 'accessories', 'personal'],
+      'clothing':    ['electronics', 'stationery', 'documents', 'accessories'],
       'stationery':  ['electronics', 'clothing', 'accessories', 'personal'],
       'documents':   ['electronics', 'clothing', 'personal', 'accessories'],
+      'accessories': ['electronics', 'clothing', 'stationery', 'documents'],
       'personal':    ['electronics', 'clothing', 'documents', 'stationery']
     };
 

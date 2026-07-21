@@ -28,8 +28,8 @@
 /* Focus state for inputs */
 #chat-auth-modal input:focus {
     outline: none !important;
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+    border-color: #f07316 !important;
+    box-shadow: 0 0 0 3px rgba(240, 115, 22, 0.3) !important;
 }
 
 /* Submit button styles */
@@ -40,7 +40,7 @@
     width: auto !important;
     min-width: 120px !important;
     padding: 10px 20px !important;
-    background-color: #3b82f6 !important;
+    background-color: #f07316 !important;
     color: white !important;
     border: none !important;
     border-radius: 6px !important;

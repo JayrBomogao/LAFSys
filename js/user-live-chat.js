@@ -1,4 +1,4 @@
-/**
+﻿/**
  * User Live Chat Implementation
  * Provides the user-facing chat interface with required details collection
  */
@@ -490,8 +490,9 @@ function toggleChatWidget() {
 // Expose the toggleChatWidget function globally
 window.toggleChatWidget = toggleChatWidget;
 
-// Called externally (e.g. item Inquire button) to open chat for a specific item
-window.openUserChat = function(itemId, itemTitle) {
+// Called externally (e.g. item Inquire button) to open chat for a specific item.
+// lostItemId / lostItemTitle are optional — used when opening a lost-item inquiry thread.
+window.openUserChat = function(itemId, itemTitle, lostItemId, lostItemTitle) {
   // Set context on the invisible sentinel button so _doStartChat() can read it
   let btn = document.getElementById('chat-with-staff-btn');
   if (!btn) {
@@ -500,8 +501,10 @@ window.openUserChat = function(itemId, itemTitle) {
     btn.style.display = 'none';
     document.body.appendChild(btn);
   }
-  btn.dataset.itemId    = itemId    || '';
-  btn.dataset.itemTitle = itemTitle || '';
+  btn.dataset.itemId        = itemId        || '';
+  btn.dataset.itemTitle     = itemTitle     || '';
+  btn.dataset.lostItemId    = lostItemId    || '';
+  btn.dataset.lostItemTitle = lostItemTitle || '';
 
   // Also update item-title element if it exists
   const titleEl = document.getElementById('item-title');
@@ -509,7 +512,7 @@ window.openUserChat = function(itemId, itemTitle) {
 
   // If the user is switching to a DIFFERENT item's chat, tear down the current session
   // so toggleChatWidget proceeds to startChatForUser instead of returning early
-  const requestedItemId = itemId || null;
+  const requestedItemId = itemId || lostItemId || null;
   if (userChatId && currentChatItemId !== requestedItemId) {
     _teardownChatSession();
   }
@@ -667,7 +670,7 @@ function _doStartChat(db, uid, name, email) {
       console.error('Error starting chat:', error);
       showError('Failed to start chat session. Please try again.');
       if (chatContent) {
-        chatContent.innerHTML = '<div style="padding:1rem;text-align:center"><p style="color:#991b1b;margin-bottom:0.75rem">Failed to connect to chat.</p><button onclick="resetChat()" style="background:#2563eb;color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-weight:500">Try Again</button></div>';
+        chatContent.innerHTML = '<div style="padding:1rem;text-align:center"><p style="color:#991b1b;margin-bottom:0.75rem">Failed to connect to chat.</p><button onclick="resetChat()" style="background:#1a2e6b;color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-weight:500">Try Again</button></div>';
       }
     });
 }
@@ -725,7 +728,7 @@ function createChatInput() {
               flex: 1 1 0% !important;
               min-width: 0 !important;
               padding: 10px !important;
-              border: 2px solid #2563eb !important;
+              border: 2px solid #1a2e6b !important;
               border-radius: 4px !important;
               font-size: 14px !important;
               height: 36px !important;
@@ -737,7 +740,7 @@ function createChatInput() {
               visibility: visible !important;
               opacity: 1 !important;">
             <button type="submit" style="
-              background-color: #2563eb !important;
+              background-color: #1a2e6b !important;
               color: white !important;
               border: none !important;
               padding: 5px 15px !important;
@@ -948,7 +951,7 @@ function _showItemDetailsPopup(itemId) {
         font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
       }
       ._uidp-badge.active  { background: #dcfce7; color: #166534; }
-      ._uidp-badge.claimed { background: #dbeafe; color: #1e40af; }
+      ._uidp-badge.claimed { background: #ffedd5; color: #2a4599; }
       ._uidp-badge.soon    { background: #fef3c7; color: #92400e; }
       ._uidp-desc { margin-bottom: 1.5rem; }
       ._uidp-desc h3 { font-size: 1rem; font-weight: 600; color: #334155; margin: 0 0 0.5rem; }
@@ -1034,65 +1037,93 @@ function _showItemDetailsPopup(itemId) {
   }).catch(_close);
 }
 
-// Insert (or refresh) the "Inquiring About" card between the header and chat content
+// Insert (or refresh) the "Inquiring About" / "Reported Lost Item" card between the header and chat content
 function _insertInquiryCard() {
-  // Remove any existing card first
   document.getElementById('chatInquiryCard')?.remove();
 
-  const chatBtn  = document.getElementById('chat-with-staff-btn');
-  const itemId   = chatBtn?.dataset.itemId   || null;
-  const itemTitle = chatBtn?.dataset.itemTitle || '';
-  if (!itemId || !itemTitle) return;
+  const chatBtn      = document.getElementById('chat-with-staff-btn');
+  const itemId       = chatBtn?.dataset.itemId        || null;
+  const itemTitle    = chatBtn?.dataset.itemTitle     || '';
+  const lostItemId   = chatBtn?.dataset.lostItemId    || null;
+  const lostItemTitle = chatBtn?.dataset.lostItemTitle || '';
 
-  const card = document.createElement('div');
-  card.id = 'chatInquiryCard';
-  card.style.cssText = `
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.55rem 0.85rem;
-    background: #eff6ff;
-    border-bottom: 1px solid #bfdbfe;
-    flex-shrink: 0;
-    cursor: pointer;
-  `;
-  card.title = 'Click to view item details';
+  // Found-item inquiry card
+  if (itemId && itemTitle) {
+    const card = document.createElement('div');
+    card.id = 'chatInquiryCard';
+    card.style.cssText = `
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.55rem 0.85rem; background: #fff7ed;
+      border-bottom: 1px solid #fed7aa; flex-shrink: 0; cursor: pointer;
+    `;
+    card.title = 'Click to view item details';
+    card.innerHTML = `
+      <div id="chatInquiryThumb" style="
+        width: 44px; height: 44px; border-radius: 6px; background: #ffedd5;
+        flex-shrink: 0; overflow: hidden;
+        display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">?</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">Inquiring About:</div>
+        <div style="font-size:0.83rem;font-weight:600;color:#2a4599;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemTitle}</div>
+        <div style="font-size:0.68rem;color:#f07316;">Click to view details →</div>
+      </div>
+    `;
+    card.addEventListener('click', () => { _showItemDetailsPopup(itemId); });
+    chatWidget.insertBefore(card, chatContent);
+    if (window.firebase?.firestore) {
+      firebase.firestore().collection('items').doc(itemId).get().then(doc => {
+        if (!doc.exists) return;
+        const imgUrl = doc.data().image;
+        if (!imgUrl) return;
+        const thumb = document.getElementById('chatInquiryThumb');
+        if (thumb) {
+          const img = document.createElement('img');
+          img.src = imgUrl;
+          img.style.cssText = 'width:44px;height:44px;object-fit:cover;';
+          img.onerror = () => { thumb.textContent = '?'; };
+          thumb.innerHTML = ''; thumb.appendChild(img);
+        }
+      }).catch(() => {});
+    }
+    return;
+  }
 
-  card.innerHTML = `
-    <div id="chatInquiryThumb" style="
-      width: 44px; height: 44px; border-radius: 6px;
-      background: #dbeafe; flex-shrink: 0; overflow: hidden;
-      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">?</div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:0.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">Inquiring About:</div>
-      <div style="font-size:0.83rem;font-weight:600;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemTitle}</div>
-      <div style="font-size:0.68rem;color:#3b82f6;">Click to view details →</div>
-    </div>
-  `;
-
-  card.addEventListener('click', () => {
-    _showItemDetailsPopup(itemId);
-  });
-
-  // Place between header and chatContent (not inside chatContent so it doesn't scroll)
-  chatWidget.insertBefore(card, chatContent);
-
-  // Fetch and show item image asynchronously
-  if (window.firebase?.firestore) {
-    firebase.firestore().collection('items').doc(itemId).get().then(doc => {
-      if (!doc.exists) return;
-      const imgUrl = doc.data().image;
-      if (!imgUrl) return;
-      const thumb = document.getElementById('chatInquiryThumb');
-      if (thumb) {
-        const img = document.createElement('img');
-        img.src = imgUrl;
-        img.style.cssText = 'width:44px;height:44px;object-fit:cover;';
-        img.onerror = () => { thumb.textContent = '?'; };
-        thumb.innerHTML = '';
-        thumb.appendChild(img);
-      }
-    }).catch(() => {});
+  // Lost-item context card (admin-initiated thread about a user's reported lost item)
+  if (lostItemId && lostItemTitle) {
+    const card = document.createElement('div');
+    card.id = 'chatInquiryCard';
+    card.style.cssText = `
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.55rem 0.85rem; background: #fefce8;
+      border-bottom: 1px solid #fde68a; flex-shrink: 0;
+    `;
+    card.innerHTML = `
+      <div id="chatInquiryThumb" style="
+        width: 44px; height: 44px; border-radius: 6px; background: #fef3c7;
+        flex-shrink: 0; overflow: hidden;
+        display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">🔍</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.6rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">Regarding Your Lost Item:</div>
+        <div style="font-size:0.83rem;font-weight:600;color:#78350f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lostItemTitle}</div>
+        <div style="font-size:0.68rem;color:#b45309;">Staff is reaching out about this item</div>
+      </div>
+    `;
+    chatWidget.insertBefore(card, chatContent);
+    if (window.firebase?.firestore) {
+      firebase.firestore().collection('lostItems').doc(lostItemId).get().then(doc => {
+        if (!doc.exists) return;
+        const imgUrl = doc.data().image;
+        if (!imgUrl) return;
+        const thumb = document.getElementById('chatInquiryThumb');
+        if (thumb) {
+          const img = document.createElement('img');
+          img.src = imgUrl;
+          img.style.cssText = 'width:44px;height:44px;object-fit:cover;';
+          img.onerror = () => { thumb.textContent = '🔍'; };
+          thumb.innerHTML = ''; thumb.appendChild(img);
+        }
+      }).catch(() => {});
+    }
   }
 }
 
@@ -1427,7 +1458,7 @@ function handleChatEnded(endedBy) {
   
   restartDiv.innerHTML = `
     <p style="margin-bottom: 0.5rem;">Chat session ended. Would you like to start a new chat?</p>
-    <button id="restartChat" style="background-color: #2563eb; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 500; cursor: pointer;">Start New Chat</button>
+    <button id="restartChat" style="background-color: #1a2e6b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 500; cursor: pointer;">Start New Chat</button>
   `;
   
   // Add restart div to messages list
@@ -1566,14 +1597,14 @@ function requestEmailVerification(name, email, query) {
       
       <button id="sendCodeBtn" type="button" style="
         display: block; width: 100%; padding: 10px; margin-bottom: 10px;
-        background: #2563eb; color: white; border: none; border-radius: 6px;
+        background: #1a2e6b; color: white; border: none; border-radius: 6px;
         font-weight: bold; cursor: pointer; font-size: 0.95rem;">Send Verification Code</button>
       
       <div id="codeInputSection" style="display:none;">
         <label style="display:block; font-weight:600; margin-bottom:4px; font-size:0.9rem;">Enter 6-digit Code</label>
         <input type="text" id="verifyCodeInput" maxlength="6" placeholder="000000" style="
           display: block; width: 100%; padding: 10px; margin-bottom: 10px;
-          border: 2px solid #2563eb; border-radius: 6px; font-size: 1.2rem;
+          border: 2px solid #1a2e6b; border-radius: 6px; font-size: 1.2rem;
           text-align: center; letter-spacing: 8px; font-weight: bold;
           box-sizing: border-box; background: white; color: black;">
         <button id="verifyCodeBtn" type="button" style="
@@ -1898,7 +1929,7 @@ function addChatStyles() {
       right: 20px;
       width: 60px;
       height: 60px;
-      background-color: #2563eb;
+      background-color: #1a2e6b;
       border-radius: 50%;
       color: white;
       display: flex;
@@ -1912,11 +1943,11 @@ function addChatStyles() {
     
     .chat-button:hover {
       transform: scale(1.05);
-      background-color: #1d4ed8;
+      background-color: #1a2e6b;
     }
     
     .chat-button.active {
-      background-color: #1e40af;
+      background-color: #2a4599;
     }
     
     .chat-icon {
@@ -1941,7 +1972,7 @@ function addChatStyles() {
     }
     
     .chat-header {
-      background-color: #2563eb;
+      background-color: #1a2e6b;
       color: white;
       padding: 0.75rem 1rem;
       display: flex;
@@ -2071,12 +2102,12 @@ function addChatStyles() {
     
     .form-group input:focus,
     .form-group textarea:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+      border-color: #1a2e6b;
+      box-shadow: 0 0 0 3px rgba(26, 46, 107, 0.2);
     }
     
     .start-chat-btn {
-      background-color: #2563eb;
+      background-color: #1a2e6b;
       color: white;
       border: none;
       padding: 0.625rem 1rem;
@@ -2087,7 +2118,7 @@ function addChatStyles() {
     }
     
     .start-chat-btn:hover {
-      background-color: #1d4ed8;
+      background-color: #1a2e6b;
     }
     
     .chat-form-container {
@@ -2113,7 +2144,7 @@ function addChatStyles() {
     
     .chat-send-button {
       align-self: flex-end;
-      background-color: #2563eb;
+      background-color: #1a2e6b;
       color: white;
       border: none;
       padding: 0.5rem 1rem;
@@ -2123,7 +2154,7 @@ function addChatStyles() {
     }
     
     .chat-send-button:hover {
-      background-color: #1d4ed8;
+      background-color: #1a2e6b;
     }
     
     .messages-list {
@@ -2142,7 +2173,7 @@ function addChatStyles() {
     
     .user-message {
       align-self: flex-end;
-      background-color: #dbeafe;
+      background-color: #ffedd5;
       border-bottom-right-radius: 0;
     }
     
@@ -2200,7 +2231,7 @@ function addChatStyles() {
     }
     
     .restart-chat-btn {
-      background-color: #2563eb;
+      background-color: #1a2e6b;
       color: white;
       border: none;
       padding: 0.5rem 1rem;
@@ -2211,7 +2242,7 @@ function addChatStyles() {
     }
     
     .restart-chat-btn:hover {
-      background-color: #1d4ed8;
+      background-color: #1a2e6b;
     }
     
     @media (max-width: 480px) {

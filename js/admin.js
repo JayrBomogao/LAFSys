@@ -187,12 +187,15 @@ function _renderAdminLostItems() {
         <div style="color:#64748b;">${item.dateLost || '—'}</div>
         <div style="color:#64748b;">${item.userName || item.userEmail || '—'}</div>
         <div><span style="background:${statusColor}22;color:${statusColor};padding:2px 10px;border-radius:99px;font-size:0.78rem;font-weight:600;text-transform:capitalize;">${item.status || 'active'}</span></div>
-        <div onclick="event.stopPropagation()" style="display:flex;gap:0.4rem;align-items:center;">
-          <button onclick="window._openLostItemModal('${item.id}')" style="padding:0.3rem 0.6rem;font-size:0.78rem;background:#3b82f6;color:#fff;border:none;border-radius:5px;cursor:pointer;">View</button>
-          <button onclick="window._lostItemAdminDeleteId('${item.id}')" style="padding:0.3rem 0.6rem;font-size:0.78rem;background:#ef444422;color:#ef4444;border:1px solid #ef444444;border-radius:5px;cursor:pointer;">Delete</button>
+        <div onclick="event.stopPropagation()" class="action-buttons">
+          <button class="btn-icon" title="View" onclick="window._openLostItemModal('${item.id}')"><i data-lucide="eye" width="16" height="16"></i></button>
+          ${item.userId ? `<button class="btn-icon" title="Chat with user" style="color:#059669;" onclick="window._adminChatWithUser('${item.userId}','${(item.userName||item.userEmail||'User').replace(/'/g,"\\'")}','${item.id}')"><i data-lucide="message-circle" width="16" height="16"></i></button>` : ''}
+          <button class="btn-icon delete" title="Delete" onclick="window._lostItemAdminDeleteId('${item.id}')"><i data-lucide="trash-2" width="16" height="16"></i></button>
         </div>
       </div>`;
   }).join('');
+
+  if (window.lucide?.createIcons) lucide.createIcons();
 }
 
 window._openLostItemModal = function(id) {
@@ -234,6 +237,63 @@ window._lostItemAdminDelete = function() {
 window._lostItemAdminDeleteId = function(id) {
   if (!confirm('Delete this lost item report? This cannot be undone.')) return;
   firebase.firestore().collection('lostItems').doc(id).delete().catch(() => {});
+};
+
+// Open or create a chat specifically about a reported lost item
+window._adminChatWithUser = function(userId, userName, lostItemId) {
+  const item = _lostItemsCurrent.find(i => i.id === lostItemId);
+  if (!item) return;
+
+  // Switch to inbox section first
+  const inboxLink = document.querySelector('[data-section="inbox"]');
+  if (inboxLink) inboxLink.click();
+
+  setTimeout(() => {
+    const db = firebase.firestore();
+    // Query all chats for this user, then filter by lostItemId in JS (avoids composite index)
+    db.collection('liveChats').where('userId', '==', userId).get()
+      .then(snap => {
+        const existing = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(d => d.lostItemId === lostItemId)
+          .sort((a, b) => {
+            const ta = a.lastTimestamp?.toMillis?.() || a.startTime?.toMillis?.() || 0;
+            const tb = b.lastTimestamp?.toMillis?.() || b.startTime?.toMillis?.() || 0;
+            return tb - ta;
+          });
+
+        if (existing.length > 0) {
+          // Resume existing chat for this lost item
+          if (typeof selectChat === 'function') selectChat(existing[0].id);
+          return;
+        }
+
+        // Create a new chat thread about this specific lost item
+        // userHidden:true keeps it invisible to the user until the admin sends a real message
+        const chatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        db.collection('liveChats').doc(chatId).set({
+          userId:        userId,
+          userName:      item.userName  || userName,
+          userEmail:     item.userEmail || '',
+          lostItemId:    lostItemId,
+          lostItemTitle: item.title || 'Lost Item',
+          itemTitle:     item.title || 'Lost Item', // shown in user's inbox
+          adminInitiated: true,
+          active:        true,
+          userHidden:    true,
+          startTime:     firebase.firestore.FieldValue.serverTimestamp(),
+          lastMessage:   '',
+          lastSender:    'admin',
+          lastTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          unreadCount:   0
+        }).then(() => {
+          setTimeout(() => {
+            if (typeof selectChat === 'function') selectChat(chatId);
+          }, 500);
+        });
+      })
+      .catch(() => alert('Could not open chat for ' + userName + '.'));
+  }, 600);
 };
 
 // Close modal on backdrop click

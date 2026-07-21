@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin Live Chat Implementation
  * Provides real-time chat functionality for the admin dashboard
  */
@@ -378,7 +378,7 @@ function addNotificationStyles() {
       top: 20px;
       right: 20px;
       background: white;
-      border-left: 4px solid #2563eb;
+      border-left: 4px solid #1a2e6b;
       border-radius: 8px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
       padding: 14px 16px;
@@ -467,24 +467,27 @@ function initializeChatInterface() {
   // Create the container directly with HTML
   inboxSection.innerHTML = `
     <div class="live-chat-container">
-      <div class="active-chats-sidebar">
-        <h3>Active Chats</h3>
-        <ul id="activeChatsList" class="active-chats-list">
-          <li class="no-chats-message">No active chats</li>
-        </ul>
-      </div>
-      <div class="chat-main-area">
-        <div id="chatWindow" class="chat-window">
-          <div class="chat-welcome-message">
-            <h3>Welcome to Admin Chat Support</h3>
-            <p>Select an active chat from the sidebar or wait for new chat requests.</p>
-          </div>
+      <div class="live-chat-title-bar">Inbox</div>
+      <div class="live-chat-body">
+        <div class="active-chats-sidebar">
+          <h3>Active Chats</h3>
+          <ul id="activeChatsList" class="active-chats-list">
+            <li class="no-chats-message">No active chats</li>
+          </ul>
         </div>
-        <div id="chatControls" class="chat-controls" style="display: none;">
-          <form id="chatForm" class="chat-form">
-            <textarea id="messageInput" placeholder="Type your message here..." rows="3"></textarea>
-            <button type="submit" class="chat-send-button">Send</button>
-          </form>
+        <div class="chat-main-area">
+          <div id="chatWindow" class="chat-window">
+            <div class="chat-welcome-message">
+              <h3>Welcome to Admin Chat Support</h3>
+              <p>Select an active chat from the sidebar or wait for new chat requests.</p>
+            </div>
+          </div>
+          <div id="chatControls" class="chat-controls" style="display: none;">
+            <form id="chatForm" class="chat-form">
+              <textarea id="messageInput" placeholder="Type your message here..." rows="3"></textarea>
+              <button type="submit" class="chat-send-button">Send</button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
@@ -644,7 +647,7 @@ function updateActiveChatsUI(hasChats) {
     li.innerHTML = `
       <button class="chat-delete-btn" title="Remove from inbox" data-chat-id="${chat.id}">×</button>
       <div class="chat-item-user">${chat.userName || 'Unknown User'}</div>
-      ${chat.itemTitle ? `<div class="chat-item-inquiry chat-item-clickable" data-item-id="${chat.itemId || ''}">📦 ${chat.itemTitle}</div>` : ''}
+      ${chat.itemId && chat.itemTitle ? `<div class="chat-item-inquiry chat-item-clickable" data-item-id="${chat.itemId}">📦 ${chat.itemTitle}</div>` : (chat.lostItemId && chat.lostItemTitle ? `<div class="chat-item-inquiry">🔍 ${chat.lostItemTitle}</div>` : '')}
       <div class="chat-item-preview">${lastMessage}</div>
       <div class="chat-item-time">${timestamp}</div>
       ${chat.unreadCount ? `<span class="unread-badge">${chat.unreadCount}</span>` : ''}
@@ -907,7 +910,7 @@ function loadChatMessages(chatId) {
           }
         }
 
-        // If chat has item context, fetch item details from Firestore
+        // If chat has found-item context, fetch from items collection
         if (chatData.itemId) {
           const itemContextEl = document.getElementById('chatItemContext');
           firebase.firestore().collection('items').doc(chatData.itemId).get()
@@ -925,16 +928,31 @@ function loadChatMessages(chatId) {
                       <div class="chat-item-view-hint">Click to view details</div>
                     </div>
                   </div>`;
-                
-                // Make it clickable to open item details modal
                 itemContextEl.querySelector('.chat-item-clickable').addEventListener('click', function() {
-                  if (typeof showItemDetailsModal === 'function') {
-                    showItemDetailsModal(chatData.itemId);
-                  }
+                  if (typeof showItemDetailsModal === 'function') showItemDetailsModal(chatData.itemId);
                 });
               }
             })
             .catch(err => console.log('Could not fetch item details:', err));
+        }
+
+        // If chat is about a reported lost item, fetch from lostItems collection
+        if (chatData.lostItemId && !chatData.itemId) {
+          const itemContextEl = document.getElementById('chatItemContext');
+          firebase.firestore().collection('lostItems').doc(chatData.lostItemId).get()
+            .then(itemDoc => {
+              const itemTitle = chatData.lostItemTitle || (itemDoc.exists ? itemDoc.data().title : '') || 'Lost Item';
+              const itemImage = itemDoc.exists ? (itemDoc.data().image || '') : '';
+              itemContextEl.innerHTML = `
+                <div class="chat-item-context">
+                  ${itemImage ? `<img src="${itemImage}" alt="${itemTitle}" class="chat-item-thumb">` : ''}
+                  <div class="chat-item-details">
+                    <div class="chat-item-label">Reported Lost Item:</div>
+                    <div class="chat-item-name">${itemTitle}</div>
+                  </div>
+                </div>`;
+            })
+            .catch(() => {});
         }
         
         messagesList = document.getElementById('messagesList');
@@ -1187,14 +1205,28 @@ function addChatStyles() {
   style.textContent = `
     .live-chat-container {
       display: flex;
-      height: calc(100vh - 140px);
-      min-height: 500px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      flex-direction: column;
+      height: 100%;
       background-color: #fff;
       overflow: hidden;
     }
-    
+
+    .live-chat-title-bar {
+      padding: 0.85rem 1.5rem;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .live-chat-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
     .active-chats-sidebar {
       width: 300px;
       border-right: 1px solid #e5e7eb;
@@ -1229,18 +1261,18 @@ function addChatStyles() {
     .chat-item:hover {
       background-color: #f3f4f6;
       transform: translateX(5px);
-      box-shadow: -3px 0 0 #3b82f6;
+      box-shadow: -3px 0 0 #f07316;
     }
     
     .chat-item.active {
-      background-color: #dbeafe;
-      border-left: 4px solid #2563eb;
-      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+      background-color: #ffedd5;
+      border-left: 4px solid #1a2e6b;
+      box-shadow: 0 2px 4px rgba(26, 46, 107, 0.1);
     }
     
     .chat-item-user {
       font-weight: 700;
-      color: #1e40af;
+      color: #2a4599;
       margin-bottom: 0.5rem;
       display: flex;
       align-items: center;
@@ -1286,7 +1318,7 @@ function addChatStyles() {
     
     .chat-item.active .chat-item-user,
     .chat-item.active .chat-item-preview {
-      color: #1e3a8a;
+      color: #1a2e6b;
     }
     
     .no-chats-message {
@@ -1357,11 +1389,11 @@ function addChatStyles() {
     }
     
     .chat-user-info {
-      background-color: #dbeafe;
+      background-color: #ffedd5;
       padding: 1.25rem;
       margin-bottom: 1.5rem;
       border-radius: 8px;
-      border-left: 4px solid #2563eb;
+      border-left: 4px solid #1a2e6b;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
     
@@ -1376,7 +1408,7 @@ function addChatStyles() {
     .chat-user-name {
       font-weight: 700;
       font-size: 1.25rem;
-      color: #1e40af;
+      color: #2a4599;
       margin-bottom: 0;
     }
 
@@ -1405,12 +1437,12 @@ function addChatStyles() {
 
     .user-presence-label {
       font-size: 0.75rem;
-      color: #3b82f6;
+      color: #f07316;
       font-weight: 500;
     }
 
     .chat-user-email {
-      color: #3b82f6;
+      color: #f07316;
       margin-bottom: 0.75rem;
       font-size: 1rem;
       display: flex;
@@ -1427,7 +1459,7 @@ function addChatStyles() {
       color: #4b5563;
       display: flex;
       align-items: center;
-      border-top: 1px solid rgba(37, 99, 235, 0.2);
+      border-top: 1px solid rgba(26, 46, 107, 0.2);
       padding-top: 0.75rem;
       margin-top: 0.75rem;
     }
@@ -1443,7 +1475,7 @@ function addChatStyles() {
       gap: 0.75rem;
       margin-top: 0.75rem;
       padding-top: 0.75rem;
-      border-top: 1px solid rgba(37, 99, 235, 0.2);
+      border-top: 1px solid rgba(26, 46, 107, 0.2);
       background: rgba(255, 255, 255, 0.5);
       border-radius: 6px;
       padding: 0.6rem;
@@ -1454,7 +1486,7 @@ function addChatStyles() {
       height: 56px;
       object-fit: cover;
       border-radius: 6px;
-      border: 2px solid #bfdbfe;
+      border: 2px solid #fed7aa;
       flex-shrink: 0;
     }
     
@@ -1495,12 +1527,12 @@ function addChatStyles() {
     }
     
     .chat-item-clickable:hover {
-      background: rgba(37, 99, 235, 0.1);
+      background: rgba(26, 46, 107, 0.1);
       border-radius: 6px;
     }
     
     .chat-item-inquiry.chat-item-clickable:hover {
-      color: #2563eb;
+      color: #1a2e6b;
       text-decoration: underline;
     }
     
@@ -1512,7 +1544,7 @@ function addChatStyles() {
     }
     
     .chat-item-clickable:hover .chat-item-view-hint {
-      color: #2563eb;
+      color: #1a2e6b;
     }
     
     .messages-list {
@@ -1556,7 +1588,7 @@ function addChatStyles() {
     
     .admin-message {
       align-self: flex-end !important;
-      background-color: #2563eb !important;
+      background-color: #1a2e6b !important;
       border-radius: 8px !important;
       color: #ffffff !important;
     }
@@ -1625,7 +1657,7 @@ function addChatStyles() {
     
     .chat-send-button {
       align-self: flex-end;
-      background-color: #2563eb;
+      background-color: #1a2e6b;
       color: #fff;
       border: none;
       padding: 0.5rem 1rem;
@@ -1635,7 +1667,7 @@ function addChatStyles() {
     }
     
     .chat-send-button:hover {
-      background-color: #1d4ed8;
+      background-color: #1a2e6b;
     }
     
     .end-chat-button {

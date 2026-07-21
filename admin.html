@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -76,9 +76,20 @@
             max-width: 100%;
         }
 
-        /* Remove bottom padding when inbox is visible so chat fills the screen */
+        /* When inbox is visible, fill the full viewport — no padding, no title, clean flex chain */
         .main-content:has(#section-inbox:not([style*="display:none"]):not([style*="display: none"])) {
-            padding-bottom: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .main-content:has(#section-inbox:not([style*="display:none"]):not([style*="display: none"])) .admin-header {
+            display: none;
+        }
+        .main-content:has(#section-inbox:not([style*="display:none"]):not([style*="display: none"])) #section-inbox {
+            flex: 1;
+            overflow: hidden;
         }
         
         .admin-header {
@@ -95,7 +106,7 @@
         }
         
         .btn-primary {
-            background-color: #2563eb;
+            background-color: #1a2e6b;
             color: white;
             border: none;
             padding: 0.5rem 1rem;
@@ -110,7 +121,7 @@
         }
         
         .btn-primary:hover {
-            background-color: #1d4ed8;
+            background-color: #1a2e6b;
         }
         
         .stats-grid {
@@ -162,7 +173,7 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            border-top: 4px solid #2563eb;
+            border-top: 4px solid #1a2e6b;
             cursor: pointer;
             flex: 1;
             min-height: 150px;
@@ -180,7 +191,7 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(to right, #60a5fa, #2563eb);
+            background: linear-gradient(to right, #fb923c, #1a2e6b);
             transform: scaleX(0);
             transform-origin: left;
             transition: transform 0.3s ease;
@@ -204,7 +215,7 @@
         }
         
         .stat-card:hover .stat-value {
-            color: #2563eb;
+            color: #1a2e6b;
             transform: scale(1.05);
         }
         
@@ -220,7 +231,7 @@
         .stat-label i {
             width: 18px;
             height: 18px;
-            color: #2563eb;
+            color: #1a2e6b;
         }
         
         .stat-up {
@@ -292,9 +303,9 @@
         /* Dashboard row hover effect */
         #section-dashboard .table-row:hover,
         #section-dashboard .table-row.table-row-hover {
-            background-color: #dbeafe !important;
-            border-left: 3px solid #3b82f6 !important;
-            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+            background-color: #ffedd5 !important;
+            border-left: 3px solid #f07316 !important;
+            box-shadow: 0 0 5px rgba(240, 115, 22, 0.5);
         }
         
         #section-dashboard .view-in-items {
@@ -311,7 +322,7 @@
         
         #section-items .table-row:hover {
             background-color: #f1f5f9;
-            border-left: 3px solid #3b82f6;
+            border-left: 3px solid #f07316;
         }
         
         .table-row:last-child {
@@ -324,9 +335,9 @@
         
         /* Global hover effect style */
         .table-row-hover {
-            background-color: #dbeafe !important;
-            border-left: 3px solid #3b82f6 !important;
-            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5) !important;
+            background-color: #ffedd5 !important;
+            border-left: 3px solid #f07316 !important;
+            box-shadow: 0 0 5px rgba(240, 115, 22, 0.5) !important;
             transition: all 0.2s ease !important;
         }
         
@@ -404,7 +415,7 @@
         
         .btn-icon:hover {
             background-color: #f8fafc;
-            color: #2563eb;
+            color: #1a2e6b;
         }
         
         .btn-icon.delete:hover {
@@ -435,8 +446,8 @@
         }
         
         .status-select:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            border-color: #1a2e6b;
+            box-shadow: 0 0 0 3px rgba(26, 46, 107, 0.1);
         }
         
         .status-select option {
@@ -482,8 +493,8 @@
         }
         
         .pagination-button.active {
-            background-color: #2563eb;
-            border-color: #2563eb;
+            background-color: #1a2e6b;
+            border-color: #1a2e6b;
             color: white;
         }
         
@@ -718,7 +729,7 @@
                 <div style="text-align: center; margin-bottom: 2rem;">
                     <div class="search-container" style="display: inline-flex; align-items: center; max-width: 600px; width: 90%; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); border-radius: 50px; overflow: hidden;">
                         <div style="display: flex; align-items: center; justify-content: center; background-color: #f0f5ff; padding: 0 15px; border-radius: 50px 0 0 50px; min-width: 56px;">
-                            <i data-lucide="search" width="24" height="24" style="color: #2563eb;"></i>
+                            <i data-lucide="search" width="24" height="24" style="color: #1a2e6b;"></i>
                         </div>
                         <input type="text" id="itemSearchInput" placeholder="Search items..." class="search-input" style="padding: 0.75rem 1rem; border: 2px solid #f0f5ff; border-left: none; flex: 1; outline: none; font-size: 1rem; min-width: 0;">
                         <button id="itemSearchButton" class="btn-primary" style="border-radius: 0 50px 50px 0; padding: 0.75rem 1.5rem; font-weight: 600; display: flex; align-items: center;">
