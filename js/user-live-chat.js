@@ -604,6 +604,7 @@ function _doStartChat(db, uid, name, email) {
         currentChatItemId = itemId || null;
         
         // Update chat status to active; clear userHidden so it reappears in inbox
+        window._hiddenChatIds?.delete(userChatId);
         return db.collection(CHAT_COLLECTION).doc(userChatId).update({
           active: true,
           lastResumedTime: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1209,10 +1210,13 @@ function handleMessagesUpdate(snapshot) {
       addMessageToUI(message);
       newMessages = true;
 
-      // Show unread badge on floating button when widget is hidden and admin replies
+      // Badge the floating button only for general inquiry chats (no itemId)
+      // Item-specific chat replies show in the inbox instead
       if (message.sender === 'admin' && chatWidget && chatWidget.style.display === 'none') {
-        const badge = document.getElementById('fcbUnreadBadge');
-        if (badge) badge.style.display = 'flex';
+        if (!currentChatItemId) {
+          const badge = document.getElementById('fcbUnreadBadge');
+          if (badge) badge.style.display = 'flex';
+        }
       }
     }
   });

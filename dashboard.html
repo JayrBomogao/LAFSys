@@ -371,11 +371,131 @@
             }
         }
 
+        /* ── User Sidebar ── */
+        #userSidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 220px;
+            background: #1e293b;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            z-index: 1001;
+            overflow-y: auto;
+        }
+        .usb-logo {
+            padding: 1.5rem 1.25rem 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .usb-logo-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .usb-logo-sub {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 2px;
+        }
+        .usb-user {
+            padding: 0.9rem 1.25rem;
+            font-size: 0.8rem;
+            color: #fff;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .usb-user-avatar {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #334155;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; flex-shrink: 0;
+        }
+        .usb-user-name {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .usb-nav {
+            list-style: none;
+            padding: 1rem 0;
+            margin: 0;
+            flex: 1;
+        }
+        .usb-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.1rem 1.25rem;
+            cursor: pointer;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 500;
+            border-left: 3px solid transparent;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            user-select: none;
+        }
+        .usb-item:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+        .usb-item.active {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-left-color: #3b82f6;
+        }
+        .usb-icon { font-size: 1.15rem; line-height: 1; flex-shrink: 0; }
+        .usb-badge {
+            margin-left: auto;
+            background: #ef4444;
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            min-width: 16px;
+            height: 16px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        .usb-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.07);
+            margin: 0.4rem 1.25rem;
+        }
+        .usb-footer { display: none !important; }
+        .usb-logout {
+            background: none;
+            border: none;
+            color: #fff;
+            width: 100%;
+            padding: 1.1rem 1.25rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            border-left: 3px solid transparent;
+            transition: background 0.15s, color 0.15s;
+        }
+        .usb-logout:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+        /* Header spans full width — sidebar sits below it */
+        .header   { margin-left: 0; position: sticky; top: 0; z-index: 999; }
+        /* Sidebar starts below the header (top value set by JS once header height is known) */
+        #userSidebar { top: 0; }
+        /* Main content offset right for sidebar */
+        main.container { margin-left: 220px; max-width: none; padding: 1.5rem 2rem; }
+
         /* Floating Chat with Staff button */
         #floatingChatBtn {
             position: fixed;
             bottom: 1.75rem;
-            left: 1.75rem;
+            right: 1.75rem;
             z-index: 9998;
             display: none; /* shown by auth handler */
             align-items: center;
@@ -429,17 +549,30 @@
         }
 
         /* ── Chat Inbox Panel (Roblox-style) ── */
-        #userChatInbox {
+        #inboxCenterBackdrop {
+            display: none;
             position: fixed;
-            bottom: 0;
-            right: 1.25rem;
-            width: 272px;
-            z-index: 9997;
-            border-radius: 10px 10px 0 0;
-            overflow: hidden;
-            box-shadow: 0 -4px 24px rgba(0,0,0,0.13);
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 9996;
+        }
+        #userChatInbox {
             display: none;
             flex-direction: column;
+            position: fixed;
+            z-index: 9997;
+            overflow: hidden;
+        }
+        #userChatInbox.inbox-centered {
+            top: 50%;
+            left: calc(110px + 50%);
+            transform: translate(-50%, -50%);
+            width: 440px;
+            border-radius: 12px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+        }
+        #userChatInbox.inbox-centered #chatInboxBody {
+            max-height: 520px;
         }
         #chatInboxHeader {
             background: #1e293b;
@@ -592,7 +725,6 @@
                 if (user) {
                     const nameEl = document.getElementById('userDisplayName');
                     if (nameEl) nameEl.textContent = user.displayName || user.email;
-                    document.getElementById('userNav').style.display = 'flex';
                     document.getElementById('guestNav').style.display = 'none';
                     if (floatingBtn) floatingBtn.style.display = 'flex';
 
@@ -607,6 +739,9 @@
                             let hasUnread = false;
                             snap.forEach(doc => {
                                 const data = doc.data();
+                                // Only badge the floating button for general inquiries (no itemId)
+                                // Item-specific chat notifications belong in the inbox instead
+                                if (data.itemId) return;
                                 if (data.lastSender === 'admin') {
                                     const lastTs     = data.lastTimestamp?.toMillis?.()     || 0;
                                     const lastOpened = data.userLastOpenedAt?.toMillis?.() || 0;
@@ -617,7 +752,6 @@
                             if (badge) badge.style.display = hasUnread ? 'flex' : 'none';
                         }, () => {});
                 } else {
-                    document.getElementById('userNav').style.display = 'none';
                     document.getElementById('guestNav').style.display = 'flex';
                     if (floatingBtn) floatingBtn.style.display = 'none';
                     if (_unreadListener) { _unreadListener(); _unreadListener = null; }
@@ -766,7 +900,234 @@
             border-radius: 0.5rem;
         }
         .idm-close-btn:hover { background: #f3f4f6; }
+
+        /* ── Lost Items Section ── */
+        .lost-section { margin-bottom: 2rem; }
+        .lost-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .lost-section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .btn-report-lost {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem 1.1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: background 0.2s;
+        }
+        .btn-report-lost:hover { background: #dc2626; }
+        .lost-items-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
+        }
+        @media (max-width: 900px) { .lost-items-grid { grid-template-columns: repeat(3,1fr); } }
+        @media (max-width: 600px) { .lost-items-grid { grid-template-columns: repeat(2,1fr); } }
+        .lost-item-card {
+            background: white;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .lost-item-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            border: 1px solid #fca5a5;
+        }
+        .lost-card-badge {
+            position: absolute; top: 0.4rem; right: 0.4rem;
+            background: #ef4444; color: white;
+            font-size: 0.6rem; font-weight: 700;
+            padding: 0.15rem 0.5rem; border-radius: 999px;
+            letter-spacing: 0.05em; text-transform: uppercase;
+        }
+        .lost-card-img {
+            width: 100%; aspect-ratio: 1; background: #fef2f2;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; font-size: 2.5rem;
+        }
+        .lost-card-img img { width:100%; height:100%; object-fit:cover; }
+        .lost-card-body { padding: 0.6rem 0.75rem 0.75rem; }
+        .lost-card-title {
+            font-weight: 600; font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .lost-card-cat {
+            display: inline-block; background: #fee2e2; color: #991b1b;
+            font-size: 0.68rem; padding: 0.1rem 0.45rem; border-radius: 999px;
+            margin-bottom: 0.35rem;
+        }
+        .lost-card-meta { font-size: 0.72rem; color: #6b7280; }
+        .lost-empty {
+            padding: 2rem; text-align: center; color: #6b7280;
+            background: white; border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+        }
+
+        /* ── Post Lost Item Modal ── */
+        .plm-overlay {
+            display: none; position: fixed; top:0; left:0;
+            width:100%; height:100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9000; overflow-y: auto;
+        }
+        .plm-box {
+            max-width: 640px; margin: 2rem auto;
+            background: white; border-radius: 8px;
+            padding: 2rem; position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .plm-title {
+            font-size: 1.3rem; font-weight: 700;
+            color: #1e293b; margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0;
+        }
+        .plm-close {
+            position: absolute; top: 1rem; right: 1rem;
+            background: none; border: none; font-size: 1.4rem;
+            cursor: pointer; color: #6b7280; line-height: 1;
+        }
+        .plm-close:hover { color: #111; }
+        .plm-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 560px) { .plm-form-row { grid-template-columns: 1fr; } }
+        .plm-group { margin-bottom: 1rem; }
+        .plm-group label {
+            display: block; font-weight: 500; color: #334155;
+            margin-bottom: 0.4rem; font-size: 0.9rem;
+        }
+        .plm-group label .req { color: #ef4444; margin-left: 2px; }
+        .plm-input {
+            width: 100%; padding: 0.65rem 0.9rem;
+            border: 1px solid #e2e8f0; border-radius: 0.375rem;
+            font-size: 0.95rem; box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        .plm-input:focus { outline: none; border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(147,197,253,0.2); }
+        textarea.plm-input { min-height: 90px; resize: vertical; }
+        .plm-img-drop {
+            width: 100%; height: 140px;
+            border: 2px dashed #cbd5e1; border-radius: 0.5rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; cursor: pointer;
+            background: #f8fafc; transition: all 0.2s;
+            overflow: hidden; position: relative;
+        }
+        .plm-img-drop:hover { border-color: #93c5fd; background: #f0f9ff; }
+        .plm-img-drop img { max-width:100%; max-height:100%; object-fit:contain; }
+        .plm-img-drop-text { text-align:center; color:#64748b; font-size:0.85rem; }
+        .plm-submit {
+            width: 100%; padding: 0.8rem;
+            background: #ef4444; color: white;
+            border: none; border-radius: 0.375rem;
+            font-size: 1rem; font-weight: 600;
+            cursor: pointer; margin-top: 0.5rem;
+            transition: background 0.2s;
+        }
+        .plm-submit:hover { background: #dc2626; }
+        .plm-submit:disabled { background: #fca5a5; cursor: not-allowed; }
+
+        /* ── Lost Item Detail Modal ── */
+        .ldm-overlay {
+            display: none; position: fixed; top:0; left:220px;
+            width: calc(100% - 220px); height:100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9100;
+            align-items: center; justify-content: center;
+        }
+        .ldm-box {
+            max-width: 860px; width: 94%; margin: 0;
+            background: white; border-radius: 8px;
+            overflow: hidden; position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .ldm-close {
+            position: absolute; top: 1rem; right: 1rem; z-index: 2;
+            width: 30px; height: 30px; background: white;
+            border-radius: 50%; border: none; font-size: 1.2rem;
+            cursor: pointer; display: flex; align-items: center;
+            justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            color: #374151;
+        }
+        .ldm-body { display: flex; min-height: 380px; }
+        .ldm-img-col {
+            width: 40%; background: #fef2f2; padding: 1rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ldm-img-col img { max-width:100%; max-height:360px; object-fit:contain; }
+        .ldm-img-placeholder { font-size: 4rem; }
+        .ldm-details-col { width: 60%; padding: 2rem 2.5rem 2rem 1.5rem; }
+        .ldm-badge {
+            display: inline-block; padding: 0.2rem 0.7rem; border-radius: 999px;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+            text-transform: uppercase; background: #fee2e2; color: #991b1b;
+            margin-bottom: 0.75rem;
+        }
+        .ldm-title { font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0 0 0.5rem; }
+        .ldm-desc { color: #6b7280; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
+        .ldm-rows { margin-bottom: 1.5rem; }
+        .ldm-row { display: flex; margin-bottom: 0.6rem; font-size: 0.9rem; }
+        .ldm-lbl { font-weight: 600; color: #64748b; width: 130px; flex-shrink: 0; }
+        .ldm-val { color: #334155; }
+        .ldm-actions { display: flex; justify-content: flex-end; }
+        .ldm-close-btn {
+            padding: 0.5rem 1.5rem; background: #f1f5f9;
+            border: none; border-radius: 0.375rem;
+            color: #334155; font-weight: 500; cursor: pointer;
+        }
+        .ldm-close-btn:hover { background: #e2e8f0; }
+        @media (max-width: 640px) {
+            .ldm-body { flex-direction: column; }
+            .ldm-img-col, .ldm-details-col { width: 100%; }
+        }
     </style>
+
+    <!-- ── User Sidebar ── -->
+    <nav id="userSidebar">
+
+        <div class="usb-user" id="usbUserRow" style="display:none">
+            <div class="usb-user-avatar">👤</div>
+            <div class="usb-user-name" id="usbUserName"></div>
+        </div>
+        <ul class="usb-nav">
+            <li class="usb-item active" id="usbNavFound">
+                <span class="usb-icon">🔎</span>
+                <span>Found Items</span>
+            </li>
+            <li class="usb-item" id="usbNavLost">
+                <span class="usb-icon">📋</span>
+                <span>Lost Items</span>
+            </li>
+            <li class="usb-item" id="usbNavInbox" style="display:none">
+                <span class="usb-icon">💬</span>
+                <span>Inbox</span>
+                <span class="usb-badge" id="usbInboxBadge"></span>
+            </li>
+            <li class="usb-item" id="usbNavLogin">
+                <span class="usb-icon">🔑</span>
+                <span>Login / Register</span>
+            </li>
+            <div class="usb-divider" id="usbLogoutDivider" style="display:none"></div>
+            <li id="usbLogoutItem" style="display:none"><button class="usb-logout" onclick="doLogout()">← Logout</button></li>
+        </ul>
+        <div class="usb-footer" id="usbFooter" style="display:none"></div>
+    </nav>
 
     <header class="header">
         <div class="logo">
@@ -781,10 +1142,7 @@
                 <span>Search by Image</span>
             </button>
         </div>
-        <div class="user-nav" id="userNav">
-            <span class="user-name" id="userDisplayName"></span>
-            <button class="btn-logout" onclick="doLogout()">Logout</button>
-        </div>
+        <span id="userDisplayName" style="display:none"></span>
         <div class="guest-nav" id="guestNav">
             <a href="login.html" class="btn-login">Login / Register</a>
         </div>
@@ -806,6 +1164,7 @@
                 <option value="food-containers">Food Containers</option>
                 <option value="cash-cards">Cash & Cards</option>
                 <option value="documents">Documents</option>
+                <option value="keys">Keys</option>
                 <option value="other">Other</option>
             </select>
             <button id="refresh-items" title="Refresh Items">
@@ -814,10 +1173,21 @@
             </button>
         </div>
 
+        <!-- ── Lost Items Section ── -->
+        <section class="lost-section" id="lostItemsSection">
+            <div class="lost-section-header">
+                <h2 class="lost-section-title">🔍 Lost Items</h2>
+                <button class="btn-report-lost" id="reportLostBtn">+ Report a Lost Item</button>
+            </div>
+            <div class="lost-items-grid" id="lostItemsGrid">
+                <div class="lost-empty" style="grid-column:1/-1">Loading…</div>
+            </div>
+        </section>
+
         <section class="items-section">
             <div class="items-header">
                 <div class="title-with-refresh">
-                    <h2 class="items-title">Recently Found Items</h2>
+                    <h2 class="items-title">All Recently Found Items</h2>
                 </div>
             </div>
             <div class="items-grid" id="items-container">
@@ -896,6 +1266,109 @@
                 </div>
                 <button type="submit" class="btn">Submit Claim</button>
             </form>
+        </div>
+    </div>
+
+    <!-- ── Post Lost Item Modal ── -->
+    <div class="plm-overlay" id="postLostModal">
+        <div class="plm-box">
+            <button class="plm-close" id="postLostClose">×</button>
+            <h2 class="plm-title">🔍 Report a Lost Item</h2>
+            <form id="postLostForm" novalidate>
+                <div class="plm-group">
+                    <label>Item Photo</label>
+                    <div class="plm-img-drop" id="plmImgDrop">
+                        <div class="plm-img-drop-text">
+                            <div>📤</div>
+                            <div>Click to upload or drag and drop</div>
+                            <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">PNG, JPG, JPEG (max 5MB)</div>
+                        </div>
+                    </div>
+                    <input type="file" id="plmImageFile" accept="image/*" style="display:none">
+                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                        <button type="button" id="plmUploadBtn" style="background:white;border:1px solid #cbd5e1;padding:0.35rem 0.9rem;border-radius:0.375rem;cursor:pointer;font-size:0.85rem;">Upload Image</button>
+                        <button type="button" id="plmRemoveBtn" style="display:none;background:white;border:1px solid #fca5a5;color:#ef4444;padding:0.35rem 0.9rem;border-radius:0.375rem;cursor:pointer;font-size:0.85rem;">Remove</button>
+                    </div>
+                </div>
+
+                <div class="plm-form-row">
+                    <div class="plm-group">
+                        <label for="plmName">Item Name<span class="req">*</span></label>
+                        <input type="text" id="plmName" class="plm-input" placeholder="e.g., Black Leather Wallet" required>
+                    </div>
+                    <div class="plm-group">
+                        <label for="plmCategory">Category<span class="req">*</span></label>
+                        <select id="plmCategory" class="plm-input" required>
+                            <option value="">Select a category</option>
+                            <option value="gadgets">Gadgets</option>
+                            <option value="bags-wallets">Bags &amp; Wallets</option>
+                            <option value="accessories">Accessories</option>
+                            <option value="garments">Garments</option>
+                            <option value="eyewear">Eyewear</option>
+                            <option value="cosmetics">Cosmetics &amp; Personal Care</option>
+                            <option value="supplies">School / Office Supplies</option>
+                            <option value="umbrella">Umbrella</option>
+                            <option value="toys">Toys &amp; Collectibles</option>
+                            <option value="food-containers">Food Containers</option>
+                            <option value="cash-cards">Cash &amp; Cards</option>
+                            <option value="documents">Documents</option>
+                            <option value="keys">Keys</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="plm-group">
+                    <label for="plmDescription">Description<span class="req">*</span></label>
+                    <textarea id="plmDescription" class="plm-input" placeholder="Provide a detailed description including distinguishing features…" required></textarea>
+                </div>
+
+                <div class="plm-form-row">
+                    <div class="plm-group">
+                        <label for="plmLastLocation">Last Known Location<span class="req">*</span></label>
+                        <input type="text" id="plmLastLocation" class="plm-input" placeholder="e.g., Burnham Park, Session Road" required>
+                    </div>
+                    <div class="plm-group">
+                        <label for="plmDateLost">Date Lost<span class="req">*</span></label>
+                        <input type="date" id="plmDateLost" class="plm-input" required>
+                    </div>
+                </div>
+
+                <div class="plm-group">
+                    <label for="plmContact">Contact Number<span class="req">*</span></label>
+                    <input type="tel" id="plmContact" class="plm-input" placeholder="e.g., 09XX XXX XXXX" required>
+                </div>
+
+                <div id="plmError" style="display:none;background:#fef2f2;color:#991b1b;padding:0.6rem 0.9rem;border-radius:0.375rem;font-size:0.875rem;margin-bottom:0.75rem;"></div>
+                <button type="submit" class="plm-submit" id="plmSubmitBtn">Post Lost Item</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Lost Item Detail Modal ── -->
+    <div class="ldm-overlay" id="lostDetailModal">
+        <div class="ldm-box">
+            <button class="ldm-close" id="lostDetailClose">×</button>
+            <div class="ldm-body">
+                <div class="ldm-img-col" id="ldmImgCol">
+                    <span class="ldm-img-placeholder">🔍</span>
+                </div>
+                <div class="ldm-details-col">
+                    <span class="ldm-badge">LOST</span>
+                    <h2 class="ldm-title" id="ldmTitle"></h2>
+                    <p class="ldm-desc" id="ldmDesc"></p>
+                    <div class="ldm-rows">
+                        <div class="ldm-row"><span class="ldm-lbl">Category:</span><span class="ldm-val" id="ldmCategory"></span></div>
+                        <div class="ldm-row"><span class="ldm-lbl">Last Location:</span><span class="ldm-val" id="ldmLocation"></span></div>
+                        <div class="ldm-row"><span class="ldm-lbl">Date Lost:</span><span class="ldm-val" id="ldmDate"></span></div>
+                        <div class="ldm-row"><span class="ldm-lbl">Contact:</span><span class="ldm-val" id="ldmContact"></span></div>
+                        <div class="ldm-row"><span class="ldm-lbl">Posted by:</span><span class="ldm-val" id="ldmPostedBy"></span></div>
+                    </div>
+                    <div class="ldm-actions">
+                        <button class="ldm-close-btn" id="lostDetailCloseBtn">Close</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1156,6 +1629,383 @@
         });
     </script>
     
+    <!-- ── Lost Items Feature ── -->
+    <script>
+    (function() {
+        'use strict';
+
+        // ── Image resize helper (keeps Firestore payload small) ──
+        function _resizeImg(dataUrl, maxPx, quality) {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width, h = img.height;
+                    if (w > maxPx || h > maxPx) {
+                        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+                        else       { w = Math.round(w * maxPx / h); h = maxPx; }
+                    }
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    resolve(c.toDataURL('image/jpeg', quality || 0.75));
+                };
+                img.onerror = () => resolve(dataUrl);
+                img.src = dataUrl;
+            });
+        }
+
+        // ── State ──
+        let _lostUnsub = null;
+        let _plmImage  = null; // base64 data URL of selected image
+
+        // ── DOM refs (resolved after DOMContentLoaded) ──
+        const $ = id => document.getElementById(id);
+
+        // ── Render lost items grid ──
+        function _renderLost(snap) {
+            const grid = $('lostItemsGrid');
+            if (!grid) return;
+            if (!snap || snap.empty) {
+                grid.innerHTML = '<div class="lost-empty" style="grid-column:1/-1">No lost items reported yet.</div>';
+                return;
+            }
+            const docs = snap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => ((b.postedAt && b.postedAt.seconds) || 0) - ((a.postedAt && a.postedAt.seconds) || 0));
+
+            grid.innerHTML = '';
+            docs.forEach(data => {
+                const card = document.createElement('div');
+                card.className = 'lost-item-card';
+                const imgHtml = data.image
+                    ? `<div class="lost-card-img"><img src="${data.image}" alt="${data.title || ''}" onerror="this.parentElement.innerHTML='🔍'"></div>`
+                    : `<div class="lost-card-img">🔍</div>`;
+                const dateStr = data.dateLost ? new Date(data.dateLost + 'T00:00:00').toLocaleDateString() : '';
+                card.innerHTML = `
+                    <span class="lost-card-badge">LOST</span>
+                    ${imgHtml}
+                    <div class="lost-card-body">
+                        <div class="lost-card-title">${data.title || 'Untitled'}</div>
+                        <span class="lost-card-cat">${data.category || 'Other'}</span>
+                        <div class="lost-card-meta">${dateStr ? '📅 ' + dateStr : ''}</div>
+                        <div class="lost-card-meta" style="margin-top:2px;">📍 ${data.lastLocation || '—'}</div>
+                    </div>`;
+                card.addEventListener('click', () => _openDetail(data));
+                grid.appendChild(card);
+            });
+        }
+
+        // ── Open lost item detail modal ──
+        function _openDetail(data) {
+            const overlay = $('lostDetailModal');
+            if (!overlay) return;
+            const imgCol = $('ldmImgCol');
+            imgCol.innerHTML = data.image
+                ? `<img src="${data.image}" alt="${data.title || ''}">`
+                : '<span class="ldm-img-placeholder">🔍</span>';
+            $('ldmTitle').textContent    = data.title || 'Untitled';
+            $('ldmDesc').textContent     = data.description || 'No description provided.';
+            $('ldmCategory').textContent = data.category || '—';
+            $('ldmLocation').textContent = data.lastLocation || '—';
+            $('ldmDate').textContent     = data.dateLost ? new Date(data.dateLost + 'T00:00:00').toLocaleDateString() : '—';
+            $('ldmContact').textContent  = data.contactNumber || '—';
+            $('ldmPostedBy').textContent = data.userName || data.userEmail || 'Anonymous';
+            overlay.style.display = 'flex';
+        }
+
+        function _closeDetail() { $('lostDetailModal').style.display = 'none'; }
+
+        // ── Post Lost Item modal ──
+        function _openPostModal() {
+            const user = window.firebase && firebase.auth().currentUser;
+            if (!user) { alert('Please log in to report a lost item.'); return; }
+            const today = new Date().toISOString().split('T')[0];
+            $('plmDateLost').max = today;
+            $('postLostModal').style.display = 'block';
+        }
+
+        function _closePostModal() {
+            $('postLostModal').style.display = 'none';
+            $('postLostForm').reset();
+            _plmImage = null;
+            const drop = $('plmImgDrop');
+            drop.innerHTML = `<div class="plm-img-drop-text"><div>📤</div><div>Click to upload or drag and drop</div><div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">PNG, JPG, JPEG (max 5MB)</div></div>`;
+            $('plmRemoveBtn').style.display = 'none';
+            $('plmError').style.display = 'none';
+        }
+
+        function _setPlmImage(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB.'); return; }
+            const reader = new FileReader();
+            reader.onload = async ev => {
+                const resized = await _resizeImg(ev.target.result, 900, 0.8);
+                _plmImage = resized;
+                const drop = $('plmImgDrop');
+                drop.innerHTML = `<img src="${resized}" alt="preview" style="max-width:100%;max-height:138px;object-fit:contain;">`;
+                $('plmRemoveBtn').style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function _submitLostItem(e) {
+            e.preventDefault();
+            const errEl = $('plmError');
+            errEl.style.display = 'none';
+
+            const name     = $('plmName').value.trim();
+            const cat      = $('plmCategory').value;
+            const desc     = $('plmDescription').value.trim();
+            const location = $('plmLastLocation').value.trim();
+            const date     = $('plmDateLost').value;
+            const contact  = $('plmContact').value.trim();
+
+            if (!name || !cat || !desc || !location || !date || !contact) {
+                errEl.textContent = 'Please fill in all required fields.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const user = window.firebase && firebase.auth().currentUser;
+            if (!user) { errEl.textContent = 'You must be logged in.'; errEl.style.display = 'block'; return; }
+
+            const btn = $('plmSubmitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Posting…';
+
+            try {
+                let userDoc = {};
+                try {
+                    const snap = await firebase.firestore().collection('users').doc(user.uid).get();
+                    if (snap.exists) userDoc = snap.data();
+                } catch(_) {}
+
+                await firebase.firestore().collection('lostItems').add({
+                    title: name,
+                    category: cat,
+                    description: desc,
+                    lastLocation: location,
+                    dateLost: date,
+                    contactNumber: contact,
+                    image: _plmImage || '',
+                    userId: user.uid,
+                    userName: userDoc.name || user.displayName || '',
+                    userEmail: user.email || '',
+                    postedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'active'
+                });
+                _closePostModal();
+            } catch (err) {
+                errEl.textContent = 'Failed to post: ' + (err.message || 'Unknown error');
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Post Lost Item';
+            }
+        }
+
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', () => {
+            // Report button
+            const reportBtn = $('reportLostBtn');
+            if (reportBtn) reportBtn.addEventListener('click', _openPostModal);
+
+            // Post modal close
+            const postClose = $('postLostClose');
+            if (postClose) postClose.addEventListener('click', _closePostModal);
+            const postOverlay = $('postLostModal');
+            if (postOverlay) postOverlay.addEventListener('click', e => { if (e.target === postOverlay) _closePostModal(); });
+
+            // Image upload
+            const uploadBtn = $('plmUploadBtn');
+            const fileInput = $('plmImageFile');
+            const imgDrop   = $('plmImgDrop');
+            const removeBtn = $('plmRemoveBtn');
+            if (uploadBtn) uploadBtn.addEventListener('click', () => fileInput && fileInput.click());
+            if (imgDrop)   imgDrop.addEventListener('click', () => fileInput && fileInput.click());
+            if (fileInput) fileInput.addEventListener('change', e => _setPlmImage(e.target.files[0]));
+            if (imgDrop) {
+                imgDrop.addEventListener('dragover', e => { e.preventDefault(); imgDrop.style.borderColor = '#93c5fd'; });
+                imgDrop.addEventListener('dragleave', () => { imgDrop.style.borderColor = ''; });
+                imgDrop.addEventListener('drop', e => {
+                    e.preventDefault(); imgDrop.style.borderColor = '';
+                    _setPlmImage(e.dataTransfer.files[0]);
+                });
+            }
+            if (removeBtn) removeBtn.addEventListener('click', () => {
+                _plmImage = null;
+                imgDrop.innerHTML = `<div class="plm-img-drop-text"><div>📤</div><div>Click to upload or drag and drop</div><div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">PNG, JPG, JPEG (max 5MB)</div></div>`;
+                removeBtn.style.display = 'none';
+                if (fileInput) fileInput.value = '';
+            });
+
+            // Post form submit
+            const postForm = $('postLostForm');
+            if (postForm) postForm.addEventListener('submit', _submitLostItem);
+
+            // Detail modal close
+            const detailClose = $('lostDetailClose');
+            const detailCloseBtn = $('lostDetailCloseBtn');
+            const detailOverlay  = $('lostDetailModal');
+            if (detailClose)    detailClose.addEventListener('click', _closeDetail);
+            if (detailCloseBtn) detailCloseBtn.addEventListener('click', _closeDetail);
+            if (detailOverlay)  detailOverlay.addEventListener('click', e => { if (e.target === detailOverlay) _closeDetail(); });
+
+            // ESC closes both modals
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') { _closePostModal(); _closeDetail(); }
+            });
+
+            // Start real-time listener for lost items
+            const waitForFirebase = setInterval(() => {
+                if (window.firebase && firebase.firestore) {
+                    clearInterval(waitForFirebase);
+                    if (_lostUnsub) _lostUnsub();
+                    _lostUnsub = firebase.firestore()
+                        .collection('lostItems')
+                        .onSnapshot(_renderLost, () => {
+                            const g = $('lostItemsGrid');
+                            if (g) g.innerHTML = '<div class="lost-empty" style="grid-column:1/-1">Could not load lost items.</div>';
+                        });
+                }
+            }, 300);
+        });
+    })();
+    </script>
+
+    <!-- ── User Sidebar Logic ── -->
+    <script>
+    (function() {
+        // Which section is currently shown: 'found' | 'lost'
+        let _activeSection = 'found';
+
+        function _showSection(which) {
+            _activeSection = which;
+            const foundSec  = document.getElementById('lostItemsSection');   // Lost Items section
+            const lostSec   = document.querySelector('.items-section');        // Found Items section
+            const filters   = document.querySelector('.filters');
+
+            // Update nav active state
+            document.getElementById('usbNavFound').classList.toggle('active', which === 'found');
+            document.getElementById('usbNavLost').classList.toggle('active', which === 'lost');
+
+            if (which === 'found') {
+                if (lostSec)  lostSec.style.display  = '';
+                if (filters)  filters.style.display   = '';
+                if (foundSec) foundSec.style.display  = 'none';
+            } else {
+                if (lostSec)  lostSec.style.display   = 'none';
+                if (filters)  filters.style.display   = 'none';
+                if (foundSec) foundSec.style.display  = '';
+            }
+        }
+
+        function _syncUnread() {
+            // Mirror the existing unread badge from #chatInboxHeaderBadge to sidebar
+            const src  = document.getElementById('chatInboxHeaderBadge');
+            const dest = document.getElementById('usbInboxBadge');
+            if (!src || !dest) return;
+            const visible = src.style.display !== 'none' && src.textContent;
+            dest.textContent = src.textContent;
+            dest.style.display = visible ? 'flex' : 'none';
+        }
+
+        // Push sidebar below the header and size it to fill the remaining height
+        function _syncSidebarPosition() {
+            const header  = document.querySelector('.header');
+            const sidebar = document.getElementById('userSidebar');
+            if (!header || !sidebar) return;
+            const h = header.getBoundingClientRect().height;
+            sidebar.style.top    = h + 'px';
+            sidebar.style.height = (window.innerHeight - h) + 'px';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            _syncSidebarPosition();
+            window.addEventListener('resize', _syncSidebarPosition);
+
+            // Initially hide lost section (found is default)
+            const lostSec = document.getElementById('lostItemsSection');
+            if (lostSec) lostSec.style.display = 'none';
+
+            // Found Items nav
+            document.getElementById('usbNavFound').addEventListener('click', () => _showSection('found'));
+
+            // Lost Items nav
+            document.getElementById('usbNavLost').addEventListener('click', () => _showSection('lost'));
+
+
+            // Inbox nav — open centered modal
+            const _backdrop = document.getElementById('inboxCenterBackdrop');
+            function _openInboxModal() {
+                const inboxPanel = document.getElementById('userChatInbox');
+                const inboxBody  = document.getElementById('chatInboxBody');
+                const toggleBtn  = document.getElementById('chatInboxToggleBtn');
+                if (!inboxPanel) return;
+                inboxPanel.classList.add('inbox-centered');
+                inboxPanel.style.display = 'flex';
+                if (inboxBody)  inboxBody.style.display = 'block';
+                if (toggleBtn)  toggleBtn.textContent   = '▼';
+                if (_backdrop)  _backdrop.style.display = 'block';
+            }
+            function _closeInboxModal() {
+                const inboxPanel = document.getElementById('userChatInbox');
+                if (!inboxPanel) return;
+                inboxPanel.style.display = 'none';
+                inboxPanel.classList.remove('inbox-centered');
+                if (_backdrop) _backdrop.style.display = 'none';
+            }
+            document.getElementById('usbNavInbox').addEventListener('click', _openInboxModal);
+            document.getElementById('usbNavLogin').addEventListener('click', () => { window.location.href = 'login.html'; });
+            if (_backdrop) _backdrop.addEventListener('click', _closeInboxModal);
+            // Close button inside the inbox header also closes the modal
+            const _inboxHeader = document.getElementById('chatInboxHeader');
+            if (_inboxHeader) {
+                _inboxHeader.addEventListener('click', (e) => {
+                    const panel = document.getElementById('userChatInbox');
+                    if (panel && panel.classList.contains('inbox-centered')) {
+                        _closeInboxModal();
+                    }
+                });
+            }
+
+            // Sync auth state → sidebar user row
+            const waitAuth = setInterval(() => {
+                if (window.firebase && firebase.auth) {
+                    clearInterval(waitAuth);
+                    firebase.auth().onAuthStateChanged(user => {
+                        const userRow      = document.getElementById('usbUserRow');
+                        const userName     = document.getElementById('usbUserName');
+                        const logoutItem   = document.getElementById('usbLogoutItem');
+                        const logoutDivider= document.getElementById('usbLogoutDivider');
+                        const inboxItem    = document.getElementById('usbNavInbox');
+                        const loginItem    = document.getElementById('usbNavLogin');
+                        if (user) {
+                            // Get display name from existing element (already resolved by main auth handler)
+                            const name = document.getElementById('userDisplayName')?.textContent
+                                || user.displayName || user.email || 'User';
+                            if (userName)      userName.textContent       = name;
+                            if (userRow)       userRow.style.display      = 'flex';
+                            if (logoutItem)    logoutItem.style.display   = '';
+                            if (logoutDivider) logoutDivider.style.display= '';
+                            if (inboxItem)     inboxItem.style.display    = '';
+                            if (loginItem)     loginItem.style.display    = 'none';
+                        } else {
+                            if (userRow)       userRow.style.display      = 'none';
+                            if (logoutItem)    logoutItem.style.display   = 'none';
+                            if (logoutDivider) logoutDivider.style.display= 'none';
+                            if (inboxItem)     inboxItem.style.display    = 'none';
+                            if (loginItem)     loginItem.style.display    = '';
+                        }
+                    });
+                }
+            }, 200);
+
+            // Poll unread badge from inbox panel every 2s
+            setInterval(_syncUnread, 2000);
+        });
+    })();
+    </script>
+
     <!-- Data and UI scripts -->
     <script src="js/firebase-data.js"></script>
     <script src="js/dashboard.js?v=3.0"></script>
@@ -1171,6 +2021,8 @@
     <script src="js/cloudVision.js?v=4.0"></script>
     <script src="js/accurateImageSearch.js?v=5.0"></script>
 
+
+    <div id="inboxCenterBackdrop"></div>
 
     <!-- Chat Inbox Panel -->
     <div id="userChatInbox">
@@ -1245,9 +2097,15 @@
             }
 
             // Sort newest first (client-side to avoid composite index); skip user-hidden chats
+            // Exception: reshow a hidden chat if admin sent a message AFTER the user hid it
             const docs = snap.docs
                 .map(d => ({ id: d.id, ...d.data() }))
-                .filter(d => !d.userHidden)
+                .filter(d => {
+                    if (!d.userHidden) return true;
+                    const hiddenAt = d.userHiddenAt?.toMillis?.() || 0;
+                    const lastTs   = d.lastTimestamp?.toMillis?.() || 0;
+                    return d.lastSender === 'admin' && lastTs > hiddenAt;
+                })
                 .sort((a, b) => {
                     const ta = a.lastTimestamp?.toMillis?.() || a.startTime?.toMillis?.() || 0;
                     const tb = b.lastTimestamp?.toMillis?.() || b.startTime?.toMillis?.() || 0;
@@ -1316,8 +2174,12 @@
                 delBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     firebase.firestore().collection('liveChats').doc(_chatDocId).update({
-                        userHidden: true
+                        userHidden: true,
+                        userHiddenAt: firebase.firestore.FieldValue.serverTimestamp()
                     }).catch(() => {});
+                    // Tell user-live-chat.js not to badge-notify for this chat
+                    window._hiddenChatIds = window._hiddenChatIds || new Set();
+                    window._hiddenChatIds.add(_chatDocId);
                 });
                 rightEl.appendChild(delBtn);
 
@@ -1360,19 +2222,7 @@
 
         function _initInbox(uid) {
             const panel  = document.getElementById('userChatInbox');
-            const header = document.getElementById('chatInboxHeader');
-            const body   = document.getElementById('chatInboxBody');
-            const toggleBtn = document.getElementById('chatInboxToggleBtn');
             if (!panel) return;
-
-            panel.style.display = 'flex';
-
-            // Toggle collapse
-            header.addEventListener('click', () => {
-                _inboxOpen = !_inboxOpen;
-                body.style.display    = _inboxOpen ? 'block' : 'none';
-                toggleBtn.textContent = _inboxOpen ? '▼' : '▲';
-            });
 
             // Real-time listener
             if (_inboxUnsub) _inboxUnsub();
@@ -1384,8 +2234,6 @@
 
         function _destroyInbox() {
             if (_inboxUnsub) { _inboxUnsub(); _inboxUnsub = null; }
-            const panel = document.getElementById('userChatInbox');
-            if (panel) panel.style.display = 'none';
             const list = document.getElementById('chatInboxList');
             if (list) list.innerHTML = '';
         }

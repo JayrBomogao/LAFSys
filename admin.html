@@ -614,7 +614,13 @@
                     <li class="nav-item">
                         <a href="#" class="nav-link" data-section="items">
                             <i data-lucide="package"></i>
-                            Items
+                            Found Items
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="lost-items">
+                            <i data-lucide="search-x"></i>
+                            Lost Items
                         </a>
                     </li>
                     <li class="nav-item">
@@ -658,7 +664,7 @@
                     <div class="stat-card" data-filter="active" id="activeItemsCard">
                         <div class="stat-label">
                             <i data-lucide="check" width="16" height="16"></i>
-                            Active Items
+                            Active Found Items
                         </div>
                         <div class="stat-value" id="statActive">0</div>
                     </div>
@@ -669,12 +675,12 @@
                         </div>
                         <div class="stat-value" id="statClaimed">0</div>
                     </div>
-                    <div class="stat-card" data-filter="soon" id="soonItemsCard">
+                    <div class="stat-card" id="activeLostCard" style="cursor:pointer;">
                         <div class="stat-label">
-                            <i data-lucide="alert-triangle" width="16" height="16"></i>
-                            Disposal Soon
+                            <i data-lucide="search-x" width="16" height="16"></i>
+                            Active Lost Items
                         </div>
-                        <div class="stat-value" id="statSoon">0</div>
+                        <div class="stat-value" id="statActiveLost">—</div>
                     </div>
                 </div>
 
@@ -758,6 +764,60 @@
 
             </section>
             
+            <!-- Lost Items Section -->
+            <section id="section-lost-items" class="section-view" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                    <h2 style="margin:0;">Lost Item Reports</h2>
+                    <select id="lostItemStatusFilter" style="padding:0.45rem 0.75rem; border:1px solid #e2e8f0; border-radius:6px; font-size:0.9rem; cursor:pointer;">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                </div>
+                <div class="items-table">
+                    <div class="table-header" style="grid-template-columns: 2fr 1fr 1.5fr 1fr 1.2fr 100px 120px;">
+                        <div>Item</div>
+                        <div>Category</div>
+                        <div>Last Location</div>
+                        <div>Date Lost</div>
+                        <div>Posted By</div>
+                        <div>Status</div>
+                        <div>Actions</div>
+                    </div>
+                    <div id="lostItemsAdminContainer">
+                        <div style="text-align:center; padding:2rem; color:#6b7280;">Loading…</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Lost Item Detail Modal -->
+            <div id="lostItemAdminModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
+                <div style="background:#fff; border-radius:12px; max-width:780px; width:94%; max-height:90vh; overflow:auto; display:flex; flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid #e2e8f0;">
+                        <h3 id="liamTitle" style="margin:0; font-size:1.2rem;"></h3>
+                        <button onclick="document.getElementById('lostItemAdminModal').style.display='none'" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+                    </div>
+                    <div style="display:flex; gap:1.5rem; padding:1.5rem; flex:1;">
+                        <div style="flex:0 0 40%; max-width:40%;">
+                            <img id="liamImage" src="" alt="" style="width:100%; border-radius:8px; object-fit:cover; max-height:280px; background:#f1f5f9;">
+                        </div>
+                        <div style="flex:1; display:flex; flex-direction:column; gap:0.75rem; font-size:0.9rem;">
+                            <div><span style="color:#64748b;">Category:</span> <strong id="liamCategory"></strong></div>
+                            <div><span style="color:#64748b;">Last Known Location:</span> <strong id="liamLocation"></strong></div>
+                            <div><span style="color:#64748b;">Date Lost:</span> <strong id="liamDate"></strong></div>
+                            <div><span style="color:#64748b;">Contact Number:</span> <strong id="liamContact"></strong></div>
+                            <div><span style="color:#64748b;">Posted By:</span> <strong id="liamPostedBy"></strong></div>
+                            <div><span style="color:#64748b;">Status:</span> <strong id="liamStatus"></strong></div>
+                            <div style="margin-top:0.5rem;"><span style="color:#64748b;">Description:</span><p id="liamDesc" style="margin:0.25rem 0 0; line-height:1.5;"></p></div>
+                        </div>
+                    </div>
+                    <div style="padding:1rem 1.5rem; border-top:1px solid #e2e8f0; display:flex; gap:0.75rem; justify-content:flex-end;">
+                        <button id="liamResolveBtn" onclick="window._lostItemAdminResolve()" style="padding:0.5rem 1.25rem; background:#10b981; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:500;">Mark as Resolved</button>
+                        <button onclick="window._lostItemAdminDelete()" style="padding:0.5rem 1.25rem; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:500;">Delete</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Inbox Section - Live Chat Support Only -->
             <section id="section-inbox" class="section-view" style="display:none;">
                 <!-- Live Chat Support will be injected here by admin-live-chat.js -->

@@ -24,6 +24,16 @@ document.addEventListener('DOMContentLoaded', function() {
   renderStats();
   renderRecentItemsWithoutActions();
   renderInbox();
+  watchActiveLostCount();
+
+  // Active Lost Items card → navigate to Lost Items section
+  const activeLostCard = document.getElementById('activeLostCard');
+  if (activeLostCard) {
+    activeLostCard.addEventListener('click', () => {
+      document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+      activateSection('lost-items');
+    });
+  }
   
   // If not on dashboard, load the appropriate section data
   if (lastActiveSection === 'users') renderUsers();
@@ -128,10 +138,110 @@ function switchSection(section) {
   const target = document.getElementById('section-' + section);
   if (target) target.style.display = '';
 
-  const titleMap = { dashboard: 'Dashboard', users: 'Users', items: 'Items', inbox: 'Inbox', claims: 'Claims', 'add-item': 'Add Item' };
+  const titleMap = { dashboard: 'Dashboard', users: 'Users', items: 'Found Items', inbox: 'Inbox', claims: 'Claims', 'add-item': 'Add Item', 'lost-items': 'Lost Items' };
   const titleEl = document.getElementById('pageTitle');
   if (titleEl) titleEl.textContent = titleMap[section] || 'Dashboard';
+
+  if (section === 'lost-items') initAdminLostItems();
 }
+
+// ── Admin Lost Items ──────────────────────────────────────────────────────────
+let _lostItemsUnsub = null;
+let _lostItemsCurrent = [];
+let _lostItemModalId = null;
+
+function initAdminLostItems() {
+  if (_lostItemsUnsub) return; // already listening
+  const db = firebase.firestore();
+  _lostItemsUnsub = db.collection('lostItems')
+    .orderBy('postedAt', 'desc')
+    .onSnapshot(snap => {
+      _lostItemsCurrent = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _renderAdminLostItems();
+    }, () => {});
+
+  document.getElementById('lostItemStatusFilter')?.addEventListener('change', _renderAdminLostItems);
+}
+
+function _renderAdminLostItems() {
+  const container = document.getElementById('lostItemsAdminContainer');
+  if (!container) return;
+  const filter = document.getElementById('lostItemStatusFilter')?.value || 'all';
+  const items = filter === 'all' ? _lostItemsCurrent : _lostItemsCurrent.filter(i => i.status === filter);
+
+  if (items.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:#6b7280;">No lost items found.</div>';
+    return;
+  }
+
+  container.innerHTML = items.map(item => {
+    const statusColor = item.status === 'resolved' ? '#10b981' : '#f59e0b';
+    const thumb = item.image
+      ? `<img src="${item.image}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">`
+      : `<div style="width:40px;height:40px;background:#f1f5f9;border-radius:6px;flex-shrink:0;"></div>`;
+    return `
+      <div class="table-row" style="grid-template-columns:2fr 1fr 1.5fr 1fr 1.2fr 100px 120px;cursor:pointer;" onclick="window._openLostItemModal('${item.id}')">
+        <div style="display:flex;align-items:center;gap:0.75rem;">${thumb}<span style="font-weight:500;">${item.title || '—'}</span></div>
+        <div style="color:#64748b;">${item.category || '—'}</div>
+        <div style="color:#64748b;">${item.lastLocation || '—'}</div>
+        <div style="color:#64748b;">${item.dateLost || '—'}</div>
+        <div style="color:#64748b;">${item.userName || item.userEmail || '—'}</div>
+        <div><span style="background:${statusColor}22;color:${statusColor};padding:2px 10px;border-radius:99px;font-size:0.78rem;font-weight:600;text-transform:capitalize;">${item.status || 'active'}</span></div>
+        <div onclick="event.stopPropagation()" style="display:flex;gap:0.4rem;align-items:center;">
+          <button onclick="window._openLostItemModal('${item.id}')" style="padding:0.3rem 0.6rem;font-size:0.78rem;background:#3b82f6;color:#fff;border:none;border-radius:5px;cursor:pointer;">View</button>
+          <button onclick="window._lostItemAdminDeleteId('${item.id}')" style="padding:0.3rem 0.6rem;font-size:0.78rem;background:#ef444422;color:#ef4444;border:1px solid #ef444444;border-radius:5px;cursor:pointer;">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window._openLostItemModal = function(id) {
+  const item = _lostItemsCurrent.find(i => i.id === id);
+  if (!item) return;
+  _lostItemModalId = id;
+  document.getElementById('liamTitle').textContent    = item.title || 'Lost Item';
+  document.getElementById('liamCategory').textContent = item.category || '—';
+  document.getElementById('liamLocation').textContent = item.lastLocation || '—';
+  document.getElementById('liamDate').textContent     = item.dateLost || '—';
+  document.getElementById('liamContact').textContent  = item.contactNumber || '—';
+  document.getElementById('liamPostedBy').textContent = (item.userName || '') + (item.userEmail ? ' (' + item.userEmail + ')' : '');
+  document.getElementById('liamStatus').textContent   = item.status || 'active';
+  document.getElementById('liamDesc').textContent     = item.description || '—';
+  const img = document.getElementById('liamImage');
+  img.src = item.image || '';
+  img.style.display = item.image ? '' : 'none';
+  const resolveBtn = document.getElementById('liamResolveBtn');
+  resolveBtn.textContent = item.status === 'resolved' ? 'Mark as Active' : 'Mark as Resolved';
+  const modal = document.getElementById('lostItemAdminModal');
+  modal.style.display = 'flex';
+};
+
+window._lostItemAdminResolve = function() {
+  if (!_lostItemModalId) return;
+  const item = _lostItemsCurrent.find(i => i.id === _lostItemModalId);
+  const newStatus = item?.status === 'resolved' ? 'active' : 'resolved';
+  firebase.firestore().collection('lostItems').doc(_lostItemModalId).update({ status: newStatus }).catch(() => {});
+  document.getElementById('lostItemAdminModal').style.display = 'none';
+};
+
+window._lostItemAdminDelete = function() {
+  if (!_lostItemModalId) return;
+  if (!confirm('Delete this lost item report? This cannot be undone.')) return;
+  firebase.firestore().collection('lostItems').doc(_lostItemModalId).delete().catch(() => {});
+  document.getElementById('lostItemAdminModal').style.display = 'none';
+};
+
+window._lostItemAdminDeleteId = function(id) {
+  if (!confirm('Delete this lost item report? This cannot be undone.')) return;
+  firebase.firestore().collection('lostItems').doc(id).delete().catch(() => {});
+};
+
+// Close modal on backdrop click
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('lostItemAdminModal');
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Render statistics
 function renderStats() {
@@ -141,7 +251,6 @@ function renderStats() {
   
   safe('statTotalItems', '...');
   safe('statClaimed', '...');
-  safe('statSoon', '...');
   
   // Check if we have Firebase-enabled DataStore
   if (window.DataStore?.getItemsAsync) {
@@ -174,7 +283,24 @@ function updateStats(items) {
   safe('statTotalItems', total);
   safe('statActive', pending);
   safe('statClaimed', claimed);
-  safe('statSoon', soon);
+}
+
+function watchActiveLostCount() {
+  let retries = 40;
+  function tryWatch() {
+    try {
+      if (!window.firebase || !firebase.apps || !firebase.apps.length) throw new Error('not ready');
+      firebase.firestore().collection('lostItems')
+        .onSnapshot(snap => {
+          const count = snap.docs.filter(d => (d.data().status || 'active') === 'active').length;
+          const el = document.getElementById('statActiveLost');
+          if (el) el.textContent = count;
+        }, () => {});
+    } catch (e) {
+      if (retries-- > 0) setTimeout(tryWatch, 300);
+    }
+  }
+  tryWatch();
 }
 
 // Format date helper

@@ -1104,7 +1104,9 @@ function sendMessage(chatId, messageText, sender) {
         lastMessage: messageText,
         lastTimestamp: timestamp,
         lastSender: sender,
-        unreadCount: firebase.firestore.FieldValue.increment(sender === 'admin' ? 0 : 1)
+        unreadCount: firebase.firestore.FieldValue.increment(sender === 'admin' ? 0 : 1),
+        userHidden: firebase.firestore.FieldValue.delete(),
+        userHiddenAt: firebase.firestore.FieldValue.delete()
       });
     })
     .catch(error => {
