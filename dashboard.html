@@ -1580,7 +1580,8 @@
                 
                 // Start building HTML for all items at once (safer approach)
                 let allItemsHTML = '';
-                
+                window._itemDataCache = window._itemDataCache || {};
+
                 // Process each document and build HTML string
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
@@ -1647,6 +1648,9 @@
                         statusBadge = `<div class="status-badge status-active">Active</div>`;
                     }
                     
+                    // Cache item data so modal opens instantly without re-fetching
+                    window._itemDataCache[id] = { id, ...data, _imageUrl: imageUrl };
+
                     // Build HTML for this item
                     allItemsHTML += `
                         <div class="item-card" data-item-id="${id}" onclick="_showFoundItemModal('${id}')" style="cursor:pointer;">
@@ -1691,10 +1695,25 @@
         
         // ── Found Item Detail Modal ──────────────────────────────────────────
         function _showFoundItemModal(itemId) {
+            // Remove any already-open modal first (prevents stacking / stuck close buttons)
+            document.getElementById('foundItemModal')?.remove();
+
+            // Use cached data for instant open; fall back to Firestore only on cache miss
+            const cached = window._itemDataCache?.[itemId];
+            if (cached) {
+                _renderFoundItemModal(cached);
+                return;
+            }
             if (!window.firebase?.firestore) return;
             firebase.firestore().collection('items').doc(itemId).get().then(doc => {
                 if (!doc.exists) return;
                 const item = { id: itemId, ...doc.data() };
+                _renderFoundItemModal(item);
+            }).catch(() => {});
+        }
+
+        function _renderFoundItemModal(item) {
+                const itemId = item.id;
 
                 // Format date
                 let dateStr = 'Unknown';
@@ -1825,7 +1844,6 @@
                 document.addEventListener('keydown', function onEsc(e) {
                     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
                 });
-            }).catch(() => {});
         }
 
         // Additional helper functions
