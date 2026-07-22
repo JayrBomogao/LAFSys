@@ -394,6 +394,7 @@ function addItemModalStyles() {
     
     .item-detail-value {
       color: #334155;
+      font-weight: 600;
     }
     
     .item-modal-actions {

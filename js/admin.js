@@ -25,15 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
   renderRecentItemsWithoutActions();
   renderInbox();
   watchActiveLostCount();
-
-  // Active Lost Items card → navigate to Lost Items section
-  const activeLostCard = document.getElementById('activeLostCard');
-  if (activeLostCard) {
-    activeLostCard.addEventListener('click', () => {
-      document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-      activateSection('lost-items');
-    });
-  }
+  watchClaimedResolvedCount();
+  watchPendingLostCount();
+  initAdminLostItems(); // keeps _lostItemsCurrent live for modal lookups
   
   // If not on dashboard, load the appropriate section data
   if (lastActiveSection === 'users') renderUsers();
@@ -149,6 +143,7 @@ function switchSection(section) {
 let _lostItemsUnsub = null;
 let _lostItemsCurrent = [];
 let _lostItemModalId = null;
+let _lostItemCurrentData = null;
 
 function initAdminLostItems() {
   if (_lostItemsUnsub) return; // already listening
@@ -175,7 +170,9 @@ function _renderAdminLostItems() {
   }
 
   container.innerHTML = items.map(item => {
-    const statusColor = item.status === 'resolved' ? '#10b981' : '#f59e0b';
+    const isPending   = item.status === 'pending';
+    const statusColor = item.status === 'resolved' ? '#10b981' : isPending ? '#dc2626' : '#f59e0b';
+    const statusLabel = isPending ? 'Pending' : (item.status || 'active');
     const thumb = item.image
       ? `<img src="${item.image}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">`
       : `<div style="width:40px;height:40px;background:#f1f5f9;border-radius:6px;flex-shrink:0;"></div>`;
@@ -186,8 +183,9 @@ function _renderAdminLostItems() {
         <div style="color:#64748b;">${item.lastLocation || '—'}</div>
         <div style="color:#64748b;">${item.dateLost || '—'}</div>
         <div style="color:#64748b;">${item.userName || item.userEmail || '—'}</div>
-        <div><span style="background:${statusColor}22;color:${statusColor};padding:2px 10px;border-radius:99px;font-size:0.78rem;font-weight:600;text-transform:capitalize;">${item.status || 'active'}</span></div>
+        <div><span style="background:${statusColor}22;color:${statusColor};padding:2px 10px;border-radius:99px;font-size:0.78rem;font-weight:600;text-transform:capitalize;">${statusLabel}</span></div>
         <div onclick="event.stopPropagation()" class="action-buttons">
+          ${isPending ? `<button class="btn-icon" title="Approve" style="color:#10b981;" onclick="window._lostItemAdminApproveId('${item.id}')"><i data-lucide="check-circle" width="16" height="16"></i></button>` : ''}
           <button class="btn-icon" title="View" onclick="window._openLostItemModal('${item.id}')"><i data-lucide="eye" width="16" height="16"></i></button>
           ${item.userId ? `<button class="btn-icon" title="Chat with user" style="color:#059669;" onclick="window._adminChatWithUser('${item.userId}','${(item.userName||item.userEmail||'User').replace(/'/g,"\\'")}','${item.id}')"><i data-lucide="message-circle" width="16" height="16"></i></button>` : ''}
           <button class="btn-icon delete" title="Delete" onclick="window._lostItemAdminDeleteId('${item.id}')"><i data-lucide="trash-2" width="16" height="16"></i></button>
@@ -199,24 +197,144 @@ function _renderAdminLostItems() {
 }
 
 window._openLostItemModal = function(id) {
-  const item = _lostItemsCurrent.find(i => i.id === id);
-  if (!item) return;
-  _lostItemModalId = id;
+  const cached = _lostItemsCurrent.find(i => i.id === id);
+  if (cached) { _showLostItemModal(cached); return; }
+  firebase.firestore().collection('lostItems').doc(id).get()
+    .then(doc => { if (doc.exists) _showLostItemModal({ id: doc.id, ...doc.data() }); });
+};
+
+function _showLostItemModal(item) {
+  if (typeof addItemModalStyles === 'function') addItemModalStyles();
+  _lostItemModalId    = item.id;
+  _lostItemCurrentData = item;
+
+  // Reset to view mode
+  document.getElementById('liamEditForm').style.display    = 'none';
+  document.getElementById('liamDetailRows').style.display  = '';
+  const descSection = document.querySelector('#lostItemAdminModal .item-detail-section');
+  if (descSection) descSection.style.display = '';
+  document.getElementById('liamViewActions').style.display = 'flex';
+  document.getElementById('liamEditActions').style.display = 'none';
+  const saveBtn = document.getElementById('liamSaveBtn');
+  if (saveBtn) { saveBtn.textContent = 'Save Changes'; saveBtn.disabled = false; }
+
   document.getElementById('liamTitle').textContent    = item.title || 'Lost Item';
   document.getElementById('liamCategory').textContent = item.category || '—';
   document.getElementById('liamLocation').textContent = item.lastLocation || '—';
-  document.getElementById('liamDate').textContent     = item.dateLost || '—';
+  document.getElementById('liamDate').textContent     = formatDate(item.dateLost);
   document.getElementById('liamContact').textContent  = item.contactNumber || '—';
   document.getElementById('liamPostedBy').textContent = (item.userName || '') + (item.userEmail ? ' (' + item.userEmail + ')' : '');
   document.getElementById('liamStatus').textContent   = item.status || 'active';
   document.getElementById('liamDesc').textContent     = item.description || '—';
-  const img = document.getElementById('liamImage');
-  img.src = item.image || '';
-  img.style.display = item.image ? '' : 'none';
+
+  // Badge: PENDING or LOST
+  const badge = document.getElementById('liamTypeBadge');
+  if (badge) {
+    if (item.status === 'pending') {
+      badge.textContent = 'PENDING APPROVAL';
+      badge.style.background = '#fef3c7';
+      badge.style.color = '#92400e';
+    } else {
+      badge.textContent = 'LOST';
+      badge.style.background = '#fef3c7';
+      badge.style.color = '#b45309';
+    }
+  }
+
+  // Show/hide Approve and Resolve buttons based on status
+  const approveBtn = document.getElementById('liamApproveBtn');
   const resolveBtn = document.getElementById('liamResolveBtn');
-  resolveBtn.textContent = item.status === 'resolved' ? 'Mark as Active' : 'Mark as Resolved';
-  const modal = document.getElementById('lostItemAdminModal');
-  modal.style.display = 'flex';
+  const editBtn    = document.getElementById('liamEditBtn');
+  if (item.status === 'pending') {
+    if (approveBtn) approveBtn.style.display = '';
+    if (resolveBtn) resolveBtn.style.display = 'none';
+    if (editBtn)    editBtn.style.display    = 'none';
+  } else {
+    if (approveBtn) approveBtn.style.display = 'none';
+    if (resolveBtn) {
+      resolveBtn.style.display = '';
+      resolveBtn.textContent = item.status === 'resolved' ? 'Mark as Active' : 'Mark as Resolved';
+    }
+    if (editBtn) editBtn.style.display = '';
+  }
+
+  const img   = document.getElementById('liamImage');
+  const noImg = document.getElementById('liamNoImg');
+  if (item.image) {
+    img.src = item.image;
+    img.style.display = '';
+    if (noImg) noImg.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    if (noImg) noImg.style.display = 'flex';
+  }
+
+  document.getElementById('lostItemAdminModal').style.display = 'flex';
+}
+
+window._lostItemAdminEdit = function() {
+  if (!_lostItemCurrentData) return;
+  const item = _lostItemCurrentData;
+
+  // Populate edit fields
+  document.getElementById('liamEditTitle').value    = item.title || '';
+  document.getElementById('liamEditDesc').value     = item.description || '';
+  document.getElementById('liamEditCategory').value = item.category || '';
+  document.getElementById('liamEditLocation').value = item.lastLocation || '';
+  document.getElementById('liamEditDate').value     = item.dateLost || '';
+  document.getElementById('liamEditContact').value  = item.contactNumber || '';
+
+  // Switch to edit mode
+  const descSection = document.querySelector('#lostItemAdminModal .item-detail-section');
+  if (descSection) descSection.style.display = 'none';
+  document.getElementById('liamDetailRows').style.display  = 'none';
+  document.getElementById('liamEditForm').style.display    = 'flex';
+  document.getElementById('liamViewActions').style.display = 'none';
+  document.getElementById('liamEditActions').style.display = 'flex';
+  document.getElementById('liamEditTitle').focus();
+};
+
+window._lostItemAdminCancelEdit = function() {
+  if (_lostItemCurrentData) _showLostItemModal(_lostItemCurrentData);
+};
+
+window._lostItemAdminSaveEdit = function() {
+  if (!_lostItemModalId) return;
+  const updates = {
+    title:         document.getElementById('liamEditTitle').value.trim(),
+    description:   document.getElementById('liamEditDesc').value.trim(),
+    category:      document.getElementById('liamEditCategory').value.trim(),
+    lastLocation:  document.getElementById('liamEditLocation').value.trim(),
+    dateLost:      document.getElementById('liamEditDate').value,
+    contactNumber: document.getElementById('liamEditContact').value.trim(),
+    updatedAt:     firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if (!updates.title) { alert('Title is required.'); return; }
+
+  const saveBtn = document.getElementById('liamSaveBtn');
+  if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
+
+  firebase.firestore().collection('lostItems').doc(_lostItemModalId).update(updates)
+    .then(() => {
+      const idx = _lostItemsCurrent.findIndex(i => i.id === _lostItemModalId);
+      if (idx !== -1) _lostItemsCurrent[idx] = { ..._lostItemsCurrent[idx], ...updates };
+      _showLostItemModal({ ..._lostItemCurrentData, ...updates });
+    })
+    .catch(err => {
+      alert('Failed to save: ' + err.message);
+      if (saveBtn) { saveBtn.textContent = 'Save Changes'; saveBtn.disabled = false; }
+    });
+};
+
+window._lostItemAdminApprove = function() {
+  if (!_lostItemModalId) return;
+  firebase.firestore().collection('lostItems').doc(_lostItemModalId).update({ status: 'active' }).catch(() => {});
+  document.getElementById('lostItemAdminModal').style.display = 'none';
+};
+
+window._lostItemAdminApproveId = function(id) {
+  if (!confirm('Approve this lost item? It will become visible to all users.')) return;
+  firebase.firestore().collection('lostItems').doc(id).update({ status: 'active' }).catch(() => {});
 };
 
 window._lostItemAdminResolve = function() {
@@ -296,10 +414,12 @@ window._adminChatWithUser = function(userId, userName, lostItemId) {
   }, 600);
 };
 
-// Close modal on backdrop click
-document.addEventListener('DOMContentLoaded', () => {
-  const modal = document.getElementById('lostItemAdminModal');
-  if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+// Close lost item modal on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('lostItemAdminModal');
+    if (modal && modal.style.display !== 'none') modal.style.display = 'none';
+  }
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -310,7 +430,7 @@ function renderStats() {
   const safe = (id, v) => { const el = byId(id); if (el) el.textContent = String(v); };
   
   safe('statTotalItems', '...');
-  safe('statClaimed', '...');
+  // Do NOT reset statClaimed here — watchClaimedResolvedCount owns that element
   
   // Check if we have Firebase-enabled DataStore
   if (window.DataStore?.getItemsAsync) {
@@ -330,19 +450,15 @@ function renderStats() {
   }
 }
 
-// Update statistics
+// Update statistics (statClaimed is kept live by watchClaimedResolvedCount)
 function updateStats(items) {
-  const total = items.length;
-  const claimed = items.filter(i => i.status === 'claimed').length;
-  const soon = items.filter(i => i.status === 'soon').length;
+  const total   = items.length;
   const pending = items.filter(i => i.status === 'active').length;
 
-  const byId = id => document.getElementById(id);
-  const safe = (id, v) => { const el = byId(id); if (el) el.textContent = String(v); };
-
+  const safe = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
   safe('statTotalItems', total);
   safe('statActive', pending);
-  safe('statClaimed', claimed);
+  // Don't touch statClaimed here — watchClaimedResolvedCount owns it
 }
 
 function watchActiveLostCount() {
@@ -358,6 +474,118 @@ function watchActiveLostCount() {
         }, () => {});
     } catch (e) {
       if (retries-- > 0) setTimeout(tryWatch, 300);
+    }
+  }
+  tryWatch();
+}
+
+// Notification badge + toast for pending lost item submissions
+function watchPendingLostCount() {
+  let retries = 40;
+  let prevCount = null; // null = first load, don't toast
+  function tryWatch() {
+    try {
+      if (!window.firebase || !firebase.apps || !firebase.apps.length) throw new Error('not ready');
+      firebase.firestore().collection('lostItems').where('status', '==', 'pending')
+        .onSnapshot(snap => {
+          const count = snap.size;
+          const badge = document.getElementById('pendingLostBadge');
+          if (badge) {
+            if (count > 0) {
+              badge.textContent = count;
+              badge.style.display = '';
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+          // Show toast only when a new item arrives after initial load
+          if (prevCount !== null && count > prevCount) {
+            const added = count - prevCount;
+            showAdminToast(
+              `${added} new lost item report${added > 1 ? 's' : ''} pending approval`,
+              'lost-items'
+            );
+          }
+          prevCount = count;
+        }, () => {});
+    } catch (e) {
+      if (retries-- > 0) setTimeout(tryWatch, 300);
+    }
+  }
+  tryWatch();
+}
+
+function showAdminToast(message, section) {
+  const toast = document.createElement('div');
+  toast.style.cssText = [
+    'position:fixed', 'bottom:24px', 'right:24px',
+    'background:#1a2e6b', 'color:#fff',
+    'padding:14px 20px', 'border-radius:10px',
+    'box-shadow:0 4px 16px rgba(0,0,0,0.2)',
+    'z-index:99999', 'display:flex', 'align-items:center', 'gap:12px',
+    'font-size:0.93rem', 'max-width:340px', 'cursor:pointer',
+    'border-left:4px solid #f07316'
+  ].join(';');
+  toast.innerHTML = `
+    <span style="font-size:1.3rem;">🔍</span>
+    <div style="flex:1;">
+      <div style="font-weight:700; margin-bottom:2px;">Lost Item Alert</div>
+      <div style="opacity:0.9;">${message}</div>
+    </div>
+    <span style="opacity:0.6; font-size:1.1rem; line-height:1; cursor:pointer;" onclick="this.parentElement.remove()">×</span>`;
+  toast.addEventListener('click', function(e) {
+    if (e.target.tagName === 'SPAN' && e.target.style.cursor === 'pointer') return;
+    if (section) {
+      const link = document.querySelector(`.nav-link[data-section="${section}"]`);
+      if (link) link.click();
+    }
+    toast.remove();
+  });
+  document.body.appendChild(toast);
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => { if (toast.isConnected) toast.remove(); }, 8000);
+}
+
+// Live counter for claimed found items + resolved lost items combined
+function watchClaimedResolvedCount() {
+  let retries = 40;
+  let foundClaimed = 0;
+  let lostResolved = 0;
+
+  const setEl = v => {
+    const el = document.getElementById('statClaimed');
+    if (el) el.textContent = String(v);
+  };
+  const update = () => setEl(foundClaimed + lostResolved);
+
+  function tryWatch() {
+    try {
+      if (!window.firebase || !firebase.apps || !firebase.apps.length) throw new Error('not ready');
+      const db = firebase.firestore();
+
+      // Immediate one-time fetch so the count shows without waiting for socket
+      Promise.all([
+        db.collection('items').where('status', '==', 'claimed').get(),
+        db.collection('lostItems').where('status', '==', 'resolved').get()
+      ]).then(([foundSnap, lostSnap]) => {
+        foundClaimed = foundSnap.size;
+        lostResolved = lostSnap.size;
+        update();
+      }).catch(() => setEl(0));
+
+      // Real-time listeners for live updates
+      db.collection('items').where('status', '==', 'claimed')
+        .onSnapshot(snap => { foundClaimed = snap.size; update(); },
+                    ()   => { db.collection('items').where('status','==','claimed').get()
+                                .then(s => { foundClaimed = s.size; update(); }).catch(() => {}); });
+
+      db.collection('lostItems').where('status', '==', 'resolved')
+        .onSnapshot(snap => { lostResolved = snap.size; update(); },
+                    ()   => { db.collection('lostItems').where('status','==','resolved').get()
+                                .then(s => { lostResolved = s.size; update(); }).catch(() => {}); });
+    } catch (e) {
+      if (retries-- > 0) setTimeout(tryWatch, 300);
+      else setEl(0);
     }
   }
   tryWatch();
@@ -389,8 +617,9 @@ function formatDate(dateStr) {
 
 // Status badge helper
 function statusBadge(status) {
-  if (status === 'claimed') return '<span class="status-badge status-completed">Claimed</span>';
-  if (status === 'soon') return '<span class="status-badge status-pending">Disposal Soon</span>';
+  if (status === 'claimed')   return '<span class="status-badge status-completed">Claimed</span>';
+  if (status === 'resolved')  return '<span class="status-badge status-completed">Resolved</span>';
+  if (status === 'soon')      return '<span class="status-badge status-pending">Disposal Soon</span>';
   return '<span class="status-badge status-active">Active</span>';
 }
 
@@ -413,99 +642,118 @@ function statusDropdown(currentStatus) {
   `;
 }
 
-// Render Recent Items WITHOUT ANY ACTIONS (Dashboard section)
-function renderRecentItemsWithoutActions() {
+// _applyDashboardFilter — called by stat card clicks
+window._applyDashboardFilter = function(filterType) {
+  const heading = document.getElementById('recentItemsHeading');
+  const titleEl  = document.getElementById('pageTitle');
+  const headingMap = { all: 'Recent Items', active: 'Recent Active Found Items', claimed: 'Recent Claimed / Resolved Items', soon: 'Recent Items for Disposal', lost: 'Active Lost Reports' };
+  const titleMap   = { all: 'Dashboard',    active: 'Active Found Items',        claimed: 'Items Claimed / Resolved',       soon: 'Items for Disposal',         lost: 'Active Lost Items' };
+  if (heading) heading.textContent = headingMap[filterType] || 'Recent Items';
+  if (titleEl)  titleEl.textContent  = titleMap[filterType]  || 'Dashboard';
+  renderRecentItemsWithoutActions(filterType);
+};
+
+// Render combined found + lost items in the dashboard table
+function renderRecentItemsWithoutActions(statusFilter) {
   const container = document.getElementById('recentItemsContainer');
   if (!container) return;
-  
-  // Show loading state
-  container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading recent items...</div></div>';
-  
-  // Check if we have Firebase-enabled DataStore
-  if (window.DataStore?.getItemsAsync) {
-    // Use async version
-    window.DataStore.getItemsAsync().then(items => {
-      // Take the first 10 items
-      const recentItems = items.slice(0, 10);
-      displayReadOnlyRecentItems(recentItems, container);
-    }).catch(err => {
-      console.error('Error loading recent items:', err);
-      container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Error loading items</div></div>';
+
+  container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading...</div></div>';
+
+  const needFound = !statusFilter || statusFilter === 'all' || statusFilter === 'active' || statusFilter === 'claimed' || statusFilter === 'soon';
+  const needLost  = !statusFilter || statusFilter === 'all' || statusFilter === 'lost' || statusFilter === 'claimed';
+
+  const foundPromise = needFound
+    ? (window.DataStore?.getItemsAsync ? window.DataStore.getItemsAsync() : Promise.resolve(window.DataStore?.getItemsSync?.() || []))
+    : Promise.resolve([]);
+
+  const lostPromise = needLost && window.firebase?.apps?.length
+    ? firebase.firestore().collection('lostItems').orderBy('postedAt', 'desc').limit(50).get()
+        .then(snap => snap.docs.map(d => ({ id: d.id, _type: 'lost', ...d.data() })))
+    : Promise.resolve([]);
+
+  Promise.all([foundPromise, lostPromise]).then(([foundItems, lostItems]) => {
+    let combined = [
+      ...foundItems.map(i => ({ ...i, _type: 'found' })),
+      ...lostItems
+    ];
+
+    if (statusFilter === 'active')  combined = combined.filter(i => i._type === 'found' && i.status === 'active');
+    else if (statusFilter === 'claimed') combined = combined.filter(i =>
+      (i._type === 'found' && i.status === 'claimed') ||
+      (i._type === 'lost'  && i.status === 'resolved'));
+    else if (statusFilter === 'soon')    combined = combined.filter(i => i._type === 'found' && i.status === 'soon');
+    else if (statusFilter === 'lost')    combined = combined.filter(i => i._type === 'lost'  && (i.status || 'active') === 'active');
+
+    combined.sort((a, b) => {
+      const ta = a._type === 'found'
+        ? (a.date?.toMillis?.() || new Date(a.date || 0).getTime() || 0)
+        : (a.postedAt?.toMillis?.() || 0);
+      const tb = b._type === 'found'
+        ? (b.date?.toMillis?.() || new Date(b.date || 0).getTime() || 0)
+        : (b.postedAt?.toMillis?.() || 0);
+      return tb - ta;
     });
-  } else {
-    // Fall back to old method
-    const items = (window.DataStore?.getItemsSync?.() || []).slice(0, 10);
-    displayReadOnlyRecentItems(items, container);
-  }
+
+    // 'all' shows everything; specific filters cap at 10
+    const limit = (!statusFilter || statusFilter === 'all') ? combined.length : 10;
+    displayReadOnlyRecentItems(combined.slice(0, limit), container);
+  }).catch(err => {
+    console.error('Error loading items:', err);
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Error loading items</div></div>';
+  });
 }
 
-// Display Recent Items WITHOUT ANY ACTIONS (Dashboard section)
+// Display combined found + lost items in the dashboard table
 function displayReadOnlyRecentItems(items, container) {
-  if (!items.length) { 
-    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No items found.</div></div>'; 
-    return; 
+  if (!items.length) {
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">No items found.</div></div>';
+    return;
   }
-  
-  // Generate READ-ONLY items with NO action buttons - NO HEADER
-  const rowsHTML = items.map(item => `
-    <div class="table-row read-only-row" data-id="${item.id}" data-status="${item.status}">
-      <div class="item-info">
-        <img src="${item.image}" alt="${item.title}" class="item-image" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
-        <div>
-          <div class="item-name">${item.title}</div>
-          <div class="item-category">${item.category || ''}</div>
+
+  const rowsHTML = items.map(item => {
+    const isLost     = item._type === 'lost';
+    const location   = isLost ? (item.lastLocation || '') : (item.location || '');
+    const dateStr    = isLost ? formatDate(item.dateLost) : formatDate(item.date);
+    const imgSrc     = item.image || 'https://via.placeholder.com/400x300?text=No+Image';
+    const typeBadge  = isLost
+      ? `<span style="background:#fef3c7;color:#b45309;padding:2px 10px;border-radius:99px;font-size:0.7rem;font-weight:700;letter-spacing:0.04em;">LOST</span>`
+      : `<span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:99px;font-size:0.7rem;font-weight:700;letter-spacing:0.04em;">FOUND</span>`;
+    const statusHtml = statusBadge(item.status || 'active');
+
+    return `
+      <div class="table-row read-only-row" data-id="${item.id}" data-status="${item.status || ''}" data-type="${item._type || 'found'}">
+        <div class="item-info">
+          <img src="${imgSrc}" alt="${item.title || ''}" class="item-image" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+          <div>
+            <div class="item-name">${item.title || '—'}</div>
+            <div class="item-category">${item.category || ''}</div>
+          </div>
         </div>
-      </div>
-      <div>${item.location || ''}</div>
-      <div>${formatDate(item.date)}</div>
-      <div class="status-badge-container">
-        ${statusBadge(item.status)}
-      </div>
-      <div class="manage-in-items">
-        <span>Manage in Items tab</span>
-      </div>
-    </div>
-  `).join('');
-  
-  // Set the content WITHOUT adding a header
+        <div>${location}</div>
+        <div>${dateStr}</div>
+        <div class="status-badge-container">${statusHtml}</div>
+        <div>${typeBadge}</div>
+      </div>`;
+  }).join('');
+
   container.innerHTML = rowsHTML;
-  
-  // Apply styling and click handlers to read-only rows
+
   container.querySelectorAll('.read-only-row').forEach(row => {
-    // Make cursor a pointer to indicate it's clickable
     row.style.cursor = 'pointer';
-    
-    // Add hover effect handlers
-    row.addEventListener('mouseenter', function() {
-      this.classList.add('table-row-hover');
-    });
-    
-    row.addEventListener('mouseleave', function() {
-      this.classList.remove('table-row-hover');
-    });
-    
-    // Add click event to show item details in modal
+    row.addEventListener('mouseenter', function() { this.classList.add('table-row-hover'); });
+    row.addEventListener('mouseleave', function() { this.classList.remove('table-row-hover'); });
     row.addEventListener('click', function(e) {
-      // Prevent default behavior
       e.preventDefault();
-      
-      // Get item ID from row data attribute
-      const itemId = this.dataset.id;
-      if (itemId && typeof showItemDetailsModal === 'function') {
-        // Call the modal function from admin-modal.js
-        showItemDetailsModal(itemId);
+      const itemId   = this.dataset.id;
+      const itemType = this.dataset.type;
+      if (!itemId) return;
+      if (itemType === 'lost') {
+        if (window._openLostItemModal) window._openLostItemModal(itemId);
       } else {
-        console.log('View item details:', itemId);
+        if (typeof showItemDetailsModal === 'function') showItemDetailsModal(itemId);
       }
     });
-  });
-  
-  // Style the manage-in-items text
-  container.querySelectorAll('.manage-in-items').forEach(el => {
-    el.style.color = '#6b7280';
-    el.style.fontStyle = 'italic';
-    el.style.fontSize = '0.8rem';
-    el.style.textAlign = 'center';
   });
 }
 
