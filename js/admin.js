@@ -151,11 +151,11 @@ function initAdminLostItems() {
   const db = firebase.firestore();
   _lostItemsUnsub = db.collection('lostItems')
     .orderBy('postedAt', 'desc')
-    .onSnapshot(snap => {
+    .onSnapshot({ includeMetadataChanges: true }, snap => {
       _lostItemsCurrent = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _renderAdminLostItems();
-      // Keep dashboard Recent Items in sync when lost items change
-      if (_statsInitialized) renderRecentItemsWithoutActions();
+      // Only re-render dashboard table from server data to avoid stale-cache flashes
+      if (_statsInitialized && !snap.metadata.fromCache) renderRecentItemsWithoutActions();
     }, () => {});
 
   document.getElementById('lostItemStatusFilter')?.addEventListener('change', _renderAdminLostItems);
@@ -467,10 +467,16 @@ function watchFoundItemsStats() {
   function tryWatch() {
     try {
       if (!window.firebase || !firebase.apps || !firebase.apps.length) throw new Error('not ready');
-      firebase.firestore().collection('items').onSnapshot(snap => {
+      // includeMetadataChanges lets us tell cache snapshots from server snapshots.
+      // Firebase offline persistence fires a cache snapshot first (often empty/stale),
+      // which would set _cachedFoundItems=[] and render "No items found" before the
+      // real data arrives. We update stats from cache (quick feedback) but only
+      // populate _cachedFoundItems and render the table from the server snapshot.
+      firebase.firestore().collection('items').onSnapshot({ includeMetadataChanges: true }, snap => {
         const safe = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
         safe('statTotalItems', snap.size);
         safe('statActive', snap.docs.filter(d => d.data().status === 'active').length);
+        if (snap.metadata.fromCache) return; // keep skeleton until server confirms
         _statsInitialized = true;
         _cachedFoundItems = snap.docs.map(d => ({ id: d.id, _type: 'found', ...d.data() }));
         renderRecentItemsWithoutActions();
