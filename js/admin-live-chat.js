@@ -26,7 +26,7 @@ const resolvedNameCache = {};
 
 // Notification state
 let knownChatIds = new Set();
-let isFirstLoad = true;
+let isFirstServerSnapshot = true; // true until the first non-cache snapshot is consumed
 let newChatCount = 0;
 const originalPageTitle = document.title || 'Admin Dashboard - Lost & Found Baguio';
 let titleFlashInterval = null;
@@ -125,56 +125,83 @@ function _goOnlineWhenReady() {
 
 // Start a background Firestore listener for new chats
 function startNotificationListener() {
-  if (!window.firebase?.firestore) {
-    console.log('Firebase not ready for notifications, retrying in 2s...');
+  // Check that Firebase is actually initialized (not just the SDK loaded)
+  if (!window.firebase?.apps?.length) {
     setTimeout(startNotificationListener, 2000);
     return;
   }
-  
-  console.log('Starting inbox notification listener');
+
   const db = firebase.firestore();
-  
+
+  // includeMetadataChanges lets us distinguish cache snapshots from server snapshots.
+  // Firebase offline persistence fires onSnapshot TWICE on startup:
+  //   1. A cache snapshot (fromCache:true)  — may be empty or stale
+  //   2. A server snapshot (fromCache:false) — the real current data
+  // Without this flag the old isFirstLoad trick was consumed by the (possibly empty) cache
+  // snapshot, making all real server docs look like "new" chats.
   db.collection(CHAT_COLLECTION)
     .where('active', '==', true)
     .where('isNewSession', '==', true)
-    .onSnapshot((snapshot) => {
-      if (isFirstLoad) {
-        // On first load, just record existing chat IDs without notifying
-        snapshot.forEach(doc => knownChatIds.add(doc.id));
-        isFirstLoad = false;
-        console.log('Notification listener initialized with', knownChatIds.size, 'existing chats');
+    .onSnapshot({ includeMetadataChanges: true }, (snapshot) => {
+      if (snapshot.metadata.fromCache) {
+        // Cache snapshot — silently populate knownChatIds.
+        // Only badge chats that actually have unread messages (unreadCount > 0),
+        // not every active chat the admin just hasn't archived yet.
+        let unread = 0;
+        snapshot.forEach(doc => {
+          knownChatIds.add(doc.id);
+          if ((doc.data().unreadCount || 0) > 0) unread++;
+        });
+        if (unread > 0 && localStorage.getItem('adminActiveSection') !== 'inbox') {
+          newChatCount = unread;
+          updateInboxBadge(unread);
+        }
         return;
       }
-      
-      // Check for new chats
+
+      if (isFirstServerSnapshot) {
+        // First real server snapshot — silently record existing chats.
+        // Show badge only for chats with actual unread messages.
+        let unread = 0;
+        snapshot.forEach(doc => {
+          knownChatIds.add(doc.id);
+          if ((doc.data().unreadCount || 0) > 0) unread++;
+        });
+        isFirstServerSnapshot = false;
+        if (localStorage.getItem('adminActiveSection') !== 'inbox') {
+          newChatCount = unread;
+          updateInboxBadge(unread);
+        }
+        return;
+      }
+
+      // Subsequent server snapshots — detect chats that genuinely arrived this session
       let newChatsDetected = 0;
       snapshot.docChanges().forEach(change => {
+        if (change.type === 'removed') {
+          knownChatIds.delete(change.doc.id);
+          newChatCount = Math.max(0, newChatCount - 1);
+          return;
+        }
         if (change.type === 'added' && !knownChatIds.has(change.doc.id)) {
           knownChatIds.add(change.doc.id);
           newChatsDetected++;
-          
           const chatData = change.doc.data();
-          console.log('New chat detected from:', chatData.userName);
-          
-          // Show toast notification
           showNewChatToast(chatData.userName || 'Unknown User');
-          
-          // Play notification sound
           playNotificationSound();
-        } else if (change.type === 'removed') {
-          knownChatIds.delete(change.doc.id);
         }
       });
-      
+
       if (newChatsDetected > 0) {
-        // Only show badge if admin is NOT currently on the inbox section
         const activeSection = localStorage.getItem('adminActiveSection');
         if (activeSection !== 'inbox') {
           newChatCount += newChatsDetected;
           updateInboxBadge(newChatCount);
         }
-        // Always update the browser tab title with count
         updateTabTitle(newChatCount > 0 ? newChatCount : newChatsDetected);
+      } else {
+        // Update badge in case removals changed the count
+        updateInboxBadge(newChatCount);
       }
     }, (error) => {
       console.error('Notification listener error:', error);

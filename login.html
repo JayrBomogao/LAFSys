@@ -528,7 +528,8 @@ async function sendOTP(isResend) {
     const confirm  = document.getElementById('regConfirm').value;
 
     if (!name)     { showAlert('registerAlert', 'Please enter your full name.'); return; }
-    if (!email)    { showAlert('registerAlert', 'Please enter your email.'); return; }
+    if (!email)    { showAlert('registerAlert', 'Please enter your email address.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAlert('registerAlert', 'Please enter a valid email address.'); return; }
     if (!password) { showAlert('registerAlert', 'Please enter a password.'); return; }
     if (password.length < 6) { showAlert('registerAlert', 'Password must be at least 6 characters.'); return; }
     if (password !== confirm) { showAlert('registerAlert', 'Passwords do not match.'); return; }
@@ -585,7 +586,16 @@ async function sendOTP(isResend) {
     } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Send Verification Code';
-        showAlert('registerAlert', 'Failed to send email. Please try again. ' + (err.text || err.message || ''));
+        const raw = (err.text || err.message || '').toLowerCase();
+        let msg = 'Failed to send verification code. Please try again later.';
+        if (raw.includes('corrupt') || raw.includes('invalid') || raw.includes('recipient')) {
+            msg = 'Please enter a valid email address.';
+        } else if (raw.includes('quota') || raw.includes('limit') || raw.includes('rate')) {
+            msg = 'Too many requests. Please wait a moment and try again.';
+        } else if (raw.includes('network') || raw.includes('offline')) {
+            msg = 'Network error. Please check your connection and try again.';
+        }
+        showAlert('registerAlert', msg);
         console.error('EmailJS error:', err);
     }
 }

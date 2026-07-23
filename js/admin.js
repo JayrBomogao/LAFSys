@@ -109,7 +109,10 @@ function activateSection(section) {
   
   // Load section-specific data
   if (section === 'dashboard') {
-    renderRecentItemsWithoutActions();
+    // Only render immediately if Firebase is already ready (e.g. user navigated away and back).
+    // On initial page load _statsInitialized is false — watchFoundItemsStats() will call
+    // renderRecentItemsWithoutActions() once the first snapshot fires.
+    if (_statsInitialized) renderRecentItemsWithoutActions();
   }
   else if (section === 'users') { 
     renderUsers(); 
@@ -151,6 +154,8 @@ function initAdminLostItems() {
     .onSnapshot(snap => {
       _lostItemsCurrent = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _renderAdminLostItems();
+      // Keep dashboard Recent Items in sync when lost items change
+      if (_statsInitialized) renderRecentItemsWithoutActions();
     }, () => {});
 
   document.getElementById('lostItemStatusFilter')?.addEventListener('change', _renderAdminLostItems);
@@ -451,6 +456,11 @@ function updateStats(items) {
   // Don't touch statClaimed here — watchClaimedResolvedCount owns it
 }
 
+// Tracks whether the first Firestore snapshot has fired (Firebase is ready)
+let _statsInitialized = false;
+// Cache of found items from the watchFoundItemsStats snapshot (avoids extra .get() calls)
+let _cachedFoundItems = null;
+
 // Real-time watcher for Total Items + Active Found Items stats and recent table
 function watchFoundItemsStats() {
   let retries = 40;
@@ -461,7 +471,8 @@ function watchFoundItemsStats() {
         const safe = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
         safe('statTotalItems', snap.size);
         safe('statActive', snap.docs.filter(d => d.data().status === 'active').length);
-        // Also refresh the recent items table whenever data changes
+        _statsInitialized = true;
+        _cachedFoundItems = snap.docs.map(d => ({ id: d.id, _type: 'found', ...d.data() }));
         renderRecentItemsWithoutActions();
       }, () => {});
     } catch (e) {
@@ -668,26 +679,35 @@ function renderRecentItemsWithoutActions(statusFilter) {
   const container = document.getElementById('recentItemsContainer');
   if (!container) return;
 
-  container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading...</div></div>';
-
   const needFound = !statusFilter || statusFilter === 'all' || statusFilter === 'active' || statusFilter === 'claimed' || statusFilter === 'soon';
   const needLost  = !statusFilter || statusFilter === 'all' || statusFilter === 'lost' || statusFilter === 'claimed';
 
-  const foundPromise = needFound && window.firebase?.apps?.length
-    ? firebase.firestore().collection('items').orderBy('date', 'desc').limit(100).get()
-        .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    : Promise.resolve(window.DataStore?.getItemsSync?.() || []);
-
-  const lostPromise = needLost && window.firebase?.apps?.length
-    ? firebase.firestore().collection('lostItems').orderBy('postedAt', 'desc').limit(50).get()
-        .then(snap => snap.docs.map(d => ({ id: d.id, _type: 'lost', ...d.data() })))
+  // Use cached data when available — avoids extra Firestore round trips and eliminates the "Loading..." flash
+  const foundPromise = needFound
+    ? (_cachedFoundItems !== null
+        ? Promise.resolve(_cachedFoundItems)  // instant, already has _type:'found'
+        : (window.firebase?.apps?.length
+            ? firebase.firestore().collection('items').orderBy('date', 'desc').limit(100).get()
+                .then(snap => snap.docs.map(d => ({ id: d.id, _type: 'found', ...d.data() })))
+            : Promise.resolve([])))
     : Promise.resolve([]);
 
+  const lostPromise = needLost
+    ? (_lostItemsUnsub !== null
+        ? Promise.resolve(_lostItemsCurrent.map(i => ({ ...i, _type: 'lost' })))  // instant
+        : (window.firebase?.apps?.length
+            ? firebase.firestore().collection('lostItems').orderBy('postedAt', 'desc').limit(50).get()
+                .then(snap => snap.docs.map(d => ({ id: d.id, _type: 'lost', ...d.data() })))
+            : Promise.resolve([])))
+    : Promise.resolve([]);
+
+  // Only show "Loading..." when neither cache is ready (very first load before any snapshot fires)
+  if (_cachedFoundItems === null && _lostItemsUnsub === null) {
+    container.innerHTML = '<div class="table-row"><div style="grid-column: 1/-1; text-align: center;">Loading...</div></div>';
+  }
+
   Promise.all([foundPromise, lostPromise]).then(([foundItems, lostItems]) => {
-    let combined = [
-      ...foundItems.map(i => ({ ...i, _type: 'found' })),
-      ...lostItems
-    ];
+    let combined = [...foundItems, ...lostItems]; // both already carry _type
 
     if (statusFilter === 'active')  combined = combined.filter(i => i._type === 'found' && i.status === 'active');
     else if (statusFilter === 'claimed') combined = combined.filter(i =>
