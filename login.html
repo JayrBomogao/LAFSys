@@ -326,8 +326,19 @@ const OTP_COOLDOWN = 30 * 1000;       // 30 s
 let isRegistering = false;
 
 // ── Redirect if already logged in ────────────────────────────────────────────
-auth.onAuthStateChanged(user => {
-    if (user && !isRegistering) window.location.href = 'dashboard.html';
+auth.onAuthStateChanged(async user => {
+    if (user && !isRegistering) {
+        try {
+            const doc = await db.collection('users').doc(user.uid).get();
+            if (doc.exists && doc.data().role === 'admin') {
+                window.location.href = 'admin.html';
+            } else {
+                window.location.href = 'dashboard.html';
+            }
+        } catch (_) {
+            window.location.href = 'dashboard.html';
+        }
+    }
 });
 
 // ── Tab switching ─────────────────────────────────────────────────────────────

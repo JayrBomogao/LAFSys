@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login – Lost & Found Baguio City</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 1rem;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 440px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: #1e293b;
+            padding: 2rem 2rem 1.5rem;
+            text-align: center;
+            color: #fff;
+        }
+
+        .card-header .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 99px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            padding: 0.25rem 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .card-header h1 { font-size: 1.4rem; font-weight: 700; }
+        .card-header p  { font-size: 0.85rem; opacity: 0.65; margin-top: 0.3rem; }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.9rem;
+            background: none;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #6b7280;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .tab-btn.active {
+            color: #1e293b;
+            border-bottom-color: #1e293b;
+        }
+
+        .tab-panel { display: none; padding: 1.75rem 2rem 2rem; }
+        .tab-panel.active { display: block; }
+
+        .form-group { margin-bottom: 1rem; }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.4rem;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"] {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #111;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        input:focus { border-color: #1e293b; }
+        input:disabled { background: #f9fafb; color: #9ca3af; }
+
+        .btn {
+            width: 100%;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        .btn-primary { background: #1e293b; color: #fff; }
+        .btn-primary:hover { background: #0f172a; }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn-outline {
+            background: none;
+            border: 1.5px solid #1e293b;
+            color: #1e293b;
+            margin-top: 0.5rem;
+        }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .otp-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-end;
+        }
+        .otp-row .form-group { flex: 1; margin-bottom: 0; }
+        .otp-row .btn-outline {
+            flex-shrink: 0;
+            width: auto;
+            padding: 0.7rem 1rem;
+            margin-top: 0;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        #regOtpSection { display: none; margin-top: 0.25rem; }
+
+        .alert {
+            padding: 0.7rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .alert-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .alert-info    { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+
+        .divider {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.8rem;
+            margin: 0.75rem 0;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .hint {
+            font-size: 0.78rem;
+            color: #6b7280;
+            margin-top: 0.3rem;
+        }
+    </style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:440px;">
+
+<a href="index.html" class="back-link">← Back to Site</a>
+
+<div class="card" style="width:100%;">
+    <div class="card-header">
+        <div class="badge">Administrator</div>
+        <h1>Lost &amp; Found – Baguio City</h1>
+        <p>Admin portal access</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('login')">Login</button>
+        <button class="tab-btn" onclick="showTab('register')">Register</button>
+    </div>
+
+    <!-- ── LOGIN TAB ── -->
+    <div id="loginPanel" class="tab-panel active">
+        <div id="loginAlert"></div>
+        <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" placeholder="admin@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary" id="loginBtn" onclick="doAdminLogin()">Login to Admin</button>
+    </div>
+
+    <!-- ── REGISTER TAB ── -->
+    <div id="registerPanel" class="tab-panel">
+        <div id="registerAlert"></div>
+        <div class="form-group">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" placeholder="Administrator name">
+        </div>
+        <div class="form-group">
+            <label for="regEmail">Email</label>
+            <input type="email" id="regEmail" placeholder="admin@example.com">
+        </div>
+        <div class="form-group">
+            <label for="regPassword">Password</label>
+            <input type="password" id="regPassword" placeholder="At least 6 characters">
+        </div>
+        <div class="form-group">
+            <label for="regConfirm">Confirm Password</label>
+            <input type="password" id="regConfirm" placeholder="Repeat password">
+        </div>
+
+        <div id="regOtpSection">
+            <div class="divider">Check your email for a verification code</div>
+            <div class="otp-row">
+                <div class="form-group">
+                    <label for="regOtpInput">Verification Code</label>
+                    <input type="number" id="regOtpInput" placeholder="6-digit code" maxlength="6">
+                </div>
+                <button class="btn btn-outline" id="regResendBtn" onclick="sendRegOTP(true)">Resend</button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="registerBtn" onclick="handleRegisterStep()" style="margin-top:1rem;">
+            Send Verification Code
+        </button>
+    </div>
+</div>
+
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+<script>
+// ── Firebase ──────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+    apiKey: "AIzaSyBGH1-fruNM0GPOLpOjfOIxHpLgqzt8fe0",
+    authDomain: "lafsys.firebaseapp.com",
+    projectId: "lafsys",
+    storageBucket: "lafsys.appspot.com",
+    messagingSenderId: "103945210522",
+    appId: "1:103945210522:web:f5a51c84653a0cab10ed23"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── EmailJS ───────────────────────────────────────────────────────────────────
+const EMAILJS_PUBLIC_KEY  = 'htcONvQFGnnjNMtOf';
+const EMAILJS_SERVICE_ID  = 'service_rvn1rn4';
+const EMAILJS_TEMPLATE_ID = 'template_twn4j4h';
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+// ── OTP state ─────────────────────────────────────────────────────────────────
+let otpCode      = null;
+let otpExpiry    = 0;
+let otpPending   = false;
+let lastSentAt   = 0;
+let isCreating   = false;
+
+const OTP_TTL      = 5 * 60 * 1000;
+const OTP_COOLDOWN = 30 * 1000;
+
+// ── Sign out any lingering Firebase Auth session on page load ─────────────────
+// This ensures opening admin-login.html always requires a fresh manual login.
+auth.onAuthStateChanged(async user => {
+    if (user && !isCreating) {
+        await auth.signOut().catch(() => {});
+    }
+});
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) =>
+        b.classList.toggle('active', (i === 0) === (tab === 'login')));
+    document.getElementById('loginPanel').classList.toggle('active', tab === 'login');
+    document.getElementById('registerPanel').classList.toggle('active', tab === 'register');
+    clearAlert('loginAlert');
+    clearAlert('registerAlert');
+}
+
+// ── Alert helpers ─────────────────────────────────────────────────────────────
+function showAlert(id, msg, type) {
+    document.getElementById(id).innerHTML =
+        '<div class="alert alert-' + (type || 'error') + '">' + msg + '</div>';
+}
+function clearAlert(id) { document.getElementById(id).innerHTML = ''; }
+
+// ── Admin Login ───────────────────────────────────────────────────────────────
+async function doAdminLogin() {
+    let email    = document.getElementById('loginEmail').value.trim();
+    let password = document.getElementById('loginPassword').value;
+    const btn    = document.getElementById('loginBtn');
+    clearAlert('loginAlert');
+
+    if (!email || !password) {
+        showAlert('loginAlert', 'Please enter your email and password.');
+        return;
+    }
+
+    // Shorthand for the default admin account
+    const isShorthand = (email === 'admin' && password === 'admin');
+    if (isShorthand) {
+        email    = 'admin@admin.com';
+        password = 'adminadmin';
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Logging in…';
+
+    try {
+        let cred;
+        try {
+            cred = await auth.signInWithEmailAndPassword(email, password);
+        } catch (signInErr) {
+            // First-time setup: auto-create the default admin account on first use
+            const notFound = ['auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials'];
+            if (isShorthand && notFound.includes(signInErr.code)) {
+                btn.innerHTML = '<span class="spinner"></span>Setting up admin account…';
+                isCreating = true;
+                cred = await auth.createUserWithEmailAndPassword(email, password);
+                await cred.user.updateProfile({ displayName: 'Administrator' });
+                try {
+                    await db.collection('users').doc(cred.user.uid).set({
+                        name:      'Administrator',
+                        email:     email,
+                        role:      'admin',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (_) { /* Firestore write optional — proceed */ }
+                sessionStorage.setItem('adminLoggedIn', '1');
+                sessionStorage.setItem('adminName', 'Administrator');
+                window.location.href = 'admin.html';
+                return;
+            }
+            throw signInErr;
+        }
+
+        // Shorthand always goes straight through — account is the known admin
+        if (isShorthand) {
+            const shortName = cred.user.displayName || 'Administrator';
+            sessionStorage.setItem('adminLoggedIn', '1');
+            sessionStorage.setItem('adminName', shortName);
+            window.location.href = 'admin.html';
+            return;
+        }
+
+        // For regular logins, verify admin role in Firestore
+        let isAdmin = false;
+        let adminName = cred.user.displayName || cred.user.email || 'Admin';
+        try {
+            const doc = await db.collection('users').doc(cred.user.uid).get();
+            isAdmin = doc.exists && doc.data().role === 'admin';
+            if (doc.exists && doc.data().name) adminName = doc.data().name;
+        } catch (_) { /* Firestore unreadable — deny to be safe */ }
+
+        if (isAdmin) {
+            sessionStorage.setItem('adminLoggedIn', '1');
+            sessionStorage.setItem('adminName', adminName);
+            window.location.href = 'admin.html';
+        } else {
+            await auth.signOut().catch(() => {});
+            btn.disabled = false;
+            btn.textContent = 'Login to Admin';
+            showAlert('loginAlert', 'This account does not have admin access.');
+        }
+    } catch (err) {
+        isCreating = false;
+        btn.disabled = false;
+        btn.textContent = 'Login to Admin';
+        const errMsg =
+            ['auth/user-not-found','auth/wrong-password','auth/invalid-login-credentials','auth/invalid-credential'].includes(err.code)
+                ? 'Incorrect email or password.'
+                : err.code === 'auth/too-many-requests'
+                ? 'Too many failed attempts. Please wait a few minutes.'
+                : err.code === 'auth/user-disabled'
+                ? 'This account has been disabled.'
+                : 'Login failed: ' + (err.message || err.code || 'unknown error');
+        showAlert('loginAlert', errMsg);
+    }
+}
+
+// ── Register — step router ────────────────────────────────────────────────────
+function handleRegisterStep() {
+    if (!otpPending) {
+        sendRegOTP(false);
+    } else {
+        verifyAndCreate();
+    }
+}
+
+// ── Send OTP ──────────────────────────────────────────────────────────────────
+async function sendRegOTP(isResend) {
+    clearAlert('registerAlert');
+    const name      = document.getElementById('regName').value.trim();
+    const email     = document.getElementById('regEmail').value.trim();
+    const password  = document.getElementById('regPassword').value;
+    const confirm   = document.getElementById('regConfirm').value;
+
+    if (!name)     { showAlert('registerAlert', 'Please enter your full name.'); return; }
+    if (!email)    { showAlert('registerAlert', 'Please enter your email.'); return; }
+    if (!password) { showAlert('registerAlert', 'Please enter a password.'); return; }
+    if (password.length < 6) { showAlert('registerAlert', 'Password must be at least 6 characters.'); return; }
+    if (password !== confirm) { showAlert('registerAlert', 'Passwords do not match.'); return; }
+
+    if (Date.now() - lastSentAt < OTP_COOLDOWN) {
+        const wait = Math.ceil((OTP_COOLDOWN - (Date.now() - lastSentAt)) / 1000);
+        showAlert('registerAlert', 'Please wait ' + wait + 's before requesting a new code.', 'info');
+        return;
+    }
+
+    try {
+        const methods = await auth.fetchSignInMethodsForEmail(email);
+        if (methods.length > 0) {
+            showAlert('registerAlert', 'An account with this email already exists.');
+            return;
+        }
+    } catch (_) {}
+
+    otpCode   = String(Math.floor(100000 + Math.random() * 900000));
+    otpExpiry = Date.now() + OTP_TTL;
+    lastSentAt = Date.now();
+
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Sending code…';
+
+    try {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+            to_name:           name,
+            to_email:          email,
+            email:             email,
+            recipient:         email,
+            to:                email,
+            from_name:         'Lost & Found - Baguio City Admin',
+            verification_code: otpCode,
+            message:           'Your admin registration verification code is: ' + otpCode + '\n\nThis code expires in 5 minutes.',
+        }, { publicKey: EMAILJS_PUBLIC_KEY });
+
+        otpPending = true;
+        document.getElementById('regOtpSection').style.display = 'block';
+        ['regName','regEmail','regPassword','regConfirm'].forEach(function(id) {
+            document.getElementById(id).disabled = true;
+        });
+        btn.textContent = 'Verify & Create Admin Account';
+        btn.disabled = false;
+        document.getElementById('regResendBtn').disabled = false;
+        showAlert('registerAlert',
+            'A verification code was sent to ' + email + '. Check your inbox (and spam folder).',
+            'success');
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Send Verification Code';
+        showAlert('registerAlert', 'Failed to send email. Please try again. ' + (err.text || err.message || ''));
+    }
+}
+
+// ── Verify OTP and create admin account ───────────────────────────────────────
+async function verifyAndCreate() {
+    clearAlert('registerAlert');
+    const inputCode = String(document.getElementById('regOtpInput').value).trim();
+
+    if (!inputCode) { showAlert('registerAlert', 'Please enter the verification code.'); return; }
+    if (Date.now() > otpExpiry) {
+        showAlert('registerAlert', 'Verification code expired. Click Resend to get a new one.');
+        resetOTPState();
+        return;
+    }
+    if (inputCode !== otpCode) {
+        showAlert('registerAlert', 'Incorrect code. Please try again.');
+        return;
+    }
+
+    const name     = document.getElementById('regName').value.trim();
+    const email    = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const btn      = document.getElementById('registerBtn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Creating admin account…';
+
+    isCreating = true;
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await cred.user.updateProfile({ displayName: name });
+        await db.collection('users').doc(cred.user.uid).set({
+            name:      name,
+            email:     email,
+            role:      'admin',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        sessionStorage.setItem('adminName', name);
+        window.location.href = 'admin.html';
+    } catch (err) {
+        isCreating = false;
+        btn.disabled = false;
+        btn.textContent = 'Verify & Create Admin Account';
+        showAlert('registerAlert',
+            err.code === 'auth/email-already-in-use'
+                ? 'This email is already registered. Please login.'
+                : err.message);
+    }
+}
+
+// ── Reset OTP state ───────────────────────────────────────────────────────────
+function resetOTPState() {
+    otpPending = false;
+    otpCode    = null;
+    document.getElementById('regOtpSection').style.display = 'none';
+    document.getElementById('regOtpInput').value = '';
+    ['regName','regEmail','regPassword','regConfirm'].forEach(function(id) {
+        document.getElementById(id).disabled = false;
+    });
+    document.getElementById('registerBtn').textContent = 'Send Verification Code';
+}
+
+// ── Enter key shortcuts ───────────────────────────────────────────────────────
+document.getElementById('loginEmail').addEventListener('keydown',    function(e) { if (e.key === 'Enter') doAdminLogin(); });
+document.getElementById('loginPassword').addEventListener('keydown', function(e) { if (e.key === 'Enter') doAdminLogin(); });
+['regName','regEmail','regPassword','regConfirm'].forEach(function(id) {
+    document.getElementById(id).addEventListener('keydown', function(e) { if (e.key === 'Enter') handleRegisterStep(); });
+});
+document.getElementById('regOtpInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') verifyAndCreate(); });
+</script>
+</body>
+</html>

@@ -35,7 +35,32 @@
             font-size: 0.875rem;
             opacity: 0.8;
         }
-        
+
+        .admin-user-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #334155;
+        }
+        .admin-user-avatar {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: #334155;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .admin-user-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .nav-menu {
             list-style: none;
             padding: 0;
@@ -503,63 +528,117 @@
             cursor: not-allowed;
         }
         
+        /* ── Mobile sidebar toggle button ── */
+        #adminSidebarToggle {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 1100;
+            background: #1e293b;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            font-size: 1.25rem;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            line-height: 1;
+        }
+        #adminSidebarOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1000;
+        }
+
+        /* ── Scrollable tables on all screen sizes ── */
+        .items-table {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         @media (max-width: 1024px) {
             .admin-container {
                 grid-template-columns: 1fr;
             }
-            
+            /* Sidebar becomes a fixed drawer */
             .sidebar {
-                display: none;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                width: 250px !important;
+                display: flex !important;
+                flex-direction: column;
+                z-index: 1050;
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                overflow-y: auto;
             }
-            
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            #adminSidebarOverlay.visible {
+                display: block;
+            }
+            #adminSidebarToggle {
+                display: flex !important;
+            }
+            .main-content {
+                padding-top: 3.5rem !important;
+            }
+            /* Keep table columns, let it scroll horizontally */
             .table-header, .table-row {
                 grid-template-columns: 2fr 1fr 1fr 1fr 100px;
+                min-width: 560px;
             }
         }
-        
+
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+                padding: 0.25rem;
             }
-            
-            .table-header {
-                display: none;
+            .stat-card {
+                min-height: 120px;
+                padding: 1rem 1.25rem;
             }
-            
-            .table-row {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-                padding: 1.5rem;
-                position: relative;
+            .stat-value {
+                font-size: 2rem;
             }
-            
-            .table-row::before {
-                content: attr(data-label);
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                color: #64748b;
-                margin-bottom: 0.25rem;
-                display: block;
+            .stat-label {
+                font-size: 0.9rem;
             }
-            
-            .action-buttons {
-                position: absolute;
-                top: 1rem;
-                right: 1rem;
+            .main-content {
+                padding: 3.5rem 0.75rem 1rem !important;
             }
+            /* Horizontal scroll — don't stack */
+            .table-header, .table-row {
+                min-width: 560px;
+                grid-template-columns: 2fr 1fr 1fr 1fr 100px !important;
+                gap: 0 !important;
+                padding: 0.75rem 1rem !important;
+                position: static !important;
+            }
+            .table-row::before { display: none !important; }
+            .action-buttons   { position: static !important; }
         }
-        
+
         @media (max-width: 480px) {
             .stats-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
             }
-            
             .admin-header {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 1rem;
+                gap: 0.75rem;
             }
-            
             .btn-primary {
                 width: 100%;
                 justify-content: center;
@@ -599,12 +678,18 @@
     </style>
 </head>
 <body>
+    <button id="adminSidebarToggle" aria-label="Open menu">&#9776;</button>
+    <div id="adminSidebarOverlay"></div>
     <div class="admin-container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-title">Lost & Found</div>
                 <div class="sidebar-subtitle">Baguio City Admin</div>
+                <div class="admin-user-row" id="adminUserRow" style="display:none;">
+                    <div class="admin-user-avatar">👤</div>
+                    <div class="admin-user-name" id="adminUserName"></div>
+                </div>
             </div>
             <nav>
                 <ul class="nav-menu">
@@ -649,9 +734,9 @@
                         </a>
                     </li>
                     <li class="nav-item" style="margin-top: 2rem;">
-                        <a href="index.html" class="nav-link">
-                            <i data-lucide="arrow-left"></i>
-                            Back to Site
+                        <a href="#" class="nav-link" onclick="adminLogout(); return false;" style="color: #f87171;">
+                            <i data-lucide="log-out"></i>
+                            Logout
                         </a>
                     </li>
                 </ul>
@@ -725,6 +810,7 @@
                     <div id="usersTableBody"></div>
                 </div>
             </section>
+
 
             <!-- Items Section -->
             <section id="section-items" class="section-view" style="display:none;">
@@ -928,6 +1014,17 @@
     <script src="js/admin-search.js"></script>
     <script src="js/inbox-reset.js"></script>
     
+    <!-- Admin auth guard — instant sessionStorage check, no network wait -->
+    <script>
+        if (!sessionStorage.getItem('adminLoggedIn')) {
+            window.location.href = 'admin-login.html';
+        }
+        function adminLogout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            window.location.href = 'admin-login.html';
+        }
+    </script>
+
     <!-- Stat Card Filtering Script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -1006,6 +1103,47 @@
                 console.error('Firebase is not available');
             }
         });
+    </script>
+
+    <script>
+        // Populate admin name from sessionStorage
+        (function() {
+            var name   = sessionStorage.getItem('adminName') || 'Administrator';
+            var nameEl = document.getElementById('adminUserName');
+            var rowEl  = document.getElementById('adminUserRow');
+            if (nameEl) nameEl.textContent = name;
+            if (rowEl)  rowEl.style.display = 'flex';
+        })();
+    </script>
+
+    <script>
+        // Mobile sidebar toggle
+        (function() {
+            var toggle  = document.getElementById('adminSidebarToggle');
+            var overlay = document.getElementById('adminSidebarOverlay');
+            var sidebar = document.querySelector('.sidebar');
+
+            function openSidebar() {
+                sidebar.classList.add('mobile-open');
+                overlay.classList.add('visible');
+                toggle.innerHTML = '&#10005;';
+            }
+            function closeSidebar() {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('visible');
+                toggle.innerHTML = '&#9776;';
+            }
+
+            toggle.addEventListener('click', function() {
+                sidebar.classList.contains('mobile-open') ? closeSidebar() : openSidebar();
+            });
+            overlay.addEventListener('click', closeSidebar);
+
+            // Close sidebar when any nav link is clicked
+            sidebar.querySelectorAll('.nav-link').forEach(function(link) {
+                link.addEventListener('click', closeSidebar);
+            });
+        })();
     </script>
 </body>
 </html>

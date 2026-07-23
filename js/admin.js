@@ -21,8 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
   activateSection(lastActiveSection);
   
   // Initial loading of all required elements
-  renderStats();
-  renderRecentItemsWithoutActions();
+  watchFoundItemsStats();  // replaces renderStats() + keeps total/active live
   renderInbox();
   watchActiveLostCount();
   watchClaimedResolvedCount();
@@ -109,9 +108,8 @@ function activateSection(section) {
   switchSection(section);
   
   // Load section-specific data
-  if (section === 'dashboard') { 
-    renderStats(); 
-    renderRecentItemsWithoutActions(); 
+  if (section === 'dashboard') {
+    renderRecentItemsWithoutActions();
   }
   else if (section === 'users') { 
     renderUsers(); 
@@ -425,29 +423,21 @@ document.addEventListener('keydown', e => {
 
 // Render statistics
 function renderStats() {
-  // Show loading state
-  const byId = id => document.getElementById(id);
-  const safe = (id, v) => { const el = byId(id); if (el) el.textContent = String(v); };
-  
-  safe('statTotalItems', '...');
-  // Do NOT reset statClaimed here — watchClaimedResolvedCount owns that element
-  
-  // Check if we have Firebase-enabled DataStore
-  if (window.DataStore?.getItemsAsync) {
-    // Use async version
-    window.DataStore.getItemsAsync().then(items => {
-      updateStats(items);
-    }).catch(err => {
-      console.error('Error loading items for stats:', err);
-      // Fall back to sync method
-      const items = window.DataStore?.getItemsSync?.() || [];
-      updateStats(items);
-    });
-  } else {
-    // Fall back to old method
+  const safe = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+  // Don't reset to '...' — only do so on very first call when element still shows placeholder
+  const totalEl = document.getElementById('statTotalItems');
+  if (totalEl && totalEl.textContent === '') safe('statTotalItems', '...');
+
+  if (!window.firebase || !firebase.apps || !firebase.apps.length) {
+    setTimeout(renderStats, 300);
+    return;
+  }
+  firebase.firestore().collection('items').get().then(snap => {
+    updateStats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }).catch(() => {
     const items = window.DataStore?.getItemsSync?.() || [];
     updateStats(items);
-  }
+  });
 }
 
 // Update statistics (statClaimed is kept live by watchClaimedResolvedCount)
@@ -459,6 +449,26 @@ function updateStats(items) {
   safe('statTotalItems', total);
   safe('statActive', pending);
   // Don't touch statClaimed here — watchClaimedResolvedCount owns it
+}
+
+// Real-time watcher for Total Items + Active Found Items stats and recent table
+function watchFoundItemsStats() {
+  let retries = 40;
+  function tryWatch() {
+    try {
+      if (!window.firebase || !firebase.apps || !firebase.apps.length) throw new Error('not ready');
+      firebase.firestore().collection('items').onSnapshot(snap => {
+        const safe = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+        safe('statTotalItems', snap.size);
+        safe('statActive', snap.docs.filter(d => d.data().status === 'active').length);
+        // Also refresh the recent items table whenever data changes
+        renderRecentItemsWithoutActions();
+      }, () => {});
+    } catch (e) {
+      if (retries-- > 0) setTimeout(tryWatch, 300);
+    }
+  }
+  tryWatch();
 }
 
 function watchActiveLostCount() {
@@ -663,9 +673,10 @@ function renderRecentItemsWithoutActions(statusFilter) {
   const needFound = !statusFilter || statusFilter === 'all' || statusFilter === 'active' || statusFilter === 'claimed' || statusFilter === 'soon';
   const needLost  = !statusFilter || statusFilter === 'all' || statusFilter === 'lost' || statusFilter === 'claimed';
 
-  const foundPromise = needFound
-    ? (window.DataStore?.getItemsAsync ? window.DataStore.getItemsAsync() : Promise.resolve(window.DataStore?.getItemsSync?.() || []))
-    : Promise.resolve([]);
+  const foundPromise = needFound && window.firebase?.apps?.length
+    ? firebase.firestore().collection('items').orderBy('date', 'desc').limit(100).get()
+        .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    : Promise.resolve(window.DataStore?.getItemsSync?.() || []);
 
   const lostPromise = needLost && window.firebase?.apps?.length
     ? firebase.firestore().collection('lostItems').orderBy('postedAt', 'desc').limit(50).get()
